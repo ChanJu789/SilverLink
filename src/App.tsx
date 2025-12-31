@@ -6,6 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import GuardianDashboard from "./pages/guardian/GuardianDashboard";
+import GuardianCalls from "./pages/guardian/GuardianCalls";
+import GuardianCallDetail from "./pages/guardian/GuardianCallDetail";
+import GuardianStats from "./pages/guardian/GuardianStats";
 import CounselorDashboard from "./pages/counselor/CounselorDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -21,6 +24,9 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/guardian" element={<GuardianDashboard />} />
+          <Route path="/guardian/calls" element={<GuardianCalls />} />
+          <Route path="/guardian/calls/:id" element={<GuardianCallDetail />} />
+          <Route path="/guardian/stats" element={<GuardianStats />} />
           <Route path="/counselor" element={<CounselorDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
