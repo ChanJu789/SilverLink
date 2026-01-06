@@ -16,12 +16,20 @@ import CounselorDashboard from "./pages/counselor/CounselorDashboard";
 import SeniorList from "./pages/counselor/SeniorList";
 import SeniorDetail from "./pages/counselor/SeniorDetail";
 import CounselorAlerts from "./pages/counselor/CounselorAlerts";
+import CounselorRecords from "./pages/counselor/CounselorRecords";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import MemberManagement from "./pages/admin/MemberManagement";
 import AssignmentManagement from "./pages/admin/AssignmentManagement";
 import AIStats from "./pages/admin/AIStats";
 import ComplaintManagement from "./pages/admin/ComplaintManagement";
+import SystemSettings from "./pages/admin/SystemSettings";
+import NoticeManagement from "./pages/admin/NoticeManagement";
 import FAQPage from "./pages/faq/FAQPage";
+import SeniorDashboard from "./pages/senior/SeniorDashboard";
+import SeniorOCR from "./pages/senior/SeniorOCR";
+import SeniorHealth from "./pages/senior/SeniorHealth";
+import SeniorNotices from "./pages/senior/SeniorNotices";
+import SeniorFAQ from "./pages/senior/SeniorFAQ";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,12 +57,21 @@ const App = () => (
           <Route path="/counselor/seniors" element={<SeniorList />} />
           <Route path="/counselor/seniors/:id" element={<SeniorDetail />} />
           <Route path="/counselor/alerts" element={<CounselorAlerts />} />
+          <Route path="/counselor/records" element={<CounselorRecords />} />
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/members" element={<MemberManagement />} />
           <Route path="/admin/assignments" element={<AssignmentManagement />} />
           <Route path="/admin/ai-stats" element={<AIStats />} />
           <Route path="/admin/complaints" element={<ComplaintManagement />} />
+          <Route path="/admin/settings" element={<SystemSettings />} />
+          <Route path="/admin/notices" element={<NoticeManagement />} />
+          {/* Senior Routes */}
+          <Route path="/senior" element={<SeniorDashboard />} />
+          <Route path="/senior/ocr" element={<SeniorOCR />} />
+          <Route path="/senior/health" element={<SeniorHealth />} />
+          <Route path="/senior/notices" element={<SeniorNotices />} />
+          <Route path="/senior/faq" element={<SeniorFAQ />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
