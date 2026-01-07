@@ -12,11 +12,16 @@ import GuardianStats from "./pages/guardian/GuardianStats";
 import GuardianWelfare from "./pages/guardian/GuardianWelfare";
 import GuardianInquiry from "./pages/guardian/GuardianInquiry";
 import GuardianComplaint from "./pages/guardian/GuardianComplaint";
+import GuardianNotices from "./pages/guardian/GuardianNotices";
 import CounselorDashboard from "./pages/counselor/CounselorDashboard";
 import SeniorList from "./pages/counselor/SeniorList";
 import SeniorDetail from "./pages/counselor/SeniorDetail";
 import CounselorAlerts from "./pages/counselor/CounselorAlerts";
 import CounselorRecords from "./pages/counselor/CounselorRecords";
+import CounselorNotices from "./pages/counselor/CounselorNotices";
+import CounselorInquiries from "./pages/counselor/CounselorInquiries";
+import CounselorCalls from "./pages/counselor/CounselorCalls";
+import CounselorSensitiveInfo from "./pages/counselor/CounselorSensitiveInfo";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import MemberManagement from "./pages/admin/MemberManagement";
 import AssignmentManagement from "./pages/admin/AssignmentManagement";
@@ -24,6 +29,7 @@ import AIStats from "./pages/admin/AIStats";
 import ComplaintManagement from "./pages/admin/ComplaintManagement";
 import SystemSettings from "./pages/admin/SystemSettings";
 import NoticeManagement from "./pages/admin/NoticeManagement";
+import SensitiveInfoManagement from "./pages/admin/SensitiveInfoManagement";
 import FAQPage from "./pages/faq/FAQPage";
 import SeniorDashboard from "./pages/senior/SeniorDashboard";
 import SeniorOCR from "./pages/senior/SeniorOCR";
@@ -51,21 +57,27 @@ const App = () => (
           <Route path="/guardian/welfare" element={<GuardianWelfare />} />
           <Route path="/guardian/inquiry" element={<GuardianInquiry />} />
           <Route path="/guardian/complaint" element={<GuardianComplaint />} />
+          <Route path="/guardian/notices" element={<GuardianNotices />} />
           <Route path="/guardian/faq" element={<FAQPage />} />
           {/* Counselor Routes */}
           <Route path="/counselor" element={<CounselorDashboard />} />
           <Route path="/counselor/seniors" element={<SeniorList />} />
           <Route path="/counselor/seniors/:id" element={<SeniorDetail />} />
-          <Route path="/counselor/alerts" element={<CounselorAlerts />} />
+          <Route path="/counselor/calls" element={<CounselorCalls />} />
           <Route path="/counselor/records" element={<CounselorRecords />} />
+          <Route path="/counselor/inquiries" element={<CounselorInquiries />} />
+          <Route path="/counselor/alerts" element={<CounselorAlerts />} />
+          <Route path="/counselor/notices" element={<CounselorNotices />} />
+          <Route path="/counselor/sensitive-info" element={<CounselorSensitiveInfo />} />
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/members" element={<MemberManagement />} />
           <Route path="/admin/assignments" element={<AssignmentManagement />} />
           <Route path="/admin/ai-stats" element={<AIStats />} />
           <Route path="/admin/complaints" element={<ComplaintManagement />} />
-          <Route path="/admin/settings" element={<SystemSettings />} />
+          <Route path="/admin/sensitive-info" element={<SensitiveInfoManagement />} />
           <Route path="/admin/notices" element={<NoticeManagement />} />
+          <Route path="/admin/settings" element={<SystemSettings />} />
           {/* Senior Routes */}
           <Route path="/senior" element={<SeniorDashboard />} />
           <Route path="/senior/ocr" element={<SeniorOCR />} />
