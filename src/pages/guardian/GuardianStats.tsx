@@ -147,15 +147,15 @@ const GuardianStats = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">평균 감정 점수</p>
-                  <p className="text-3xl font-bold text-foreground mt-1">{currentScore}</p>
-                  <div className={`flex items-center gap-1 mt-1 text-sm ${scoreDiff >= 0 ? 'text-success' : 'text-destructive'}`}>
-                    {scoreDiff >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                    <span>{Math.abs(scoreDiff)}점 {scoreDiff >= 0 ? '상승' : '하락'}</span>
+                  <p className="text-sm text-muted-foreground">평균 통화시간</p>
+                  <p className="text-3xl font-bold text-foreground mt-1">14<span className="text-lg">분</span></p>
+                  <div className="flex items-center gap-1 mt-1 text-sm text-success">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>2분 증가</span>
                   </div>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
-                  <Smile className="w-6 h-6 text-success" />
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Phone className="w-6 h-6 text-primary" />
                 </div>
               </div>
             </CardContent>
