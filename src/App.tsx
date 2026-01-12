@@ -30,6 +30,7 @@ import ComplaintManagement from "./pages/admin/ComplaintManagement";
 import SystemSettings from "./pages/admin/SystemSettings";
 import NoticeManagement from "./pages/admin/NoticeManagement";
 import SensitiveInfoManagement from "./pages/admin/SensitiveInfoManagement";
+import MemberRegistration from "./pages/admin/MemberRegistration";
 import FAQPage from "./pages/faq/FAQPage";
 import SeniorDashboard from "./pages/senior/SeniorDashboard";
 import SeniorOCR from "./pages/senior/SeniorOCR";
@@ -78,6 +79,7 @@ const App = () => (
           <Route path="/admin/sensitive-info" element={<SensitiveInfoManagement />} />
           <Route path="/admin/notices" element={<NoticeManagement />} />
           <Route path="/admin/settings" element={<SystemSettings />} />
+          <Route path="/admin/register" element={<MemberRegistration />} />
           {/* Senior Routes */}
           <Route path="/senior" element={<SeniorDashboard />} />
           <Route path="/senior/ocr" element={<SeniorOCR />} />
