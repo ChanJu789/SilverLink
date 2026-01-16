@@ -1,6 +1,5 @@
-from dependency_injector import containers, providers
+from dependency_injector import containers
 
-from app.core.config import configs
 # from app.core.database import Database
 # from app.repository import *
 # from app.services import *
