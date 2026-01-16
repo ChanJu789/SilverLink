@@ -46,7 +46,7 @@ app = app_creator.app
 # db = app_creator.db
 container = app_creator.container
 
-print(f'Documents: http://localhost:8000/docs')
+print('Documents: http://localhost:8000/docs')
 
 if __name__ == '__main__':
     uvicorn.run("app.main:app", reload=True)
