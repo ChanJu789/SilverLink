@@ -88,8 +88,10 @@ const Login = () => {
       navigate("/counselor");
     } else if (selectedRole === "admin") {
       navigate("/admin");
-    } else {
-      navigate("/senior");
+    } else if (selectedRole === "senior") {
+      // 어르신은 전용 로그인 페이지로 이동
+      navigate("/senior/login");
+      return;
     }
 
     setIsLoading(false);
@@ -128,7 +130,14 @@ const Login = () => {
             {roles.map((role) => (
               <button
                 key={role.id}
-                onClick={() => setSelectedRole(role.id)}
+                onClick={() => {
+                  if (role.id === "senior") {
+                    // 어르신은 바로 전용 로그인 페이지로 이동
+                    navigate("/senior/login");
+                  } else {
+                    setSelectedRole(role.id);
+                  }
+                }}
                 className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
                   selectedRole === role.id
                     ? `${role.color} border-current shadow-soft`
