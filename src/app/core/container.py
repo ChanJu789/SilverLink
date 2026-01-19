@@ -1,29 +1,29 @@
-from dependency_injector import containers
+from dependency_injector import containers, providers
 
 # from app.core.database import Database
-# from app.repository import *
-# from app.services import *
+from app.callbot.repository import *
+from app.chatbot.repository import *
+from app.ocr.repository import *
+from app.callbot.services import *
+from app.chatbot.services import *
+from app.ocr.services import *
 
 
 class Container(containers.DeclarativeContainer):
     wiring_config = containers.WiringConfiguration(
         modules=[
-            # "app.api.v1.endpoints.auth",
-            # "app.api.v1.endpoints.post",
-            # "app.api.v1.endpoints.tag",
-            # "app.api.v1.endpoints.user",
-            # "app.api.v2.endpoints.auth",
-            # "app.core.dependencies",
+            "app.api.endpoints.callbot",
+            "app.api.endpoints.chatbot",
+            "app.api.endpoints.ocr",
         ]
     )
 
     # db = providers.Singleton(Database, db_url=configs.DATABASE_URI)
 
-    # post_repository = providers.Factory(PostRepository, session_factory=db.provided.session)
-    # tag_repository = providers.Factory(TagRepository, session_factory=db.provided.session)
-    # user_repository = providers.Factory(UserRepository, session_factory=db.provided.session)
+    callbot_repository = providers.Factory(CallbotRepository)
+    chatbot_repository = providers.Factory(ChatbotRepository)
+    ocr_repository = providers.Factory(OcrRepository)
 
-    # auth_service = providers.Factory(AuthService, user_repository=user_repository)
-    # post_service = providers.Factory(PostService, post_repository=post_repository, tag_repository=tag_repository)
-    # tag_service = providers.Factory(TagService, tag_repository=tag_repository)
-    # user_service = providers.Factory(UserService, user_repository=user_repository)
+    callbot_service = providers.Factory(CallbotService, callbot_repository=callbot_repository)
+    chatbot_service = providers.Factory(ChatbotService, chatbot_repository=chatbot_repository)
+    ocr_service = providers.Factory(OcrService, ocr_repository=ocr_repository)

@@ -1,0 +1,1 @@
+from app.ocr.repository.ocr_repository import OcrRepository
