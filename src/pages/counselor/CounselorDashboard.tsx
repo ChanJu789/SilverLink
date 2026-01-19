@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Search
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -141,6 +142,16 @@ const StatusIcon = ({ status }: { status: string }) => {
 };
 
 const CounselorDashboard = () => {
+  const navigate = useNavigate();
+
+  const handleViewAll = () => {
+    navigate("/counselor/calls");
+  };
+
+  const handleViewDetail = (seniorId: number) => {
+    navigate(`/counselor/seniors/${seniorId}`);
+  };
+
   return (
     <DashboardLayout
       role="counselor"
@@ -276,7 +287,7 @@ const CounselorDashboard = () => {
               <CardTitle className="text-lg">오늘의 통화 현황</CardTitle>
               <CardDescription>담당 어르신별 통화 상태를 확인하세요</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" className="text-primary">
+            <Button variant="ghost" size="sm" className="text-primary" onClick={handleViewAll}>
               전체보기 <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </CardHeader>
@@ -323,7 +334,7 @@ const CounselorDashboard = () => {
                         </div>
                       </td>
                       <td className="py-4 px-4 text-right">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewDetail(senior.id)}>
                           상세보기
                         </Button>
                       </td>
