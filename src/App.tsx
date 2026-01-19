@@ -33,6 +33,7 @@ import SensitiveInfoManagement from "./pages/admin/SensitiveInfoManagement";
 import MemberRegistration from "./pages/admin/MemberRegistration";
 import FAQPage from "./pages/faq/FAQPage";
 import SeniorDashboard from "./pages/senior/SeniorDashboard";
+import SeniorLogin from "./pages/senior/SeniorLogin";
 import SeniorOCR from "./pages/senior/SeniorOCR";
 import SeniorHealth from "./pages/senior/SeniorHealth";
 import SeniorNotices from "./pages/senior/SeniorNotices";
@@ -82,6 +83,7 @@ const App = () => (
           <Route path="/admin/register" element={<MemberRegistration />} />
           {/* Senior Routes */}
           <Route path="/senior" element={<SeniorDashboard />} />
+          <Route path="/senior/login" element={<SeniorLogin />} />
           <Route path="/senior/ocr" element={<SeniorOCR />} />
           <Route path="/senior/health" element={<SeniorHealth />} />
           <Route path="/senior/notices" element={<SeniorNotices />} />
