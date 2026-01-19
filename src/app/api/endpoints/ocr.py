@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends
 from app.core.container import Container
 from app.core.middleware import inject_callbot
 # from app.model.user import User
-from app.ocr.schema.base_schema import Blank
 from app.ocr.services.ocr_service import OcrService
 
 

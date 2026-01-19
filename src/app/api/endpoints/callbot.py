@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends
 from app.core.container import Container
 from app.core.middleware import inject_callbot
 # from app.model.user import User
-from app.callbot.schema.base_schema import Blank
 # from app.schema.post_tag_schema import FindPost, FindPostWithTagsResult, PostWithTags, UpsertPostWithTags
 # from app.services.post_service import PostService
 from app.callbot.services.callbot_service import CallbotService

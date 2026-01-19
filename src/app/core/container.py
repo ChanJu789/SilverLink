@@ -1,12 +1,12 @@
 from dependency_injector import containers, providers
 
 # from app.core.database import Database
-from app.callbot.repository import *
-from app.chatbot.repository import *
-from app.ocr.repository import *
-from app.callbot.services import *
-from app.chatbot.services import *
-from app.ocr.services import *
+from app.callbot.repository import CallbotRepository
+from app.chatbot.repository import ChatbotRepository
+from app.ocr.repository import OcrRepository
+from app.callbot.services import CallbotService
+from app.chatbot.services import ChatbotService
+from app.ocr.services import OcrService
 
 
 class Container(containers.DeclarativeContainer):
