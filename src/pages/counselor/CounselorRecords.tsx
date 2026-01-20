@@ -11,11 +11,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
-  Home,
-  Users,
-  Phone,
-  FileText,
-  AlertTriangle,
   Search,
   Filter,
   Plus,
@@ -25,15 +20,9 @@ import {
   Clock,
   User,
   CheckCircle,
-  Bell
+  FileText
 } from "lucide-react";
-
-const navItems = [
-  { title: "대시보드", href: "/counselor", icon: <Home className="w-5 h-5" /> },
-  { title: "담당 어르신", href: "/counselor/seniors", icon: <Users className="w-5 h-5" /> },
-  { title: "상담 기록", href: "/counselor/records", icon: <FileText className="w-5 h-5" />, badge: 3 },
-  { title: "긴급 알림", href: "/counselor/alerts", icon: <AlertTriangle className="w-5 h-5" />, badge: 2 },
-];
+import { counselorNavItems } from "@/config/counselorNavItems";
 
 interface CounselingRecord {
   id: string;
@@ -238,7 +227,7 @@ const CounselorRecords = () => {
     <DashboardLayout
       role="counselor"
       userName="김상담"
-      navItems={navItems}
+      navItems={counselorNavItems}
     >
       <div className="space-y-6">
         {/* Header */}

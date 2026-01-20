@@ -1,17 +1,10 @@
 import { useState } from "react";
 import { 
-  Home, 
-  Users, 
-  Phone, 
-  FileText, 
-  MessageSquare, 
-  Bell,
   AlertTriangle,
   CheckCircle2,
   Clock,
-  X,
   PhoneCall,
-  Heart
+  Bell
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,15 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-const navItems = [
-  { title: "홈", href: "/counselor", icon: <Home className="w-5 h-5" /> },
-  { title: "담당 어르신", href: "/counselor/seniors", icon: <Users className="w-5 h-5" /> },
-  { title: "통화 기록", href: "/counselor/calls", icon: <Phone className="w-5 h-5" /> },
-  { title: "상담 기록", href: "/counselor/records", icon: <FileText className="w-5 h-5" /> },
-  { title: "보호자 문의", href: "/counselor/inquiries", icon: <MessageSquare className="w-5 h-5" />, badge: 5 },
-  { title: "긴급 알림", href: "/counselor/alerts", icon: <Bell className="w-5 h-5" />, badge: 2 },
-];
+import { counselorNavItems } from "@/config/counselorNavItems";
 
 const alerts = [
   { 
@@ -98,7 +83,7 @@ const CounselorAlerts = () => {
     <DashboardLayout
       role="counselor"
       userName="김상담"
-      navItems={navItems}
+      navItems={counselorNavItems}
     >
       {/* Emergency Fullscreen Alert */}
       <Dialog open={showEmergencyDialog} onOpenChange={setShowEmergencyDialog}>
