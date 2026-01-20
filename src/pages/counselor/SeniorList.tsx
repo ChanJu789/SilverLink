@@ -27,16 +27,9 @@ import {
   Phone,
   Activity,
   AlertTriangle,
-  FileText,
   ChevronRight,
 } from "lucide-react";
-
-const counselorNavItems = [
-  { title: "대시보드", href: "/counselor", icon: <Activity className="w-5 h-5" /> },
-  { title: "담당 어르신", href: "/counselor/seniors", icon: <User className="w-5 h-5" /> },
-  { title: "상담 기록", href: "/counselor/records", icon: <FileText className="w-5 h-5" /> },
-  { title: "긴급 알림", href: "/counselor/alerts", icon: <AlertTriangle className="w-5 h-5" /> },
-];
+import { counselorNavItems } from "@/config/counselorNavItems";
 
 // Mock data
 const seniors = [

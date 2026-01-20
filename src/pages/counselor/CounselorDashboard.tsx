@@ -1,25 +1,14 @@
 import { 
-  Home, 
-  Users, 
-  Phone, 
-  FileText, 
-  MessageSquare, 
-  Bell,
   AlertTriangle,
-  Heart,
-  Activity,
-  Calendar,
-  Clock,
-  Smile,
-  Meh,
-  Frown,
   ChevronRight,
   TrendingUp,
-  UserCheck,
   PhoneCall,
   AlertCircle,
   CheckCircle2,
-  Search
+  Search,
+  Users,
+  MessageSquare,
+  Clock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -28,15 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
-const navItems = [
-  { title: "홈", href: "/counselor", icon: <Home className="w-5 h-5" /> },
-  { title: "담당 어르신", href: "/counselor/seniors", icon: <Users className="w-5 h-5" /> },
-  { title: "통화 기록", href: "/counselor/calls", icon: <Phone className="w-5 h-5" /> },
-  { title: "상담 기록", href: "/counselor/records", icon: <FileText className="w-5 h-5" /> },
-  { title: "보호자 문의", href: "/counselor/inquiries", icon: <MessageSquare className="w-5 h-5" />, badge: 5 },
-  { title: "긴급 알림", href: "/counselor/alerts", icon: <Bell className="w-5 h-5" />, badge: 2 },
-];
+import { counselorNavItems } from "@/config/counselorNavItems";
 
 // Mock data
 const stats = {
@@ -156,7 +137,7 @@ const CounselorDashboard = () => {
     <DashboardLayout
       role="counselor"
       userName="김상담"
-      navItems={navItems}
+      navItems={counselorNavItems}
     >
       <div className="space-y-6">
         {/* Page Header */}
