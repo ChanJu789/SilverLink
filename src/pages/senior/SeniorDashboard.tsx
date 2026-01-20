@@ -18,7 +18,8 @@ import {
   Moon,
   Volume2,
   Plus,
-  Minus
+  Minus,
+  Pill
 } from "lucide-react";
 
 const SeniorDashboard = () => {
@@ -80,6 +81,14 @@ const SeniorDashboard = () => {
       icon: <FileText className="w-12 h-12" />,
       color: "bg-success",
       action: () => navigate("/senior/health"),
+    },
+    {
+      id: "medication",
+      title: "복약 일정",
+      description: "약 복용 시간을 알려드려요",
+      icon: <Pill className="w-12 h-12" />,
+      color: "bg-emerald-500",
+      action: () => navigate("/senior/medication"),
     },
     {
       id: "notice",

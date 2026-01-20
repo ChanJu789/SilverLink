@@ -36,6 +36,7 @@ import SeniorDashboard from "./pages/senior/SeniorDashboard";
 import SeniorLogin from "./pages/senior/SeniorLogin";
 import SeniorOCR from "./pages/senior/SeniorOCR";
 import SeniorHealth from "./pages/senior/SeniorHealth";
+import SeniorMedication from "./pages/senior/SeniorMedication";
 import SeniorNotices from "./pages/senior/SeniorNotices";
 import SeniorFAQ from "./pages/senior/SeniorFAQ";
 import NotFound from "./pages/NotFound";
@@ -86,6 +87,7 @@ const App = () => (
           <Route path="/senior/login" element={<SeniorLogin />} />
           <Route path="/senior/ocr" element={<SeniorOCR />} />
           <Route path="/senior/health" element={<SeniorHealth />} />
+          <Route path="/senior/medication" element={<SeniorMedication />} />
           <Route path="/senior/notices" element={<SeniorNotices />} />
           <Route path="/senior/faq" element={<SeniorFAQ />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
