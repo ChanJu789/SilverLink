@@ -1,16 +1,7 @@
 import { useState } from "react";
 import { 
-  Home, 
-  Users, 
-  UserCog,
-  BarChart3, 
-  MessageSquare, 
-  Settings,
-  UserPlus,
-  Shield,
   Save,
   Pill,
-  FileText,
   ChevronLeft,
   Phone,
   MapPin,
@@ -19,6 +10,7 @@ import {
   Heart,
   AlertCircle
 } from "lucide-react";
+import { adminNavItems } from "@/config/adminNavItems";
 import { Link } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,18 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-
-const navItems = [
-  { title: "홈", href: "/admin", icon: <Home className="w-5 h-5" /> },
-  { title: "회원 관리", href: "/admin/members", icon: <Users className="w-5 h-5" /> },
-  { title: "회원 등록", href: "/admin/register", icon: <UserPlus className="w-5 h-5" /> },
-  { title: "배정 관리", href: "/admin/assignments", icon: <UserCog className="w-5 h-5" /> },
-  { title: "AI 성능 통계", href: "/admin/ai-stats", icon: <BarChart3 className="w-5 h-5" /> },
-  { title: "민감정보 요청", href: "/admin/sensitive-info", icon: <Shield className="w-5 h-5" /> },
-  { title: "불편사항 관리", href: "/admin/complaints", icon: <MessageSquare className="w-5 h-5" />, badge: 8 },
-  { title: "공지사항 관리", href: "/admin/notices", icon: <FileText className="w-5 h-5" /> },
-  { title: "시스템 설정", href: "/admin/settings", icon: <Settings className="w-5 h-5" /> },
-];
+import { Shield, FileText } from "lucide-react";
 
 const counselors = [
   { id: 1, name: "김상담", region: "서울 강남" },
@@ -143,7 +124,7 @@ const MemberRegistration = () => {
     <DashboardLayout
       role="admin"
       userName="관리자"
-      navItems={navItems}
+      navItems={adminNavItems}
     >
       <div className="space-y-6">
         {/* Page Header */}
