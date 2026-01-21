@@ -1,10 +1,5 @@
 import { useState } from "react";
 import { 
-  Home, 
-  Phone, 
-  BarChart3, 
-  MessageSquare, 
-  HelpCircle,
   Heart,
   Search,
   Filter,
@@ -24,6 +19,7 @@ import {
   CheckCircle2,
   Info
 } from "lucide-react";
+import { guardianNavItems } from "@/config/guardianNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,15 +43,6 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-const navItems = [
-  { title: "대시보드", href: "/guardian", icon: <Home className="w-5 h-5" /> },
-  { title: "통화 기록", href: "/guardian/calls", icon: <Phone className="w-5 h-5" /> },
-  { title: "통화 통계", href: "/guardian/stats", icon: <BarChart3 className="w-5 h-5" /> },
-  { title: "복지 서비스", href: "/guardian/welfare", icon: <Heart className="w-5 h-5" /> },
-  { title: "1:1 문의", href: "/guardian/inquiry", icon: <MessageSquare className="w-5 h-5" /> },
-  { title: "FAQ", href: "/guardian/faq", icon: <HelpCircle className="w-5 h-5" /> },
-];
 
 // 복지 서비스 카테고리
 const categories = [
@@ -291,7 +278,7 @@ const GuardianWelfare = () => {
     <DashboardLayout
       role="guardian"
       userName="홍길동"
-      navItems={navItems}
+      navItems={guardianNavItems}
     >
       <div className="space-y-6">
         {/* 페이지 헤더 */}

@@ -1,12 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  Home, 
-  Phone, 
-  BarChart3, 
-  MessageSquare, 
-  HelpCircle,
-  FileText,
   Calendar,
   Clock,
   Smile,
@@ -15,8 +9,10 @@ import {
   ChevronRight,
   Search,
   Filter,
-  Play
+  Play,
+  Phone
 } from "lucide-react";
+import { guardianNavItems } from "@/config/guardianNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,15 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const navItems = [
-  { title: "홈", href: "/guardian", icon: <Home className="w-5 h-5" /> },
-  { title: "통화 기록", href: "/guardian/calls", icon: <Phone className="w-5 h-5" />, badge: 3 },
-  { title: "통계", href: "/guardian/stats", icon: <BarChart3 className="w-5 h-5" /> },
-  { title: "1:1 문의", href: "/guardian/inquiry", icon: <MessageSquare className="w-5 h-5" /> },
-  { title: "복지 서비스", href: "/guardian/welfare", icon: <FileText className="w-5 h-5" /> },
-  { title: "FAQ", href: "/guardian/faq", icon: <HelpCircle className="w-5 h-5" /> },
-];
 
 // Mock data
 const callRecords = [
@@ -151,7 +138,7 @@ const GuardianCalls = () => {
     <DashboardLayout
       role="guardian"
       userName="홍길동"
-      navItems={navItems}
+      navItems={guardianNavItems}
     >
       <div className="space-y-6">
         {/* Page Header */}

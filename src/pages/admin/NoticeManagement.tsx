@@ -12,13 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
-  Home,
-  Users,
-  UserPlus,
-  BarChart3,
-  MessageSquare,
-  Settings,
-  Megaphone,
   Search,
   Plus,
   Edit,
@@ -27,16 +20,8 @@ import {
   Pin,
   Calendar
 } from "lucide-react";
-
-const navItems = [
-  { title: "대시보드", href: "/admin", icon: <Home className="w-5 h-5" /> },
-  { title: "회원 관리", href: "/admin/members", icon: <Users className="w-5 h-5" /> },
-  { title: "배정 관리", href: "/admin/assignments", icon: <UserPlus className="w-5 h-5" /> },
-  { title: "AI 성능통계", href: "/admin/ai-stats", icon: <BarChart3 className="w-5 h-5" /> },
-  { title: "불편사항", href: "/admin/complaints", icon: <MessageSquare className="w-5 h-5" />, badge: 5 },
-  { title: "공지사항", href: "/admin/notices", icon: <Megaphone className="w-5 h-5" /> },
-  { title: "시스템 설정", href: "/admin/settings", icon: <Settings className="w-5 h-5" /> },
-];
+import { adminNavItems } from "@/config/adminNavItems";
+import { Megaphone } from "lucide-react";
 
 interface Notice {
   id: string;
@@ -215,7 +200,7 @@ const NoticeManagement = () => {
     <DashboardLayout
       role="admin"
       userName="관리자"
-      navItems={navItems}
+      navItems={adminNavItems}
     >
       <div className="space-y-6">
         {/* Header */}
