@@ -1,8 +1,7 @@
 from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, utility
-from src.app.config.settings import get_settings
+from src.app.core.config import configs
 import logging
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
 class VectorStoreService:
@@ -17,8 +16,8 @@ class VectorStoreService:
         try:
             connections.connect(
                 alias="default",
-                uri=settings.MILVUS_URI,
-                token=settings.MILVUS_TOKEN
+                uri=configs.MILVUS_URI,
+                token=configs.MILVUS_TOKEN
             )
             logger.info("Connected to Milvus/Zilliz")
         except Exception as e:
@@ -26,7 +25,7 @@ class VectorStoreService:
             raise
 
     def _get_or_create_faq_collection(self) -> Collection:
-        name = settings.FAQ_COLLECTION_NAME
+        name = configs.FAQ_COLLECTION_NAME
         if utility.has_collection(name):
             return Collection(name)
 
@@ -40,7 +39,6 @@ class VectorStoreService:
         schema = CollectionSchema(fields, "FAQ Collection")
         collection = Collection(name, schema)
         
-        # 인덱스 생성
         index_params = {
             "metric_type": "COSINE",
             "index_type": "AUTOINDEX",
@@ -50,7 +48,7 @@ class VectorStoreService:
         return collection
 
     def _get_or_create_inquiry_collection(self) -> Collection:
-        name = settings.INQUIRY_COLLECTION_NAME
+        name = configs.INQUIRY_COLLECTION_NAME
         if utility.has_collection(name):
             return Collection(name)
 
@@ -65,7 +63,6 @@ class VectorStoreService:
         schema = CollectionSchema(fields, "Inquiry Collection")
         collection = Collection(name, schema)
         
-        # 인덱스 생성
         index_params = {
             "metric_type": "COSINE",
             "index_type": "AUTOINDEX",
@@ -75,12 +72,10 @@ class VectorStoreService:
         return collection
 
     def insert_faq(self, data: list):
-        """FAQ 데이터 삽입 via pymilvus"""
         self.faq_collection.insert(data)
         self.faq_collection.flush()
 
     def insert_inquiry(self, data: list):
-        """Inquiry 데이터 삽입 via pymilvus"""
         self.inquiry_collection.insert(data)
         self.inquiry_collection.flush()
     

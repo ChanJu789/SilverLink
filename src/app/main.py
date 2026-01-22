@@ -41,6 +41,49 @@ class AppCreator:
         # self.app.include_router(v1_routers, prefix=configs.API_V1_STR)
         # self.app.include_router(v2_routers, prefix=configs.API_V2_STR)
 
+        # --- Chatbot & Data Sync Routes ---
+        from app.chatbot.services.chatbot_service import ChatbotService
+        from app.chatbot.services.data_sync_service import DataSyncService
+        from app.chatbot.schema.chat_schema import ChatRequest, ChatResponse
+
+        # 서비스 인스턴스 생성 (실제 운영 시 DI 권장)
+        self.chatbot_service = ChatbotService()
+        self.data_sync_service = DataSyncService()
+
+        @self.app.post("/chat", response_model=ChatResponse)
+        async def chat_endpoint(request: ChatRequest):
+            """챗봇 질문 처리"""
+            result = await self.chatbot_service.process_chat(
+                message=request.message,
+                thread_id=request.thread_id,
+                guardian_id=request.guardian_id,
+                elderly_id=request.elderly_id
+            )
+            return ChatResponse(
+                answer=result["answer"],
+                thread_id=request.thread_id,
+                sources=result["sources"],
+                confidence=result["confidence"]
+            )
+
+        @self.app.post("/sync/faqs")
+        def sync_faqs():
+            """FAQ 데이터 동기화"""
+            try:
+                self.data_sync_service.sync_all_faqs()
+                return {"status": "success", "message": "FAQs synced successfully"}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+
+        @self.app.post("/sync/inquiries")
+        def sync_inquiries():
+            """Inquiry 데이터 동기화"""
+            try:
+                self.data_sync_service.sync_all_inquiries()
+                return {"status": "success", "message": "Inquiries synced successfully"}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+
 app_creator = AppCreator()
 app = app_creator.app
 # db = app_creator.db
