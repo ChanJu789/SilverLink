@@ -90,6 +90,43 @@ def main():
     
     # 3. Chat Logic Test
     test_direct_python_chat()
+    
+    # 4. Spring Boot Proxy Test (Full E2E)
+    test_spring_boot_proxy_chat()
+
+def test_spring_boot_proxy_chat():
+    """Spring Boot를 통한 챗봇 호출 테스트 (E2E)"""
+    print(f"\nTesting Spring Boot Proxy Chat (Full E2E)...")
+    
+    # Note: 실제 인증 토큰이 필요한 경우 여기에 추가
+    payload = {
+        "message": "어르신 건강 상태는 어떻게 확인하나요?",
+        "guardianId": 1,
+        "elderlyId": 1
+    }
+    
+    try:
+        # Spring Boot의 /api/chatbot/chat 엔드포인트 호출
+        res = requests.post(
+            f"{SPRING_BOOT_URL}/api/chatbot/chat",
+            json=payload,
+            # headers={"Authorization": "Bearer YOUR_TOKEN"}  # 필요시 추가
+        )
+        
+        if res.status_code == 200:
+            data = res.json()
+            log("Spring Boot Proxy Chat Successful")
+            print(f"Answer: {data.get('answer')}")
+            print(f"Thread ID: {data.get('threadId')}")
+            print(f"Sources: {data.get('sources')}")
+            print(f"Confidence: {data.get('confidence')}")
+        elif res.status_code == 401 or res.status_code == 403:
+            log(f"Spring Boot Proxy requires authentication (status {res.status_code})", False)
+            print("Tip: 인증이 필요한 경우 테스트 토큰을 추가하세요.")
+        else:
+            log(f"Spring Boot Proxy Failed: {res.status_code} - {res.text}", False)
+    except Exception as e:
+        log(f"Spring Boot Proxy Error: {e}", False)
 
 if __name__ == "__main__":
     main()
