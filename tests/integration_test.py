@@ -19,16 +19,16 @@ class Colors:
     RESET = '\033[0m'
 
 def print_success(msg: str):
-    print(f"{Colors.GREEN}✅ {msg}{Colors.RESET}")
+    print(f"{Colors.GREEN}[OK] {msg}{Colors.RESET}")
 
 def print_error(msg: str):
-    print(f"{Colors.RED}❌ {msg}{Colors.RESET}")
+    print(f"{Colors.RED}[ERROR] {msg}{Colors.RESET}")
 
 def print_warning(msg: str):
-    print(f"{Colors.YELLOW}⚠️  {msg}{Colors.RESET}")
+    print(f"{Colors.YELLOW}[WARN] {msg}{Colors.RESET}")
 
 def print_info(msg: str):
-    print(f"{Colors.BLUE}ℹ️  {msg}{Colors.RESET}")
+    print(f"{Colors.BLUE}[INFO] {msg}{Colors.RESET}")
 
 def print_section(title: str):
     print(f"\n{Colors.BLUE}{'='*60}")
