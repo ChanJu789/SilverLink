@@ -1,8 +1,8 @@
 """Chatbot service integration tests"""
 import pytest
 import asyncio
-from src.app.chatbot.services.chatbot_service import ChatbotService
-from src.app.chatbot.services.embedding_service import EmbeddingService
+from app.chatbot.services.chatbot_service import ChatbotService
+from app.chatbot.services.embedding_service import EmbeddingService
 from tests.utils.mock_data import SAMPLE_CHAT_REQUESTS
 
 

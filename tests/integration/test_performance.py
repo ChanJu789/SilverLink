@@ -4,7 +4,7 @@ import time
 import asyncio
 from statistics import mean, median
 from fastapi.testclient import TestClient
-from src.app.main import app
+from app.main import app
 
 
 @pytest.mark.performance
@@ -95,8 +95,8 @@ class TestPerformance:
     
     def test_vector_search_performance(self):
         """Test vector search performance"""
-        from src.app.chatbot.services.embedding_service import EmbeddingService
-        from src.app.chatbot.repository.vector_store import VectorStoreService
+        from app.chatbot.services.embedding_service import EmbeddingService
+        from app.chatbot.repository.vector_store import VectorStoreService
         
         embedding_service = EmbeddingService()
         vector_store = VectorStoreService()

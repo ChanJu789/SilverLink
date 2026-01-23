@@ -3,7 +3,7 @@ import pytest
 import requests
 import asyncio
 from fastapi.testclient import TestClient
-from src.app.main import app
+from app.main import app
 from tests.utils.mock_data import SAMPLE_CHAT_REQUESTS
 
 

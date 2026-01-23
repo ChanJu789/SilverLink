@@ -5,9 +5,9 @@ from langgraph.graph import StateGraph, MessagesState
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import SystemMessage, HumanMessage, trim_messages, BaseMessage
 from langchain_openai import ChatOpenAI
-from src.app.core.config import configs
-from src.app.chatbot.services.embedding_service import EmbeddingService
-from src.app.chatbot.repository.vector_store import VectorStoreService
+from app.core.config import configs
+from app.chatbot.services.embedding_service import EmbeddingService
+from app.chatbot.repository.vector_store import VectorStoreService
 
 logger = logging.getLogger(__name__)
 

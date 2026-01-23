@@ -1,8 +1,8 @@
 """Vector search integration tests"""
 import pytest
 import asyncio
-from src.app.chatbot.repository.vector_store import VectorStoreService
-from src.app.chatbot.services.embedding_service import EmbeddingService
+from app.chatbot.repository.vector_store import VectorStoreService
+from app.chatbot.services.embedding_service import EmbeddingService
 from tests.utils.mock_data import SAMPLE_FAQS, SAMPLE_INQUIRIES
 
 

@@ -2,8 +2,8 @@
 import pytest
 import asyncio
 from fastapi.testclient import TestClient
-from src.app.main import app
-from src.app.chatbot.services.chatbot_service import ChatbotService
+from app.main import app
+from app.chatbot.services.chatbot_service import ChatbotService
 
 
 @pytest.mark.integration

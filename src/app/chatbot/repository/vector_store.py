@@ -1,5 +1,5 @@
 from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, utility
-from src.app.core.config import configs
+from app.core.config import configs
 import logging
 
 logger = logging.getLogger(__name__)

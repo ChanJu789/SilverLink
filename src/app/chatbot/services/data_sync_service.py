@@ -1,8 +1,8 @@
 import requests
 import logging
-from src.app.core.config import configs
-from src.app.chatbot.services.embedding_service import EmbeddingService
-from src.app.chatbot.repository.vector_store import VectorStoreService
+from app.core.config import configs
+from app.chatbot.services.embedding_service import EmbeddingService
+from app.chatbot.repository.vector_store import VectorStoreService
 
 logger = logging.getLogger(__name__)
 

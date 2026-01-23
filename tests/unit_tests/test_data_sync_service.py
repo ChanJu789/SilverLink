@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
-from src.app.chatbot.services.data_sync_service import DataSyncService
+from app.chatbot.services.data_sync_service import DataSyncService
 
 @pytest.fixture
 def mock_response():

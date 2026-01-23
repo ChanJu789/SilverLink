@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
-from src.app.chatbot.services.chatbot_service import ChatbotService
-from src.app.chatbot.schema.chat_schema import ChatResponse
+from app.chatbot.services.chatbot_service import ChatbotService
+from app.chatbot.schema.chat_schema import ChatResponse
 
 @pytest.fixture
 def mock_embedding_service():

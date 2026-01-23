@@ -1,5 +1,5 @@
 from langchain_openai import OpenAIEmbeddings
-from src.app.core.config import configs
+from app.core.config import configs
 
 class EmbeddingService:
     """OpenAI 임베딩 서비스"""
