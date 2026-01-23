@@ -21,6 +21,7 @@ import CounselorRecords from "./pages/counselor/CounselorRecords";
 import CounselorNotices from "./pages/counselor/CounselorNotices";
 import CounselorInquiries from "./pages/counselor/CounselorInquiries";
 import CounselorCalls from "./pages/counselor/CounselorCalls";
+import CounselorCallDetail from "./pages/counselor/CounselorCallDetail";
 import CounselorSensitiveInfo from "./pages/counselor/CounselorSensitiveInfo";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import MemberManagement from "./pages/admin/MemberManagement";
@@ -67,6 +68,7 @@ const App = () => (
           <Route path="/counselor/seniors" element={<SeniorList />} />
           <Route path="/counselor/seniors/:id" element={<SeniorDetail />} />
           <Route path="/counselor/calls" element={<CounselorCalls />} />
+          <Route path="/counselor/calls/:id" element={<CounselorCallDetail />} />
           <Route path="/counselor/records" element={<CounselorRecords />} />
           <Route path="/counselor/inquiries" element={<CounselorInquiries />} />
           <Route path="/counselor/alerts" element={<CounselorAlerts />} />

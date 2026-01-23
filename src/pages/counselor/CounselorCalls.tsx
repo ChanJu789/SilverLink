@@ -1,11 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   Search,
   Calendar,
   Clock,
   ChevronRight,
-  Play,
-  Download,
   Smile,
   Meh,
   Frown,
@@ -13,8 +12,6 @@ import {
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -31,12 +28,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { counselorNavItems } from "@/config/counselorNavItems";
 
 const callRecords = [
@@ -116,10 +107,10 @@ const EmotionIcon = ({ emotion }: { emotion: string }) => {
 };
 
 const CounselorCalls = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
   const [emotionFilter, setEmotionFilter] = useState("all");
-  const [selectedCall, setSelectedCall] = useState<typeof callRecords[0] | null>(null);
 
   const filteredCalls = callRecords.filter((call) => {
     const matchesSearch = call.seniorName.includes(searchTerm) || call.summary.includes(searchTerm);
@@ -254,7 +245,7 @@ const CounselorCalls = () => {
                   <TableRow 
                     key={call.id} 
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedCall(call)}
+                    onClick={() => navigate(`/counselor/calls/${call.id}`)}
                   >
                     <TableCell>
                       <div>
@@ -290,63 +281,6 @@ const CounselorCalls = () => {
           </CardContent>
         </Card>
       </div>
-
-      {/* Call Detail Dialog */}
-      <Dialog open={!!selectedCall} onOpenChange={() => setSelectedCall(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-              <EmotionIcon emotion={selectedCall?.emotion || ""} />
-              <div>
-                <DialogTitle>{selectedCall?.seniorName} 어르신 통화 기록</DialogTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {selectedCall?.date} {selectedCall?.time} | {selectedCall?.duration}
-                </p>
-              </div>
-            </div>
-          </DialogHeader>
-          
-          <div className="space-y-6 mt-4">
-            {/* Keywords */}
-            <div>
-              <h4 className="font-medium mb-2">주요 키워드</h4>
-              <div className="flex flex-wrap gap-2">
-                {selectedCall?.keywords.map((keyword, index) => (
-                  <Badge key={index} variant="secondary">{keyword}</Badge>
-                ))}
-              </div>
-            </div>
-
-            {/* Summary */}
-            <div>
-              <h4 className="font-medium mb-2">통화 요약</h4>
-              <p className="text-muted-foreground bg-secondary/30 p-4 rounded-xl">
-                {selectedCall?.summary}
-              </p>
-            </div>
-
-            {/* Transcript */}
-            <div>
-              <h4 className="font-medium mb-2">통화 내용</h4>
-              <div className="bg-secondary/30 p-4 rounded-xl whitespace-pre-wrap text-sm text-muted-foreground">
-                {selectedCall?.transcript}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              <Button variant="outline" className="gap-2">
-                <Play className="w-4 h-4" />
-                녹음 재생
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <Download className="w-4 h-4" />
-                내보내기
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </DashboardLayout>
   );
 };
