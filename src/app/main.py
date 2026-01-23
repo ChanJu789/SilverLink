@@ -4,6 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 # from app.api.v1.routes import routers as v1_routers
 # from app.api.v2.routes import routers as v2_routers
+from app.api.routes import routers
 from app.core.config import configs
 from app.core.container import Container
 from app.util.class_object import singleton

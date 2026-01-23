@@ -6,7 +6,7 @@ authors = [
     {name = "SeongHo Kim",email = "kkb053404@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<4.0"
 dependencies = [
     "fastapi (>=0.128.0,<0.129.0)",
     "dotenv (>=0.9.9,<0.10.0)",
