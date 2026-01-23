@@ -36,22 +36,37 @@ class AppCreator:
 
         # set routes
         @self.app.get(
-            "/",
-            tags=["System"],
-            summary="서비스 상태 확인",
-            description="SilverLink AI 서비스가 정상적으로 작동하는지 확인합니다."
+            "/chat/status",
+            tags=["Chatbot"],
+            summary="챗봇 기능 상태 확인",
+            description="챗봇 서비스의 핵심 기능(Milvus 연결, 설정 로드)이 정상적인지 확인합니다."
         )
-        def root():
-            return "service is working"
+        def chat_status():
+            """챗봇 기능 상태 점검"""
+            status = {
+                "service": "SilverLink-Chatbot",
+                "milvus_connection": "unknown",
+                "ready_to_chat": False
+            }
+            
+            # 1. 챗봇 서비스 로드 확인
+            if hasattr(self, 'chatbot_service') and self.chatbot_service:
+                status["chatbot_service"] = "loaded"
+            
+            # 2. Milvus 데이터베이스 연결 확인
+            try:
+                from pymilvus import connections
+                # 'default' alias는 VectorStoreService나 EmbeddingService 초기화 시 설정됨
+                if connections.has_connection("default"):
+                    status["milvus_connection"] = "connected"
+                    status["ready_to_chat"] = True
+                else:
+                    # 연결이 없다면 시도해볼 수도 있겠지만, 여기서는 상태만 체크
+                    status["milvus_connection"] = "disconnected"
+            except Exception as e:
+                status["milvus_connection"] = f"error: {str(e)}"
 
-        @self.app.get(
-            "/health",
-            tags=["System"],
-            summary="헬스 체크",
-            description="서버의 헬스 상태를 확인합니다. 모니터링 및 로드밸런서에서 사용됩니다."
-        )
-        def health_check():
-            return {"status": "healthy"}
+            return status
 
         # self.app.include_router(v1_routers, prefix=configs.API_V1_STR)
         # self.app.include_router(v2_routers, prefix=configs.API_V2_STR)
