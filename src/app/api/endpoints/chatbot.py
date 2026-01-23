@@ -13,7 +13,11 @@ router = APIRouter(
 )
 
 
-@router.get("")
+@router.get(
+    "",
+    summary="챗봇 서비스 테스트",
+    description="챗봇 서비스가 정상적으로 작동하는지 테스트합니다. (개발용)"
+)
 @inject_callbot
 def get_post_list(
     service: ChatbotService = Depends(Provide[Container.chatbot_service]),

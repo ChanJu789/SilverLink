@@ -35,11 +35,21 @@ class AppCreator:
             )
 
         # set routes
-        @self.app.get("/")
+        @self.app.get(
+            "/",
+            tags=["System"],
+            summary="서비스 상태 확인",
+            description="SilverLink AI 서비스가 정상적으로 작동하는지 확인합니다."
+        )
         def root():
             return "service is working"
 
-        @self.app.get("/health")
+        @self.app.get(
+            "/health",
+            tags=["System"],
+            summary="헬스 체크",
+            description="서버의 헬스 상태를 확인합니다. 모니터링 및 로드밸런서에서 사용됩니다."
+        )
         def health_check():
             return {"status": "healthy"}
 
@@ -55,7 +65,27 @@ class AppCreator:
         self.chatbot_service = ChatbotService()
         self.data_sync_service = DataSyncService()
 
-        @self.app.post("/chat", response_model=ChatResponse)
+        @self.app.post(
+            "/chat",
+            response_model=ChatResponse,
+            tags=["Chatbot"],
+            summary="AI 챗봇 대화",
+            description="""
+            보호자가 어르신 돌봄 관련 질문을 하면 AI 챗봇이 답변합니다.
+            
+            **기능:**
+            - FAQ 데이터 검색
+            - 개인 문의(Inquiry) 이력 검색
+            - 대화 컨텍스트 유지 (thread_id 기반)
+            - OpenAI GPT 기반 답변 생성
+            
+            **필수 파라미터:**
+            - message: 사용자 질문
+            - thread_id: 대화 스레드 ID (예: guardian_123)
+            - guardian_id: 보호자 ID
+            - elderly_id: 어르신 ID
+            """
+        )
         async def chat_endpoint(request: ChatRequest):
             """챗봇 질문 처리"""
             result = await self.chatbot_service.process_chat(
@@ -71,7 +101,23 @@ class AppCreator:
                 confidence=result["confidence"]
             )
 
-        @self.app.post("/sync/faqs")
+        @self.app.post(
+            "/sync/faqs",
+            tags=["Data Sync"],
+            summary="FAQ 데이터 동기화",
+            description="""
+            Spring Boot 백엔드에서 FAQ 데이터를 가져와 Milvus 벡터 DB에 동기화합니다.
+            
+            **동작:**
+            1. Spring Boot API에서 FAQ 데이터 조회
+            2. 질문+답변 텍스트를 OpenAI 임베딩으로 변환
+            3. Milvus FAQ 컬렉션에 저장
+            
+            **사용 시점:**
+            - FAQ 데이터가 업데이트되었을 때
+            - 초기 데이터 셋업 시
+            """
+        )
         def sync_faqs():
             """FAQ 데이터 동기화"""
             try:
@@ -80,7 +126,23 @@ class AppCreator:
             except Exception as e:
                 return {"status": "error", "message": str(e)}
 
-        @self.app.post("/sync/inquiries")
+        @self.app.post(
+            "/sync/inquiries",
+            tags=["Data Sync"],
+            summary="Inquiry 데이터 동기화",
+            description="""
+            Spring Boot 백엔드에서 Inquiry(문의) 데이터를 가져와 Milvus 벡터 DB에 동기화합니다.
+            
+            **동작:**
+            1. Spring Boot API에서 Inquiry 데이터 조회
+            2. 질문+답변 텍스트를 OpenAI 임베딩으로 변환
+            3. Milvus Inquiry 컬렉션에 저장 (guardian_id, elderly_id 포함)
+            
+            **사용 시점:**
+            - Inquiry 데이터가 업데이트되었을 때
+            - 초기 데이터 셋업 시
+            """
+        )
         def sync_inquiries():
             """Inquiry 데이터 동기화"""
             try:
