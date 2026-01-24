@@ -1,11 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Heart, 
-  Shield, 
-  Phone, 
-  Users, 
-  BarChart3, 
+import {
+  Heart,
+  Shield,
+  Phone,
+  Users,
+  BarChart3,
   MessageSquare,
   ChevronRight,
   ArrowRight,
@@ -47,6 +47,22 @@ const benefits = [
 const Index = () => {
   const navigate = useNavigate();
 
+  // 로그인 상태 확인
+  const accessToken = localStorage.getItem('accessToken');
+  const userRole = localStorage.getItem('userRole');
+  const isLoggedIn = !!accessToken && !!userRole;
+
+  // 역할에 따른 대시보드 경로
+  const getDashboardPath = () => {
+    switch (userRole?.toUpperCase()) {
+      case 'ADMIN': return '/admin';
+      case 'COUNSELOR': return '/counselor';
+      case 'GUARDIAN': return '/guardian';
+      case 'ELDERLY': return '/senior';
+      default: return '/';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-hero">
       {/* Navigation */}
@@ -60,12 +76,25 @@ const Index = () => {
               <span className="text-xl font-bold text-foreground">마음돌봄</span>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="ghost" onClick={() => navigate("/login")}>
-                로그인
-              </Button>
-              <Button variant="hero" onClick={() => navigate("/login")}>
-                시작하기
-              </Button>
+              {isLoggedIn ? (
+                <>
+                  <Button variant="ghost" onClick={() => navigate(getDashboardPath())}>
+                    대시보드
+                  </Button>
+                  <Button variant="hero" onClick={() => navigate(getDashboardPath())}>
+                    내 페이지로 이동
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" onClick={() => navigate("/login")}>
+                    로그인
+                  </Button>
+                  <Button variant="hero" onClick={() => navigate("/login")}>
+                    시작하기
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -88,8 +117,8 @@ const Index = () => {
               보호자와 상담사에게 실시간으로 전달합니다.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in">
-              <Button 
-                variant="hero" 
+              <Button
+                variant="hero"
                 size="xl"
                 onClick={() => navigate("/login")}
                 className="w-full sm:w-auto"
@@ -97,8 +126,8 @@ const Index = () => {
                 서비스 이용하기
                 <ArrowRight className="w-5 h-5" />
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="xl"
                 className="w-full sm:w-auto"
               >
@@ -115,7 +144,7 @@ const Index = () => {
               { value: "99.2%", label: "통화 성공률" },
               { value: "24/7", label: "긴급 대응 체계" },
             ].map((stat, index) => (
-              <div 
+              <div
                 key={index}
                 className="p-6 rounded-2xl bg-card shadow-card text-center animate-fade-in"
                 style={{ animationDelay: `${index * 0.1}s` }}
@@ -139,7 +168,7 @@ const Index = () => {
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => (
-              <div 
+              <div
                 key={index}
                 className="p-6 rounded-2xl bg-background shadow-card hover:shadow-elevated transition-all duration-300 group"
               >
@@ -180,9 +209,9 @@ const Index = () => {
                   </div>
                 ))}
               </div>
-              <Button 
-                variant="hero" 
-                size="lg" 
+              <Button
+                variant="hero"
+                size="lg"
                 className="mt-8"
                 onClick={() => navigate("/login")}
               >
@@ -239,8 +268,8 @@ const Index = () => {
               무료로 서비스를 체험해보세요. 어르신의 안전과 건강을 함께 지켜드립니다.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 size="xl"
                 onClick={() => navigate("/login")}
                 className="w-full sm:w-auto"
@@ -248,8 +277,8 @@ const Index = () => {
                 보호자 가입하기
                 <Users className="w-5 h-5" />
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="xl"
                 className="w-full sm:w-auto border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
                 onClick={() => navigate("/login")}

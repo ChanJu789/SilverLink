@@ -100,6 +100,9 @@ const Login = () => {
         ELDERLY: "어르신",
       };
 
+      // 역할 정보를 localStorage에 저장 (메인화면에서 로그인 상태 확인용)
+      localStorage.setItem('userRole', serverRole);
+
       toast.success("로그인 성공", {
         description: `${roleNames[serverRole] || serverRole}으로 로그인되었습니다.`,
       });

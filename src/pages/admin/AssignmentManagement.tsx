@@ -33,8 +33,9 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import counselorsApi from "@/api/counselors";
 import adminsApi from "@/api/admins";
+import elderlyApi from "@/api/elderly";
 import assignmentsApi, { AssignmentResponse } from "@/api/assignments";
-import { CounselorResponse } from "@/types/api";
+import { CounselorResponse, ElderlySummaryResponse } from "@/types/api";
 
 interface CounselorWithAssignment extends CounselorResponse {
   assignedCount: number;
@@ -59,51 +60,68 @@ const AssignmentManagement = () => {
   // API 데이터
   const [counselors, setCounselors] = useState<CounselorWithAssignment[]>([]);
   const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
+  const [elderlyList, setElderlyList] = useState<ElderlySummaryResponse[]>([]);
 
   // 폼 상태
   const [selectedElderlyId, setSelectedElderlyId] = useState<string>("");
   const [selectedCounselorId, setSelectedCounselorId] = useState<string>("");
 
-  // 데이터 로드
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  // 데이터 로드 함수
+  const fetchData = async () => {
+    try {
+      setLoading(true);
 
-        // 상담사 목록 조회
-        const counselorList = await counselorsApi.getAllCounselors();
+      // 상담사 목록과 어르신 목록 조회
+      const [counselorList, elderlyData] = await Promise.all([
+        counselorsApi.getAllCounselors(),
+        elderlyApi.getAllElderlyForAdmin()
+      ]);
 
-        // 각 상담사별 배정 현황 포함
-        const counselorsWithStats: CounselorWithAssignment[] = counselorList.map(c => ({
-          ...c,
-          assignedCount: c.assignedElderlyCount || 0,
-          capacity: 50, // 기본 용량
-          region: "서울"
-        }));
-        setCounselors(counselorsWithStats);
+      // 어르신 목록 저장
+      setElderlyList(elderlyData);
 
-        // 전체 배정 목록 (첫 번째 상담사 기준으로 조회하거나 별도 API 필요)
-        // 현재는 각 상담사별로 조회
-        const allAssignments: AssignmentResponse[] = [];
-        for (const counselor of counselorList.slice(0, 5)) { // 최대 5명
-          try {
-            const counselorAssignments = await assignmentsApi.getCounselorAssignments(counselor.id);
-            allAssignments.push(...counselorAssignments);
-          } catch (e) {
-            // 개별 오류는 무시
-          }
+      // 각 상담사별 배정 현황 포함
+      const counselorsWithStats: CounselorWithAssignment[] = counselorList.map(c => ({
+        ...c,
+        assignedCount: c.assignedElderlyCount || 0,
+        capacity: 50, // 기본 용량
+        region: "서울"
+      }));
+      setCounselors(counselorsWithStats);
+
+      // 전체 배정 목록 - 모든 상담사에 대해 조회
+      const allAssignments: AssignmentResponse[] = [];
+      for (const counselor of counselorList) {
+        try {
+          const counselorAssignments = await assignmentsApi.getCounselorAssignments(counselor.id);
+          allAssignments.push(...counselorAssignments);
+        } catch (e) {
+          // 개별 오류는 무시
         }
-        setAssignments(allAssignments);
-
-      } catch (error) {
-        console.error("데이터 로드 실패:", error);
-        // fallback 데이터 사용
-      } finally {
-        setLoading(false);
       }
-    };
+      setAssignments(allAssignments);
+
+    } catch (error) {
+      console.error("데이터 로드 실패:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 초기 데이터 로드
+  useEffect(() => {
     fetchData();
   }, []);
+
+  // 이미 배정된 어르신 ID 목록
+  const assignedElderlyIds = assignments
+    .filter(a => a.status === 'ACTIVE')
+    .map(a => a.elderlyId);
+
+  // 배정 가능한 어르신 목록 (이미 배정된 어르신 제외)
+  const availableElderly = elderlyList.filter(
+    e => !assignedElderlyIds.includes(e.userId)
+  );
 
   // 새 배정 처리
   const handleAssign = async () => {
@@ -119,16 +137,53 @@ const AssignmentManagement = () => {
         elderlyId: parseInt(selectedElderlyId)
       });
 
-      setAssignments([response, ...assignments]);
+      // 배정 목록에 추가
+      setAssignments(prev => [response, ...prev]);
+
+      // 상담사 배정 수 업데이트
+      setCounselors(prev => prev.map(c =>
+        c.id === parseInt(selectedCounselorId)
+          ? { ...c, assignedCount: c.assignedCount + 1 }
+          : c
+      ));
+
       setIsDialogOpen(false);
       setSelectedElderlyId("");
       setSelectedCounselorId("");
       toast.success("배정이 완료되었습니다.");
-    } catch (error) {
+    } catch (error: any) {
       console.error("배정 실패:", error);
-      toast.error("배정에 실패했습니다.");
+      toast.error(error.response?.data?.message || "배정에 실패했습니다.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // 배정 해제 처리
+  const handleUnassign = async (counselorId: number, elderlyId: number) => {
+    if (!confirm("정말 배정을 해제하시겠습니까?")) return;
+
+    try {
+      await assignmentsApi.unassignCounselor(counselorId, elderlyId);
+
+      // 배정 목록에서 제거 (상태를 ENDED로 변경)
+      setAssignments(prev => prev.map(a =>
+        a.counselorId === counselorId && a.elderlyId === elderlyId
+          ? { ...a, status: 'ENDED' as const }
+          : a
+      ));
+
+      // 상담사 배정 수 감소
+      setCounselors(prev => prev.map(c =>
+        c.id === counselorId
+          ? { ...c, assignedCount: Math.max(0, c.assignedCount - 1) }
+          : c
+      ));
+
+      toast.success("배정이 해제되었습니다.");
+    } catch (error: any) {
+      console.error("배정 해제 실패:", error);
+      toast.error(error.response?.data?.message || "배정 해제에 실패했습니다.");
     }
   };
 
@@ -178,13 +233,22 @@ const AssignmentManagement = () => {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>어르신 ID</Label>
-                  <Input
-                    type="number"
-                    placeholder="어르신 ID를 입력하세요"
-                    value={selectedElderlyId}
-                    onChange={(e) => setSelectedElderlyId(e.target.value)}
-                  />
+                  <Label>어르신 선택</Label>
+                  <Select value={selectedElderlyId} onValueChange={setSelectedElderlyId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="어르신을 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableElderly.map(elderly => (
+                        <SelectItem key={elderly.userId} value={elderly.userId.toString()}>
+                          {elderly.name} (ID: {elderly.userId}) - {elderly.age}세
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {availableElderly.length === 0 && (
+                    <p className="text-xs text-muted-foreground">이미 모든 어르신이 배정되어 있습니다.</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>담당 상담사</Label>
@@ -244,7 +308,7 @@ const AssignmentManagement = () => {
                     <div className="h-2 bg-secondary rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${counselor.assignedCount / counselor.capacity > 0.9 ? 'bg-destructive' :
-                            counselor.assignedCount / counselor.capacity > 0.7 ? 'bg-warning' : 'bg-success'
+                          counselor.assignedCount / counselor.capacity > 0.7 ? 'bg-warning' : 'bg-success'
                           }`}
                         style={{ width: `${Math.min((counselor.assignedCount / counselor.capacity) * 100, 100)}%` }}
                       />
@@ -325,9 +389,12 @@ const AssignmentManagement = () => {
                               {assignment.status === 'ACTIVE' ? '배정중' : '종료'}
                             </Badge>
                           </div>
-                          <Button variant="outline" size="sm">
-                            <RefreshCw className="w-3 h-3 mr-1" />
-                            변경
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUnassign(assignment.counselorId, assignment.elderlyId)}
+                          >
+                            해제
                           </Button>
                         </div>
                       </div>

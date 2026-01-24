@@ -168,7 +168,7 @@ const MemberManagement = () => {
     setSelectedCounselor(counselor);
     setIsDetailLoading(true);
     try {
-      const assignments = await assignmentsApi.getCounselorAssignments(counselor.userId);
+      const assignments = await assignmentsApi.getCounselorAssignments(counselor.id);
       setCounselorElderly(assignments);
     } catch (error) {
       console.error('Failed to fetch counselor assignments:', error);
@@ -183,7 +183,7 @@ const MemberManagement = () => {
     setSelectedGuardian(guardian);
     setIsDetailLoading(true);
     try {
-      const elderlyData = await guardiansApi.getElderlyByGuardianForAdmin(guardian.userId);
+      const elderlyData = await guardiansApi.getElderlyByGuardianForAdmin(guardian.id);
       setGuardianElderly(elderlyData);
     } catch (error) {
       console.error('Failed to fetch guardian elderly:', error);
@@ -202,8 +202,8 @@ const MemberManagement = () => {
 
     try {
       const [assignment, guardian] = await Promise.allSettled([
-        assignmentsApi.getElderlyAssignment(elderlyMember.elderlyId),
-        guardiansApi.getGuardianByElderlyForAdmin(elderlyMember.elderlyId)
+        assignmentsApi.getElderlyAssignment(elderlyMember.userId),
+        guardiansApi.getGuardianByElderlyForAdmin(elderlyMember.userId)
       ]);
 
       if (assignment.status === 'fulfilled') {
@@ -235,7 +235,7 @@ const MemberManagement = () => {
   const filteredElderly = elderly.filter((e) =>
     e.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     e.phone?.includes(searchQuery) ||
-    e.address?.toLowerCase().includes(searchQuery.toLowerCase())
+    e.fullAddress?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {
@@ -497,7 +497,7 @@ const MemberManagement = () => {
                     ) : (
                       filteredElderly.map((elderlyMember) => (
                         <TableRow
-                          key={elderlyMember.elderlyId}
+                          key={elderlyMember.userId}
                           className="cursor-pointer hover:bg-muted/50"
                           onClick={() => handleElderlyClick(elderlyMember)}
                         >
@@ -517,7 +517,7 @@ const MemberManagement = () => {
                           <TableCell className="text-muted-foreground">{elderlyMember.phone}</TableCell>
                           <TableCell className="text-muted-foreground">{elderlyMember.age}세</TableCell>
                           <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                            {elderlyMember.address}
+                            {elderlyMember.fullAddress || elderlyMember.addressLine1}
                           </TableCell>
                           <TableCell>
                             {elderlyMember.counselorName ? (
@@ -683,7 +683,7 @@ const MemberManagement = () => {
             <div className="space-y-4">
               <div className="text-sm">
                 <p className="text-muted-foreground">주소</p>
-                <p className="font-medium">{selectedElderly?.address || '정보 없음'}</p>
+                <p className="font-medium">{selectedElderly?.fullAddress || selectedElderly?.addressLine1 || '정보 없음'}</p>
               </div>
               <div className="text-sm">
                 <p className="text-muted-foreground">연락처</p>

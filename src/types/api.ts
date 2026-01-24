@@ -120,13 +120,21 @@ export interface CounselorRequest {
 // 어르신 관련 타입
 // =====================
 export interface ElderlySummaryResponse {
-    elderlyId: number;
+    userId: number;        // Elderly 엔티티의 ID (= User ID)
     name: string;
+    phone: string;
+    admCode?: number;
+    sidoName?: string;
+    sigunguName?: string;
+    dongName?: string;
+    fullAddress?: string;
+    birthDate?: string;
     age: number;
     gender: string;
-    address: string;
-    phone: string;
-    lastCallDate?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    zipcode?: string;
+    // 추가 정보 (조인 시)
     counselorName?: string;
     guardianName?: string;
 }

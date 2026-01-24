@@ -1,11 +1,11 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { 
-  Heart, 
-  Home, 
-  Phone, 
-  BarChart3, 
-  MessageSquare, 
+import {
+  Heart,
+  Home,
+  Phone,
+  BarChart3,
+  MessageSquare,
   HelpCircle,
   LogOut,
   Menu,
@@ -43,12 +43,12 @@ interface DashboardLayoutProps {
   navItems: NavItem[];
 }
 
-const DashboardLayout = ({ 
-  children, 
-  role, 
-  userName, 
+const DashboardLayout = ({
+  children,
+  role,
+  userName,
   userAvatar,
-  navItems 
+  navItems
 }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
@@ -80,7 +80,7 @@ const DashboardLayout = ({
     <div className="min-h-screen bg-background flex">
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -106,7 +106,7 @@ const DashboardLayout = ({
                   <p className="text-xs text-sidebar-foreground/60">국가 복지 서비스</p>
                 </div>
               </Link>
-              <button 
+              <button
                 onClick={() => setSidebarOpen(false)}
                 className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
               >
@@ -159,8 +159,8 @@ const DashboardLayout = ({
                 </p>
               </div>
             </div>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="w-full mt-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
               onClick={handleLogout}
             >
