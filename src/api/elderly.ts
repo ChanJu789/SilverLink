@@ -23,7 +23,17 @@ export const getHealthInfo = async (elderlyUserId: number): Promise<HealthInfoRe
     return response.data;
 };
 
+/**
+ * 관리자용 어르신 전체 목록 조회
+ * GET /api/admin/elderly
+ */
+export const getAllElderlyForAdmin = async (): Promise<ElderlySummaryResponse[]> => {
+    const response = await apiClient.get<ElderlySummaryResponse[]>('/api/admin/elderly');
+    return response.data;
+};
+
 export default {
     getSummary,
     getHealthInfo,
+    getAllElderlyForAdmin,
 };

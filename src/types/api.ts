@@ -237,18 +237,25 @@ export interface AssignmentRequest {
 // =====================
 export interface WelfareListResponse {
     id: number;
-    serviceName: string;
-    category: string;
-    targetGroup: string;
-    region: string;
-    summary: string;
+    servNm: string;        // 서비스명
+    source: string;        // 출처 (CENTRAL/LOCAL)
+    jurMnofNm: string;     // 소관기관
+    category: string;      // 카테고리
+    servDgst: string;      // 요약
 }
 
-export interface WelfareDetailResponse extends WelfareListResponse {
-    content: string;
-    applicationMethod: string;
-    contactInfo: string;
-    websiteUrl?: string;
+export interface WelfareDetailResponse {
+    id: number;
+    servNm: string;
+    source: string;
+    jurMnofNm: string;
+    category: string;
+    servDgst: string;
+    targetDtlCn: string;       // 지원대상 상세
+    slctCritCn: string;        // 선정기준
+    alwServCn: string;         // 서비스 내용
+    rprsCtadr: string;         // 문의처
+    servDtlLink: string;       // 상세 링크
 }
 
 export interface WelfareSearchRequest {

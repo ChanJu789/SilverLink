@@ -83,7 +83,7 @@ const Login = () => {
       });
 
       // 서버에서 받은 실제 role로만 네비게이션 (보안 강화)
-      const serverRole = response.role?.toLowerCase();
+      const serverRole = response.role;
 
       if (!serverRole) {
         toast.error("로그인 실패", {
@@ -92,12 +92,12 @@ const Login = () => {
         return;
       }
 
-      // 역할별 제목 매핑
+      // 역할별 제목 매핑 (백엔드에서 대문자로 반환)
       const roleNames: Record<string, string> = {
-        guardian: "보호자",
-        counselor: "상담사",
-        admin: "관리자",
-        elderly: "어르신",
+        GUARDIAN: "보호자",
+        COUNSELOR: "상담사",
+        ADMIN: "관리자",
+        ELDERLY: "어르신",
       };
 
       toast.success("로그인 성공", {
@@ -105,13 +105,13 @@ const Login = () => {
       });
 
       // 서버에서 받은 실제 role 기반으로만 네비게이션
-      if (serverRole === "guardian") {
+      if (serverRole === "GUARDIAN") {
         navigate("/guardian");
-      } else if (serverRole === "counselor") {
+      } else if (serverRole === "COUNSELOR") {
         navigate("/counselor");
-      } else if (serverRole === "admin") {
+      } else if (serverRole === "ADMIN") {
         navigate("/admin");
-      } else if (serverRole === "elderly") {
+      } else if (serverRole === "ELDERLY") {
         navigate("/senior");
       } else {
         toast.error("알 수 없는 역할", {
