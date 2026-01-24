@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { 
+import { useState, useEffect } from "react";
+import {
   Search,
-  Filter,
   MoreVertical,
   UserPlus,
   CheckCircle2,
@@ -10,11 +9,13 @@ import {
   Eye,
   Edit,
   Trash2,
-  Download
+  Download,
+  Loader2,
+  Users
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -41,40 +42,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users } from "lucide-react";
-
-const members = [
-  { id: 1, name: "김상담", email: "kim@example.com", phone: "010-1234-5678", role: "counselor", status: "active", createdAt: "2024-01-01", assignedCount: 45 },
-  { id: 2, name: "홍길동", email: "hong@example.com", phone: "010-2345-6789", role: "guardian", status: "active", createdAt: "2024-01-05", senior: "김순자" },
-  { id: 3, name: "이복지", email: "lee@example.com", phone: "010-3456-7890", role: "counselor", status: "pending", createdAt: "2024-01-10", assignedCount: 0 },
-  { id: 4, name: "박보호", email: "park@example.com", phone: "010-4567-8901", role: "guardian", status: "inactive", createdAt: "2024-01-12", senior: "박영희" },
-  { id: 5, name: "최상담", email: "choi@example.com", phone: "010-5678-9012", role: "counselor", status: "active", createdAt: "2024-01-15", assignedCount: 38 },
-  { id: 6, name: "정보호", email: "jung@example.com", phone: "010-6789-0123", role: "guardian", status: "pending", createdAt: "2024-01-18", senior: "이철수" },
-];
-
-const seniors = [
-  { id: 1, name: "김순자", age: 78, phone: "010-1111-2222", address: "서울시 강남구", guardian: "홍길동", counselor: "김상담", status: "active" },
-  { id: 2, name: "박영희", age: 82, phone: "010-2222-3333", address: "서울시 서초구", guardian: "박보호", counselor: "김상담", status: "active" },
-  { id: 3, name: "이철수", age: 75, phone: "010-3333-4444", address: "서울시 송파구", guardian: "정보호", counselor: "최상담", status: "inactive" },
-];
+import { useNavigate } from "react-router-dom";
+import usersApi from "@/api/users";
+import counselorsApi from "@/api/counselors";
+import { MyProfileResponse, CounselorResponse } from "@/types/api";
 
 const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
     case "active":
+    case "ACTIVE":
       return <Badge className="bg-success/10 text-success border-0">활성</Badge>;
     case "pending":
+    case "PENDING":
       return <Badge className="bg-warning/10 text-warning border-0">승인대기</Badge>;
     case "inactive":
+    case "INACTIVE":
       return <Badge className="bg-muted text-muted-foreground border-0">비활성</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
@@ -84,26 +67,120 @@ const StatusBadge = ({ status }: { status: string }) => {
 const RoleBadge = ({ role }: { role: string }) => {
   switch (role) {
     case "counselor":
+    case "COUNSELOR":
       return <Badge className="bg-primary/10 text-primary border-0">상담사</Badge>;
     case "guardian":
+    case "GUARDIAN":
       return <Badge className="bg-accent/10 text-accent border-0">보호자</Badge>;
     case "senior":
+    case "ELDERLY":
       return <Badge className="bg-info/10 text-info border-0">어르신</Badge>;
+    case "admin":
+    case "ADMIN":
+      return <Badge className="bg-destructive/10 text-destructive border-0">관리자</Badge>;
     default:
       return <Badge variant="outline">{role}</Badge>;
   }
 };
 
+interface MemberData {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  role: string;
+  status: string;
+  createdAt?: string;
+  assignedCount?: number;
+}
+
 const MemberManagement = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedMember, setSelectedMember] = useState<typeof members[0] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [members, setMembers] = useState<MemberData[]>([]);
+  const [counselors, setCounselors] = useState<CounselorResponse[]>([]);
+  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+
+  // Stats
+  const [stats, setStats] = useState({
+    counselors: 0,
+    guardians: 0,
+    seniors: 0,
+    pending: 0
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Get current user profile
+        const profile = await usersApi.getMyProfile();
+        setUserProfile(profile);
+
+        // Get all counselors
+        const counselorList = await counselorsApi.getAllCounselors();
+        setCounselors(counselorList);
+
+        // Transform counselors to member format
+        const memberList: MemberData[] = counselorList.map((c) => ({
+          id: c.userId,
+          name: c.name,
+          email: c.email,
+          phone: c.phone,
+          role: 'counselor',
+          status: 'active',
+          createdAt: c.approvedAt?.split('T')[0] || '',
+          assignedCount: c.elderlyCount || 0
+        }));
+
+        setMembers(memberList);
+
+        // Update stats
+        setStats({
+          counselors: counselorList.length,
+          guardians: 0, // Would need guardians API
+          seniors: counselorList.reduce((sum, c) => sum + (c.elderlyCount || 0), 0),
+          pending: 0 // Would need pending count API
+        });
+
+      } catch (error) {
+        console.error('Failed to fetch members:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const filteredMembers = members.filter((member) => {
+    const matchesSearch =
+      member.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      member.phone?.includes(searchQuery);
+    const matchesRole = roleFilter === "all" || member.role === roleFilter;
+    const matchesStatus = statusFilter === "all" || member.status === statusFilter;
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+
+  if (isLoading) {
+    return (
+      <DashboardLayout role="admin" userName="로딩중..." navItems={adminNavItems}>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
       role="admin"
-      userName="관리자"
+      userName={userProfile?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">
@@ -118,7 +195,7 @@ const MemberManagement = () => {
               <Download className="w-4 h-4 mr-2" />
               내보내기
             </Button>
-            <Button>
+            <Button onClick={() => navigate('/admin/members/register')}>
               <UserPlus className="w-4 h-4 mr-2" />
               회원 추가
             </Button>
@@ -134,7 +211,7 @@ const MemberManagement = () => {
                   <Users className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">45</p>
+                  <p className="text-2xl font-bold">{stats.counselors}</p>
                   <p className="text-sm text-muted-foreground">상담사</p>
                 </div>
               </div>
@@ -147,7 +224,7 @@ const MemberManagement = () => {
                   <Users className="w-5 h-5 text-accent" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">380</p>
+                  <p className="text-2xl font-bold">{stats.guardians}</p>
                   <p className="text-sm text-muted-foreground">보호자</p>
                 </div>
               </div>
@@ -160,7 +237,7 @@ const MemberManagement = () => {
                   <Users className="w-5 h-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">825</p>
+                  <p className="text-2xl font-bold">{stats.seniors}</p>
                   <p className="text-sm text-muted-foreground">어르신</p>
                 </div>
               </div>
@@ -173,7 +250,7 @@ const MemberManagement = () => {
                   <Clock className="w-5 h-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">12</p>
+                  <p className="text-2xl font-bold">{stats.pending}</p>
                   <p className="text-sm text-muted-foreground">승인 대기</p>
                 </div>
               </div>
@@ -182,36 +259,27 @@ const MemberManagement = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="counselors-guardians" className="space-y-4">
+        <Tabs defaultValue="counselors" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="counselors-guardians">상담사/보호자</TabsTrigger>
+            <TabsTrigger value="counselors">상담사</TabsTrigger>
+            <TabsTrigger value="guardians">보호자</TabsTrigger>
             <TabsTrigger value="seniors">어르신</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="counselors-guardians" className="space-y-4">
+          <TabsContent value="counselors" className="space-y-4">
             {/* Filters */}
             <Card className="shadow-card border-0">
               <CardContent className="p-4">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input 
-                      placeholder="이름, 이메일, 전화번호로 검색..." 
+                    <Input
+                      placeholder="이름, 이메일, 전화번호로 검색..."
                       className="pl-10"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
                   </div>
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="역할" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체 역할</SelectItem>
-                      <SelectItem value="counselor">상담사</SelectItem>
-                      <SelectItem value="guardian">보호자</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[150px]">
                       <SelectValue placeholder="상태" />
@@ -237,142 +305,99 @@ const MemberManagement = () => {
                       <TableHead>역할</TableHead>
                       <TableHead>연락처</TableHead>
                       <TableHead>상태</TableHead>
-                      <TableHead>가입일</TableHead>
-                      <TableHead>비고</TableHead>
+                      <TableHead>승인일</TableHead>
+                      <TableHead>담당</TableHead>
                       <TableHead className="text-right">관리</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {members.map((member) => (
-                      <TableRow key={member.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="w-9 h-9">
-                              <AvatarFallback className="bg-secondary text-secondary-foreground text-sm">
-                                {member.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{member.name}</p>
-                              <p className="text-sm text-muted-foreground">{member.email}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell><RoleBadge role={member.role} /></TableCell>
-                        <TableCell className="text-muted-foreground">{member.phone}</TableCell>
-                        <TableCell><StatusBadge status={member.status} /></TableCell>
-                        <TableCell className="text-muted-foreground">{member.createdAt}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {member.role === "counselor" ? `담당 ${member.assignedCount}명` : `담당 어르신: ${member.senior}`}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Eye className="w-4 h-4 mr-2" />
-                                상세보기
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Edit className="w-4 h-4 mr-2" />
-                                수정
-                              </DropdownMenuItem>
-                              {member.status === "pending" && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-success">
-                                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                                    승인
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-destructive">
-                                    <XCircle className="w-4 h-4 mr-2" />
-                                    거절
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                삭제
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                    {filteredMembers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          {searchQuery ? '검색 결과가 없습니다.' : '등록된 상담사가 없습니다.'}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      filteredMembers.map((member) => (
+                        <TableRow key={member.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="w-9 h-9">
+                                <AvatarFallback className="bg-secondary text-secondary-foreground text-sm">
+                                  {member.name?.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{member.name}</p>
+                                <p className="text-sm text-muted-foreground">{member.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell><RoleBadge role={member.role} /></TableCell>
+                          <TableCell className="text-muted-foreground">{member.phone}</TableCell>
+                          <TableCell><StatusBadge status={member.status} /></TableCell>
+                          <TableCell className="text-muted-foreground">{member.createdAt}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {member.assignedCount}명
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  상세보기
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  수정
+                                </DropdownMenuItem>
+                                {member.status === "pending" && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-success">
+                                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                                      승인
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="text-destructive">
+                                      <XCircle className="w-4 h-4 mr-2" />
+                                      거절
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive">
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  삭제
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
             </Card>
           </TabsContent>
 
+          <TabsContent value="guardians" className="space-y-4">
+            <Card className="shadow-card border-0">
+              <CardContent className="p-8 text-center text-muted-foreground">
+                보호자 목록을 표시하려면 백엔드 API가 필요합니다.
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="seniors" className="space-y-4">
             <Card className="shadow-card border-0">
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>어르신</TableHead>
-                      <TableHead>나이</TableHead>
-                      <TableHead>연락처</TableHead>
-                      <TableHead>주소</TableHead>
-                      <TableHead>보호자</TableHead>
-                      <TableHead>담당 상담사</TableHead>
-                      <TableHead>상태</TableHead>
-                      <TableHead className="text-right">관리</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {seniors.map((senior) => (
-                      <TableRow key={senior.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="w-9 h-9">
-                              <AvatarFallback className="bg-info/10 text-info text-sm">
-                                {senior.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="font-medium">{senior.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{senior.age}세</TableCell>
-                        <TableCell className="text-muted-foreground">{senior.phone}</TableCell>
-                        <TableCell className="text-muted-foreground">{senior.address}</TableCell>
-                        <TableCell>{senior.guardian}</TableCell>
-                        <TableCell>{senior.counselor}</TableCell>
-                        <TableCell><StatusBadge status={senior.status} /></TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Eye className="w-4 h-4 mr-2" />
-                                상세보기
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Edit className="w-4 h-4 mr-2" />
-                                수정
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive">
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                삭제
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                어르신 목록을 표시하려면 백엔드 API가 필요합니다.
               </CardContent>
             </Card>
           </TabsContent>

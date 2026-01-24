@@ -1,16 +1,16 @@
-import { useState } from "react";
-import { 
+import { useState, useEffect } from "react";
+import {
   Search,
   ChevronRight,
   Calendar,
   Volume2,
   Bell,
-  Megaphone
+  Megaphone,
+  Loader2
 } from "lucide-react";
 import { guardianNavItems } from "@/config/guardianNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,48 +19,60 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-const notices = [
-  {
-    id: 1,
-    title: "2024년 설 연휴 상담 서비스 운영 안내",
-    content: "안녕하세요, 보호자님.\n\n2024년 설 연휴 기간 상담 서비스 운영 일정을 안내드립니다.\n\n■ 연휴 기간: 2024년 2월 9일(금) ~ 2월 12일(월)\n■ 운영 시간: 09:00 ~ 18:00 (단축 운영)\n■ 긴급 상황 시: 비상 연락망 운영\n\n연휴 기간에도 어르신들께 정기 통화 서비스는 정상 제공됩니다.\n감사합니다.",
-    category: "운영안내",
-    date: "2024-01-15",
-    isImportant: true,
-  },
-  {
-    id: 2,
-    title: "AI 감정 분석 서비스 업그레이드 안내",
-    content: "안녕하세요, 보호자님.\n\n더욱 정확한 어르신 케어를 위해 AI 감정 분석 서비스가 업그레이드되었습니다.\n\n■ 주요 개선 사항\n1. 감정 분석 정확도 향상 (95% 이상)\n2. 실시간 위험 감지 알림 기능 추가\n3. 월간 감정 리포트 제공\n\n업데이트된 서비스는 자동으로 적용됩니다.\n감사합니다.",
-    category: "서비스",
-    date: "2024-01-12",
-    isImportant: true,
-  },
-  {
-    id: 3,
-    title: "신규 복지 서비스 연계 안내",
-    content: "안녕하세요, 보호자님.\n\n새로운 복지 서비스 연계가 추가되었습니다.\n\n■ 추가된 서비스\n1. 노인 돌봄 서비스\n2. 방문 건강관리 서비스\n3. 응급안전안심 서비스\n\n자세한 내용은 복지 서비스 메뉴에서 확인하실 수 있습니다.\n감사합니다.",
-    category: "복지",
-    date: "2024-01-10",
-    isImportant: false,
-  },
-  {
-    id: 4,
-    title: "개인정보 처리방침 변경 안내",
-    content: "안녕하세요, 보호자님.\n\n개인정보 처리방침이 일부 변경되어 안내드립니다.\n\n■ 변경 내용\n1. 개인정보 보유기간 명확화\n2. 제3자 제공 범위 구체화\n3. 정보주체 권리 강화\n\n시행일: 2024년 2월 1일\n자세한 내용은 개인정보 처리방침 페이지에서 확인해주세요.\n감사합니다.",
-    category: "안내",
-    date: "2024-01-08",
-    isImportant: false,
-  },
-];
+import noticesApi from "@/api/notices";
+import usersApi from "@/api/users";
+import { NoticeResponse, MyProfileResponse } from "@/types/api";
 
 const GuardianNotices = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedNotice, setSelectedNotice] = useState<typeof notices[0] | null>(null);
+  const [selectedNotice, setSelectedNotice] = useState<NoticeResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notices, setNotices] = useState<NoticeResponse[]>([]);
+  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+
+        // 사용자 프로필 조회
+        const profile = await usersApi.getMyProfile();
+        setUserProfile(profile);
+
+        // 공지사항 목록 조회
+        const noticesResponse = await noticesApi.getNotices({ size: 50 });
+        setNotices(noticesResponse.content);
+      } catch (error) {
+        console.error('Failed to fetch notices:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // 공지사항 상세 조회 및 읽음 처리
+  const handleNoticeClick = async (notice: NoticeResponse) => {
+    setSelectedNotice(notice);
+
+    // 읽음 처리
+    if (!notice.isRead) {
+      try {
+        await noticesApi.markAsRead(notice.id);
+        // 목록에서 읽음 상태 업데이트
+        setNotices(prev =>
+          prev.map(n => n.id === notice.id ? { ...n, isRead: true } : n)
+        );
+      } catch (error) {
+        console.error('Failed to mark as read:', error);
+      }
+    }
+  };
 
   const filteredNotices = notices.filter((notice) =>
-    notice.title.includes(searchTerm) || notice.content.includes(searchTerm)
+    notice.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    notice.content?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getCategoryBadge = (category: string) => {
@@ -73,10 +85,23 @@ const GuardianNotices = () => {
     return styles[category] || "bg-muted text-muted-foreground";
   };
 
+  if (isLoading) {
+    return (
+      <DashboardLayout role="guardian" userName="로딩중..." navItems={guardianNavItems}>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const importantCount = notices.filter(n => n.isImportant).length;
+  const unreadCount = notices.filter(n => !n.isRead).length;
+
   return (
     <DashboardLayout
       role="guardian"
-      userName="홍길동"
+      userName={userProfile?.name || "보호자"}
       navItems={guardianNavItems}
     >
       <div className="space-y-6">
@@ -119,7 +144,7 @@ const GuardianNotices = () => {
                   <Bell className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{notices.filter(n => n.isImportant).length}</p>
+                  <p className="text-2xl font-bold">{importantCount}</p>
                   <p className="text-sm text-muted-foreground">중요 공지</p>
                 </div>
               </div>
@@ -132,7 +157,12 @@ const GuardianNotices = () => {
                   <Calendar className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">2</p>
+                  <p className="text-2xl font-bold">{notices.length > 0 ? notices.filter(n => {
+                    const noticeDate = new Date(n.createdAt);
+                    const weekAgo = new Date();
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    return noticeDate >= weekAgo;
+                  }).length : 0}</p>
                   <p className="text-sm text-muted-foreground">이번 주</p>
                 </div>
               </div>
@@ -145,7 +175,7 @@ const GuardianNotices = () => {
                   <Volume2 className="h-5 w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">1</p>
+                  <p className="text-2xl font-bold">{unreadCount}</p>
                   <p className="text-sm text-muted-foreground">읽지 않음</p>
                 </div>
               </div>
@@ -159,32 +189,44 @@ const GuardianNotices = () => {
             <CardTitle>공지사항 목록</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {filteredNotices.map((notice) => (
-              <div
-                key={notice.id}
-                className="p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer"
-                onClick={() => setSelectedNotice(notice)}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      {notice.isImportant && (
-                        <Badge variant="destructive" className="text-xs">중요</Badge>
-                      )}
-                      <Badge className={getCategoryBadge(notice.category)}>
-                        {notice.category}
-                      </Badge>
-                    </div>
-                    <h3 className="font-medium text-foreground">{notice.title}</h3>
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                      {notice.content}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">{notice.date}</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                </div>
+            {filteredNotices.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchTerm ? '검색 결과가 없습니다.' : '공지사항이 없습니다.'}
               </div>
-            ))}
+            ) : (
+              filteredNotices.map((notice) => (
+                <div
+                  key={notice.id}
+                  className={`p-4 rounded-xl transition-colors cursor-pointer ${notice.isRead ? 'bg-secondary/30 hover:bg-secondary/50' : 'bg-primary/5 hover:bg-primary/10'
+                    }`}
+                  onClick={() => handleNoticeClick(notice)}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        {notice.isImportant && (
+                          <Badge variant="destructive" className="text-xs">중요</Badge>
+                        )}
+                        {!notice.isRead && (
+                          <Badge variant="default" className="text-xs">NEW</Badge>
+                        )}
+                        <Badge className={getCategoryBadge(notice.category)}>
+                          {notice.category}
+                        </Badge>
+                      </div>
+                      <h3 className="font-medium text-foreground">{notice.title}</h3>
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
+                        {notice.content}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {notice.createdAt?.split('T')[0]}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                  </div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
@@ -202,7 +244,7 @@ const GuardianNotices = () => {
               </Badge>
             </div>
             <DialogTitle>{selectedNotice?.title}</DialogTitle>
-            <p className="text-sm text-muted-foreground">{selectedNotice?.date}</p>
+            <p className="text-sm text-muted-foreground">{selectedNotice?.createdAt?.split('T')[0]}</p>
           </DialogHeader>
           <div className="mt-4 whitespace-pre-wrap text-foreground">
             {selectedNotice?.content}

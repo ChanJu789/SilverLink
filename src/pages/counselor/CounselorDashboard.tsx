@@ -1,4 +1,5 @@
-import { 
+import { useState, useEffect } from "react";
+import {
   AlertTriangle,
   ChevronRight,
   TrendingUp,
@@ -8,7 +9,8 @@ import {
   Search,
   Users,
   MessageSquare,
-  Clock
+  Clock,
+  Loader2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -18,6 +20,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import usersApi from "@/api/users";
+import counselorsApi from "@/api/counselors";
+import callReviewsApi from "@/api/callReviews";
+import { MyProfileResponse, CounselorResponse, CallRecordSummaryResponse, UnreviewedCountResponse } from "@/types/api";
 
 // Mock data
 const stats = {
@@ -28,67 +34,67 @@ const stats = {
 };
 
 const urgentAlerts = [
-  { 
-    id: 1, 
-    seniorName: "박영희", 
-    type: "건강", 
-    message: "통화 중 호흡 곤란 증상 언급", 
+  {
+    id: 1,
+    seniorName: "박영희",
+    type: "건강",
+    message: "통화 중 호흡 곤란 증상 언급",
     time: "10분 전",
     severity: "high"
   },
-  { 
-    id: 2, 
-    seniorName: "이철수", 
-    type: "정신", 
-    message: "우울감 호소, 외로움 표현", 
+  {
+    id: 2,
+    seniorName: "이철수",
+    type: "정신",
+    message: "우울감 호소, 외로움 표현",
     time: "30분 전",
     severity: "medium"
   },
 ];
 
 const recentSeniors = [
-  { 
-    id: 1, 
-    name: "김순자", 
-    age: 78, 
-    lastCall: "10:30", 
-    emotion: "good", 
+  {
+    id: 1,
+    name: "김순자",
+    age: 78,
+    lastCall: "10:30",
+    emotion: "good",
     status: "completed",
     guardian: "홍길동"
   },
-  { 
-    id: 2, 
-    name: "박영희", 
-    age: 82, 
-    lastCall: "09:45", 
-    emotion: "bad", 
+  {
+    id: 2,
+    name: "박영희",
+    age: 82,
+    lastCall: "09:45",
+    emotion: "bad",
     status: "alert",
     guardian: "박민수"
   },
-  { 
-    id: 3, 
-    name: "이철수", 
-    age: 75, 
-    lastCall: "09:15", 
-    emotion: "neutral", 
+  {
+    id: 3,
+    name: "이철수",
+    age: 75,
+    lastCall: "09:15",
+    emotion: "neutral",
     status: "completed",
     guardian: "이영희"
   },
-  { 
-    id: 4, 
-    name: "정미영", 
-    age: 80, 
-    lastCall: "-", 
-    emotion: null, 
+  {
+    id: 4,
+    name: "정미영",
+    age: 80,
+    lastCall: "-",
+    emotion: null,
     status: "pending",
     guardian: "정철수"
   },
-  { 
-    id: 5, 
-    name: "최동수", 
-    age: 77, 
-    lastCall: "-", 
-    emotion: null, 
+  {
+    id: 5,
+    name: "최동수",
+    age: 77,
+    lastCall: "-",
+    emotion: null,
     status: "pending",
     guardian: "최민희"
   },
@@ -96,7 +102,7 @@ const recentSeniors = [
 
 const EmotionBadge = ({ emotion }: { emotion: string | null }) => {
   if (!emotion) return <Badge variant="outline">대기중</Badge>;
-  
+
   switch (emotion) {
     case "good":
       return <Badge className="bg-success/10 text-success border-0">좋음</Badge>;
@@ -124,19 +130,78 @@ const StatusIcon = ({ status }: { status: string }) => {
 
 const CounselorDashboard = () => {
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+  const [counselorInfo, setCounselorInfo] = useState<CounselorResponse | null>(null);
+  const [callRecords, setCallRecords] = useState<CallRecordSummaryResponse[]>([]);
+  const [unreviewedCount, setUnreviewedCount] = useState(0);
+  const [stats, setStats] = useState({
+    totalSeniors: 0,
+    todayCalls: 0,
+    pendingReviews: 0,
+    urgentAlerts: 0,
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+
+        // 사용자 프로필 조회
+        const profile = await usersApi.getMyProfile();
+        setUserProfile(profile);
+
+        // 상담사 정보 조회
+        const counselor = await counselorsApi.getMyInfo();
+        setCounselorInfo(counselor);
+
+        // 통화 기록 조회
+        const callsResponse = await callReviewsApi.getCallRecordsForCounselor({ size: 10 });
+        setCallRecords(callsResponse.content);
+
+        // 미확인 통화 건수
+        const unreviewedResponse = await callReviewsApi.getUnreviewedCount();
+        setUnreviewedCount(unreviewedResponse.count);
+
+        // 통계 설정
+        setStats({
+          totalSeniors: counselor.assignedElderlyCount || 0,
+          todayCalls: callsResponse.content.length,
+          pendingReviews: unreviewedResponse.count,
+          urgentAlerts: callsResponse.content.filter(c => c.emotion === 'BAD').length,
+        });
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleViewAll = () => {
     navigate("/counselor/calls");
   };
 
-  const handleViewDetail = (seniorId: number) => {
-    navigate(`/counselor/seniors/${seniorId}`);
+  const handleViewDetail = (callId: number) => {
+    navigate(`/counselor/calls/${callId}`);
   };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout role="counselor" userName="로딩중..." navItems={counselorNavItems}>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
       role="counselor"
-      userName="김상담"
+      userName={userProfile?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">
@@ -149,8 +214,8 @@ const CounselorDashboard = () => {
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="어르신 검색..." 
+              <Input
+                placeholder="어르신 검색..."
                 className="pl-10 w-64"
               />
             </div>
@@ -169,17 +234,15 @@ const CounselorDashboard = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               {urgentAlerts.map((alert) => (
-                <div 
+                <div
                   key={alert.id}
                   className="flex items-center justify-between p-4 rounded-xl bg-card shadow-card"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      alert.severity === "high" ? "bg-destructive/10" : "bg-warning/10"
-                    }`}>
-                      <AlertTriangle className={`w-5 h-5 ${
-                        alert.severity === "high" ? "text-destructive" : "text-warning"
-                      }`} />
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${alert.severity === "high" ? "bg-destructive/10" : "bg-warning/10"
+                      }`}>
+                      <AlertTriangle className={`w-5 h-5 ${alert.severity === "high" ? "text-destructive" : "text-warning"
+                        }`} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -237,8 +300,8 @@ const CounselorDashboard = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">대기 문의</p>
-                  <p className="text-3xl font-bold text-foreground mt-1">{stats.pendingInquiries}</p>
+                  <p className="text-sm text-muted-foreground">미확인 통화</p>
+                  <p className="text-3xl font-bold text-foreground mt-1">{stats.pendingReviews}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
                   <MessageSquare className="w-6 h-6 text-warning" />

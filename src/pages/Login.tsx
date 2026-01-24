@@ -5,18 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Heart, 
-  Shield, 
-  Users, 
-  UserCog, 
-  Eye, 
+import {
+  Heart,
+  Shield,
+  Users,
+  UserCog,
+  Eye,
   EyeOff,
   Phone,
   Mail,
   Lock
 } from "lucide-react";
 import { toast } from "sonner";
+import { login } from "@/api/auth";
 
 type UserRole = "guardian" | "counselor" | "admin" | "senior";
 
@@ -65,7 +66,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: "",
+    loginId: "",
     password: "",
     phone: "",
   });
@@ -74,27 +75,37 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate login
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      // 실제 API 로그인 호출
+      const response = await login({
+        loginId: formData.loginId,
+        password: formData.password,
+      });
 
-    toast.success("로그인 성공", {
-      description: `${roles.find((r) => r.id === selectedRole)?.title}으로 로그인되었습니다.`,
-    });
+      toast.success("로그인 성공", {
+        description: `${roles.find((r) => r.id === selectedRole)?.title}으로 로그인되었습니다.`,
+      });
 
-    // Navigate based on role
-    if (selectedRole === "guardian") {
-      navigate("/guardian");
-    } else if (selectedRole === "counselor") {
-      navigate("/counselor");
-    } else if (selectedRole === "admin") {
-      navigate("/admin");
-    } else if (selectedRole === "senior") {
-      // 어르신은 전용 로그인 페이지로 이동
-      navigate("/senior/login");
-      return;
+      // 서버에서 받은 role 기반으로 네비게이션 (또는 선택된 role 사용)
+      const userRole = response.role?.toLowerCase() || selectedRole;
+
+      if (userRole === "guardian" || selectedRole === "guardian") {
+        navigate("/guardian");
+      } else if (userRole === "counselor" || selectedRole === "counselor") {
+        navigate("/counselor");
+      } else if (userRole === "admin" || selectedRole === "admin") {
+        navigate("/admin");
+      } else if (userRole === "elderly" || selectedRole === "senior") {
+        navigate("/senior");
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "로그인에 실패했습니다.";
+      toast.error("로그인 실패", {
+        description: errorMessage,
+      });
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   return (
@@ -138,17 +149,15 @@ const Login = () => {
                     setSelectedRole(role.id);
                   }
                 }}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
-                  selectedRole === role.id
-                    ? `${role.color} border-current shadow-soft`
-                    : "bg-card border-border hover:border-muted-foreground/30"
-                }`}
+                className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${selectedRole === role.id
+                  ? `${role.color} border-current shadow-soft`
+                  : "bg-card border-border hover:border-muted-foreground/30"
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      selectedRole === role.id ? role.color : "bg-muted"
-                    }`}
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${selectedRole === role.id ? role.color : "bg-muted"
+                      }`}
                   >
                     {role.icon}
                   </div>
@@ -174,11 +183,11 @@ const Login = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="email" className="w-full">
+              <Tabs defaultValue="id" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="email" className="gap-2">
-                    <Mail className="w-4 h-4" />
-                    이메일
+                  <TabsTrigger value="id" className="gap-2">
+                    <UserCog className="w-4 h-4" />
+                    아이디
                   </TabsTrigger>
                   <TabsTrigger value="phone" className="gap-2">
                     <Phone className="w-4 h-4" />
@@ -187,16 +196,16 @@ const Login = () => {
                 </TabsList>
 
                 <form onSubmit={handleLogin}>
-                  <TabsContent value="email" className="space-y-4 mt-0">
+                  <TabsContent value="id" className="space-y-4 mt-0">
                     <div className="space-y-2">
-                      <Label htmlFor="email">이메일</Label>
+                      <Label htmlFor="loginId">아이디</Label>
                       <Input
-                        id="email"
-                        type="email"
-                        placeholder="example@email.com"
-                        value={formData.email}
+                        id="loginId"
+                        type="text"
+                        placeholder="아이디를 입력하세요"
+                        value={formData.loginId}
                         onChange={(e) =>
-                          setFormData({ ...formData, email: e.target.value })
+                          setFormData({ ...formData, loginId: e.target.value })
                         }
                       />
                     </div>
@@ -282,7 +291,10 @@ const Login = () => {
                   비밀번호 찾기
                 </button>
                 <span className="text-border">|</span>
-                <button className="text-primary hover:text-primary/80 font-medium transition-colors">
+                <button
+                  className="text-primary hover:text-primary/80 font-medium transition-colors"
+                  onClick={() => navigate("/signup")}
+                >
                   회원가입
                 </button>
               </div>

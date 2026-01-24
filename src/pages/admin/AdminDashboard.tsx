@@ -1,4 +1,5 @@
-import { 
+import { useState, useEffect } from "react";
+import {
   TrendingUp,
   TrendingDown,
   AlertTriangle,
@@ -7,7 +8,8 @@ import {
   Activity,
   Phone,
   Brain,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -16,6 +18,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Users, MessageSquare, UserCog } from "lucide-react";
+import usersApi from "@/api/users";
+import adminsApi from "@/api/admins";
+import counselorsApi from "@/api/counselors";
+import guardiansApi from "@/api/guardians";
+import { MyProfileResponse, AdminResponse, CounselorResponse, GuardianResponse } from "@/types/api";
 
 const stats = {
   totalUsers: 1250,
@@ -43,10 +50,67 @@ const aiMetrics = [
 ];
 
 const AdminDashboard = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    counselors: 0,
+    guardians: 0,
+    seniors: 0,
+    todayCalls: 0,
+    pendingComplaints: 0,
+    aiAccuracy: 94.5,
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+
+        // 사용자 프로필 조회
+        const profile = await usersApi.getMyProfile();
+        setUserProfile(profile);
+
+        // 상담사 목록 조회
+        const counselors = await counselorsApi.getAllCounselors();
+
+        // 보호자 목록 조회
+        const guardians = await guardiansApi.getAllGuardians();
+
+        // 통계 업데이트
+        setStats({
+          totalUsers: counselors.length + guardians.length,
+          counselors: counselors.length,
+          guardians: guardians.length,
+          seniors: counselors.reduce((acc, c) => acc + (c.assignedElderlyCount || 0), 0),
+          todayCalls: 0, // API 추가 필요
+          pendingComplaints: 0, // API 추가 필요
+          aiAccuracy: 94.5, // 고정값
+        });
+      } catch (error) {
+        console.error('Failed to fetch admin dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout role="admin" userName="로딩중..." navItems={adminNavItems}>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
       role="admin"
-      userName="관리자"
+      userName={userProfile?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">
@@ -55,6 +119,7 @@ const AdminDashboard = () => {
           <h1 className="text-2xl font-bold text-foreground">관리자 대시보드</h1>
           <p className="text-muted-foreground mt-1">시스템 현황을 한눈에 확인하세요</p>
         </div>
+
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -200,17 +265,16 @@ const AdminDashboard = () => {
           <CardContent>
             <div className="space-y-3">
               {recentActivities.map((activity) => (
-                <div 
+                <div
                   key={activity.id}
                   className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    activity.type === 'user' ? 'bg-primary/10' :
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.type === 'user' ? 'bg-primary/10' :
                     activity.type === 'complaint' ? 'bg-warning/10' :
-                    activity.type === 'alert' ? 'bg-destructive/10' :
-                    activity.type === 'assignment' ? 'bg-accent/10' :
-                    'bg-info/10'
-                  }`}>
+                      activity.type === 'alert' ? 'bg-destructive/10' :
+                        activity.type === 'assignment' ? 'bg-accent/10' :
+                          'bg-info/10'
+                    }`}>
                     {activity.type === 'user' && <Users className="w-5 h-5 text-primary" />}
                     {activity.type === 'complaint' && <MessageSquare className="w-5 h-5 text-warning" />}
                     {activity.type === 'alert' && <AlertTriangle className="w-5 h-5 text-destructive" />}

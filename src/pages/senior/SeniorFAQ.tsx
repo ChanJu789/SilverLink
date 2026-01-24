@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,60 +17,11 @@ import {
   Heart,
   Calendar,
   Shield,
-  Volume2
+  Volume2,
+  Loader2
 } from "lucide-react";
-
-interface FAQ {
-  id: string;
-  question: string;
-  answer: string;
-  category: string;
-}
-
-const faqs: FAQ[] = [
-  {
-    id: "1",
-    question: "긴급 연락은 어떻게 하나요?",
-    answer: "화면 아래에 있는 빨간색 '긴급 연락하기' 버튼을 누르시면 됩니다. 담당 상담사에게 바로 연락이 갑니다.",
-    category: "이용방법",
-  },
-  {
-    id: "2",
-    question: "상담사 전화는 언제 오나요?",
-    answer: "담당 상담사가 정해진 요일과 시간에 전화를 드립니다. 보통 주 2~3회 연락을 드리고 있습니다.",
-    category: "상담",
-  },
-  {
-    id: "3",
-    question: "건강 기록은 꼭 해야 하나요?",
-    answer: "의무는 아니지만, 기록해주시면 상담사가 건강 상태를 더 잘 파악할 수 있어요. 혈압, 혈당 등을 기록해주시면 좋습니다.",
-    category: "건강",
-  },
-  {
-    id: "4",
-    question: "글자가 너무 작아요",
-    answer: "첫 화면에서 '글자 크기' 옆에 있는 + 버튼을 누르시면 글자가 커집니다. 원하시는 크기가 될 때까지 눌러주세요.",
-    category: "이용방법",
-  },
-  {
-    id: "5",
-    question: "문서 읽기 기능은 어떻게 쓰나요?",
-    answer: "'문서 읽기' 버튼을 누르고 읽고 싶은 문서를 카메라로 찍으시면 됩니다. 문서 내용을 읽어드립니다.",
-    category: "이용방법",
-  },
-  {
-    id: "6",
-    question: "비밀번호를 잊어버렸어요",
-    answer: "담당 상담사에게 전화로 말씀해주시면 새 비밀번호를 설정해드립니다.",
-    category: "계정",
-  },
-  {
-    id: "7",
-    question: "복지 서비스는 어떤 게 있나요?",
-    answer: "기초연금, 의료비 지원, 돌봄 서비스 등 다양한 복지 서비스가 있습니다. 담당 상담사에게 문의하시면 자세히 안내해드립니다.",
-    category: "복지",
-  },
-];
+import faqsApi from "@/api/faqs";
+import { FaqResponse } from "@/types/api";
 
 const categories = [
   { id: "all", name: "전체", icon: <HelpCircle className="w-6 h-6" /> },
@@ -84,19 +35,37 @@ const SeniorFAQ = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [speakingId, setSpeakingId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [faqs, setFaqs] = useState<FaqResponse[]>([]);
+
+  useEffect(() => {
+    const fetchFaqs = async () => {
+      try {
+        setIsLoading(true);
+        const response = await faqsApi.getFaqs({ size: 50 });
+        setFaqs(response.content);
+      } catch (error) {
+        console.error('Failed to fetch FAQs:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFaqs();
+  }, []);
 
   const filteredFaqs = faqs.filter((faq) => {
-    const matchesSearch = 
-      faq.question.includes(searchTerm) || 
-      faq.answer.includes(searchTerm);
-    const matchesCategory = 
-      selectedCategory === "all" || 
+    const matchesSearch =
+      faq.question?.includes(searchTerm) ||
+      faq.answer?.includes(searchTerm);
+    const matchesCategory =
+      selectedCategory === "all" ||
       faq.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const handleSpeak = (faq: FAQ) => {
+  const handleSpeak = (faq: FaqResponse) => {
     if (speakingId === faq.id) {
       window.speechSynthesis.cancel();
       setSpeakingId(null);
@@ -109,10 +78,18 @@ const SeniorFAQ = () => {
     utterance.lang = "ko-KR";
     utterance.rate = 0.8;
     utterance.onend = () => setSpeakingId(null);
-    
+
     window.speechSynthesis.speak(utterance);
     setSpeakingId(faq.id);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-6">
@@ -173,7 +150,7 @@ const SeniorFAQ = () => {
               <div className="text-center py-12">
                 <HelpCircle className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
                 <p className="text-lg text-muted-foreground">
-                  검색 결과가 없어요
+                  {searchTerm || selectedCategory !== "all" ? "검색 결과가 없어요" : "등록된 FAQ가 없어요"}
                 </p>
               </div>
             ) : (
@@ -181,7 +158,7 @@ const SeniorFAQ = () => {
                 {filteredFaqs.map((faq) => (
                   <AccordionItem
                     key={faq.id}
-                    value={faq.id}
+                    value={String(faq.id)}
                     className="border rounded-xl px-4"
                   >
                     <AccordionTrigger className="text-left text-lg font-bold py-5 hover:no-underline">
@@ -198,9 +175,8 @@ const SeniorFAQ = () => {
                         <Button
                           variant="outline"
                           onClick={() => handleSpeak(faq)}
-                          className={`h-12 rounded-xl gap-2 ${
-                            speakingId === faq.id ? "bg-warning/10 border-warning text-warning" : ""
-                          }`}
+                          className={`h-12 rounded-xl gap-2 ${speakingId === faq.id ? "bg-warning/10 border-warning text-warning" : ""
+                            }`}
                         >
                           <Volume2 className="w-5 h-5" />
                           {speakingId === faq.id ? "읽기 중지" : "소리로 듣기"}

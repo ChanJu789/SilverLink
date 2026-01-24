@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { 
+import {
   Save,
   Pill,
   ChevronLeft,
@@ -8,7 +8,8 @@ import {
   Calendar,
   User,
   Heart,
-  AlertCircle
+  AlertCircle,
+  Key
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import { Link } from "react-router-dom";
@@ -30,109 +31,138 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, FileText } from "lucide-react";
-
-const counselors = [
-  { id: 1, name: "김상담", region: "서울 강남" },
-  { id: 2, name: "이복지", region: "서울 서초" },
-  { id: 3, name: "최상담", region: "서울 송파" },
-  { id: 4, name: "박복지", region: "서울 강동" },
-];
+import { registerElderly, registerGuardian } from "@/api/admins";
 
 const MemberRegistration = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("senior");
+  const [loading, setLoading] = useState(false);
 
   // 어르신 등록 정보
   const [seniorData, setSeniorData] = useState({
+    loginId: "",
+    password: "",
     name: "",
     birthDate: "",
+    gender: "M",
     phone: "",
     address: "",
     detailAddress: "",
-    emergencyContact: "",
-    emergencyRelation: "",
-    assignedCounselor: "",
-    notes: "",
-    // 민감정보 접근 승인
-    sensitiveInfoApproval: false,
-    medicationInfoApproval: false,
-    healthInfoApproval: false,
+    zipcode: "",
+    admCode: "", // 행정코드
+    memo: "",
+    // 민감정보 접근 승인 (UI상 보여주기용, 실제로는 BE에서 일괄 처리됨)
+    sensitiveInfoApproval: true,
+    medicationInfoApproval: true,
+    healthInfoApproval: true,
   });
 
   // 보호자 등록 정보
   const [guardianData, setGuardianData] = useState({
+    loginId: "",
+    password: "",
     name: "",
-    birthDate: "",
     phone: "",
     email: "",
     address: "",
-    relation: "",
-    seniorName: "",
-    // 민감정보 접근 승인
-    sensitiveInfoApproval: false,
-    medicationInfoApproval: false,
-    healthInfoApproval: false,
-    callRecordAccess: false,
+    detailAddress: "",
+    zipcode: "",
+    relation: "FAMILY",
+    seniorId: "", // 연결할 어르신 ID
+    memo: "",
+    // 정보 승인 (UI용)
+    sensitiveInfoApproval: true,
+    medicationInfoApproval: true,
+    healthInfoApproval: true,
   });
 
-  const handleSeniorSubmit = (e: React.FormEvent) => {
+  const handleSeniorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "어르신 등록 완료",
-      description: `${seniorData.name}님이 성공적으로 등록되었습니다.`,
-    });
-    // Reset form
-    setSeniorData({
-      name: "",
-      birthDate: "",
-      phone: "",
-      address: "",
-      detailAddress: "",
-      emergencyContact: "",
-      emergencyRelation: "",
-      assignedCounselor: "",
-      notes: "",
-      sensitiveInfoApproval: false,
-      medicationInfoApproval: false,
-      healthInfoApproval: false,
-    });
+    setLoading(true);
+
+    try {
+      await registerElderly({
+        loginId: seniorData.loginId,
+        password: seniorData.password,
+        name: seniorData.name,
+        phone: seniorData.phone,
+        // email: optional
+        admCode: Number(seniorData.admCode) || 12345678, // 임시 기본값 또는 입력받기
+        birthDate: seniorData.birthDate,
+        gender: seniorData.gender,
+        addressLine1: seniorData.address,
+        addressLine2: seniorData.detailAddress,
+        zipcode: seniorData.zipcode || "00000",
+        memo: seniorData.memo
+      });
+
+      toast({
+        title: "어르신 등록 완료",
+        description: `${seniorData.name}님이 성공적으로 등록되었습니다.`,
+      });
+      // Reset form
+      setSeniorData({
+        loginId: "", password: "", name: "", birthDate: "", gender: "M",
+        phone: "", address: "", detailAddress: "", zipcode: "", admCode: "",
+        memo: "", sensitiveInfoApproval: true, medicationInfoApproval: true, healthInfoApproval: true,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "등록 실패",
+        description: "정보를 확인해주세요. (ID/전화번호 중복 등)",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGuardianSubmit = (e: React.FormEvent) => {
+  const handleGuardianSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "보호자 등록 완료",
-      description: `${guardianData.name}님이 성공적으로 등록되었습니다.`,
-    });
-    // Reset form
-    setGuardianData({
-      name: "",
-      birthDate: "",
-      phone: "",
-      email: "",
-      address: "",
-      relation: "",
-      seniorName: "",
-      sensitiveInfoApproval: false,
-      medicationInfoApproval: false,
-      healthInfoApproval: false,
-      callRecordAccess: false,
-    });
+    setLoading(true);
+
+    try {
+      await registerGuardian({
+        loginId: guardianData.loginId,
+        password: guardianData.password,
+        name: guardianData.name,
+        phone: guardianData.phone,
+        email: guardianData.email,
+        addressLine1: guardianData.address,
+        addressLine2: guardianData.detailAddress,
+        zipcode: guardianData.zipcode || "00000",
+        elderlyUserId: Number(guardianData.seniorId),
+        relationType: guardianData.relation,
+        memo: guardianData.memo
+      });
+
+      toast({
+        title: "보호자 등록 완료",
+        description: `${guardianData.name}님이 성공적으로 등록되었습니다.`,
+      });
+      // Reset
+      setGuardianData({
+        loginId: "", password: "", name: "", phone: "", email: "",
+        address: "", detailAddress: "", zipcode: "", relation: "FAMILY",
+        seniorId: "", memo: "", sensitiveInfoApproval: true, medicationInfoApproval: true, healthInfoApproval: true,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "등록 실패",
+        description: "어르신 ID가 유효한지 확인해주세요.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <DashboardLayout
-      role="admin"
-      userName="관리자"
-      navItems={adminNavItems}
-    >
+    <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
       <div className="space-y-6">
-        {/* Page Header */}
         <div className="flex items-center gap-4">
           <Link to="/admin/members">
-            <Button variant="ghost" size="icon">
-              <ChevronLeft className="w-5 h-5" />
-            </Button>
+            <Button variant="ghost" size="icon"><ChevronLeft className="w-5 h-5" /></Button>
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-foreground">회원 등록</h1>
@@ -143,505 +173,166 @@ const MemberRegistration = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="senior" className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              어르신 등록
+              <User className="w-4 h-4" /> 어르신 등록
             </TabsTrigger>
             <TabsTrigger value="guardian" className="flex items-center gap-2">
-              <Heart className="w-4 h-4" />
-              보호자 등록
+              <Heart className="w-4 h-4" /> 보호자 등록
             </TabsTrigger>
           </TabsList>
 
-          {/* 어르신 등록 탭 */}
           <TabsContent value="senior" className="mt-6">
             <form onSubmit={handleSeniorSubmit}>
               <div className="grid lg:grid-cols-3 gap-6">
-                {/* 기본 정보 */}
                 <div className="lg:col-span-2 space-y-6">
+                  {/* 계정 정보 */}
+                  <Card className="shadow-card border-0">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg"><Key className="w-5 h-5 text-primary" /> 계정 정보</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>로그인 ID *</Label>
+                        <Input value={seniorData.loginId} onChange={e => setSeniorData({ ...seniorData, loginId: e.target.value })} required placeholder="아이디 입력" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>비밀번호 *</Label>
+                        <Input type="password" value={seniorData.password} onChange={e => setSeniorData({ ...seniorData, password: e.target.value })} required placeholder="비밀번호" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* 기본 정보 */}
                   <Card className="shadow-card border-0">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-lg">
-                        <User className="w-5 h-5 text-primary" />
-                        기본 정보
+                        <User className="w-5 h-5 text-primary" /> 기본 정보
                       </CardTitle>
-                      <CardDescription>어르신의 기본 정보를 입력해주세요</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="senior-name">성명 *</Label>
-                          <Input
-                            id="senior-name"
-                            placeholder="홍길동"
-                            value={seniorData.name}
-                            onChange={(e) => setSeniorData({ ...seniorData, name: e.target.value })}
-                            required
-                          />
+                          <Label>성명 *</Label>
+                          <Input value={seniorData.name} onChange={e => setSeniorData({ ...seniorData, name: e.target.value })} required />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="senior-birth">생년월일 *</Label>
-                          <Input
-                            id="senior-birth"
-                            type="date"
-                            value={seniorData.birthDate}
-                            onChange={(e) => setSeniorData({ ...seniorData, birthDate: e.target.value })}
-                            required
-                          />
+                          <Label>생년월일 *</Label>
+                          <Input type="date" value={seniorData.birthDate} onChange={e => setSeniorData({ ...seniorData, birthDate: e.target.value })} required />
                         </div>
                       </div>
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="senior-phone">연락처 *</Label>
-                          <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input
-                              id="senior-phone"
-                              placeholder="010-0000-0000"
-                              className="pl-10"
-                              value={seniorData.phone}
-                              onChange={(e) => setSeniorData({ ...seniorData, phone: e.target.value })}
-                              required
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="senior-counselor">담당 상담사 *</Label>
-                          <Select
-                            value={seniorData.assignedCounselor}
-                            onValueChange={(value) => setSeniorData({ ...seniorData, assignedCounselor: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="상담사 선택" />
-                            </SelectTrigger>
+                          <Label>성별 *</Label>
+                          <Select value={seniorData.gender} onValueChange={v => setSeniorData({ ...seniorData, gender: v })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              {counselors.map((c) => (
-                                <SelectItem key={c.id} value={c.id.toString()}>
-                                  {c.name} ({c.region})
-                                </SelectItem>
-                              ))}
+                              <SelectItem value="M">남성</SelectItem>
+                              <SelectItem value="F">여성</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="senior-address">주소 *</Label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <Input
-                            id="senior-address"
-                            placeholder="서울시 강남구 역삼동"
-                            className="pl-10"
-                            value={seniorData.address}
-                            onChange={(e) => setSeniorData({ ...seniorData, address: e.target.value })}
-                            required
-                          />
+                        <div className="space-y-2">
+                          <Label>연락처 *</Label>
+                          <Input value={seniorData.phone} onChange={e => setSeniorData({ ...seniorData, phone: e.target.value })} required placeholder="010-0000-0000" />
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="senior-detail-address">상세 주소</Label>
-                        <Input
-                          id="senior-detail-address"
-                          placeholder="아파트 동/호수"
-                          value={seniorData.detailAddress}
-                          onChange={(e) => setSeniorData({ ...seniorData, detailAddress: e.target.value })}
-                        />
+                        <Label>주소 *</Label>
+                        <Input value={seniorData.address} onChange={e => setSeniorData({ ...seniorData, address: e.target.value })} required placeholder="기본 주소" />
                       </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-card border-0">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <AlertCircle className="w-5 h-5 text-warning" />
-                        비상 연락처
-                      </CardTitle>
-                      <CardDescription>긴급 상황 시 연락할 보호자 정보</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="emergency-contact">비상 연락처 *</Label>
-                          <Input
-                            id="emergency-contact"
-                            placeholder="010-0000-0000"
-                            value={seniorData.emergencyContact}
-                            onChange={(e) => setSeniorData({ ...seniorData, emergencyContact: e.target.value })}
-                            required
-                          />
+                          <Label>상세 주소</Label>
+                          <Input value={seniorData.detailAddress} onChange={e => setSeniorData({ ...seniorData, detailAddress: e.target.value })} />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="emergency-relation">관계 *</Label>
-                          <Select
-                            value={seniorData.emergencyRelation}
-                            onValueChange={(value) => setSeniorData({ ...seniorData, emergencyRelation: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="관계 선택" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="child">자녀</SelectItem>
-                              <SelectItem value="spouse">배우자</SelectItem>
-                              <SelectItem value="sibling">형제/자매</SelectItem>
-                              <SelectItem value="grandchild">손자녀</SelectItem>
-                              <SelectItem value="relative">친척</SelectItem>
-                              <SelectItem value="neighbor">이웃</SelectItem>
-                              <SelectItem value="other">기타</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="senior-notes">특이사항</Label>
-                        <Textarea
-                          id="senior-notes"
-                          placeholder="건강 상태, 주의사항 등을 입력해주세요"
-                          value={seniorData.notes}
-                          onChange={(e) => setSeniorData({ ...seniorData, notes: e.target.value })}
-                          rows={3}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* 민감정보 접근 승인 */}
-                <div className="space-y-6">
-                  <Card className="shadow-card border-0">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Shield className="w-5 h-5 text-destructive" />
-                        민감정보 접근 승인
-                      </CardTitle>
-                      <CardDescription>
-                        상담사의 민감정보 조회 권한을 설정합니다
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20">
-                        <p className="text-sm text-destructive font-medium mb-2">⚠️ 주의사항</p>
-                        <p className="text-xs text-muted-foreground">
-                          민감정보 접근 승인은 어르신 본인 또는 법정 대리인의 동의가 필요합니다.
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <FileText className="w-5 h-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-medium">민감정보 조회</p>
-                              <p className="text-xs text-muted-foreground">주민등록번호, 금융정보 등</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={seniorData.sensitiveInfoApproval}
-                            onCheckedChange={(checked) => 
-                              setSeniorData({ ...seniorData, sensitiveInfoApproval: checked })
-                            }
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
-                              <Pill className="w-5 h-5 text-warning" />
-                            </div>
-                            <div>
-                              <p className="font-medium">복약정보 조회</p>
-                              <p className="text-xs text-muted-foreground">처방약, 복용 일정 등</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={seniorData.medicationInfoApproval}
-                            onCheckedChange={(checked) => 
-                              setSeniorData({ ...seniorData, medicationInfoApproval: checked })
-                            }
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                              <Heart className="w-5 h-5 text-success" />
-                            </div>
-                            <div>
-                              <p className="font-medium">건강정보 조회</p>
-                              <p className="text-xs text-muted-foreground">진료 기록, 건강 상태 등</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={seniorData.healthInfoApproval}
-                            onCheckedChange={(checked) => 
-                              setSeniorData({ ...seniorData, healthInfoApproval: checked })
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                          <Badge variant={seniorData.sensitiveInfoApproval || seniorData.medicationInfoApproval || seniorData.healthInfoApproval ? "default" : "secondary"}>
-                            {[seniorData.sensitiveInfoApproval, seniorData.medicationInfoApproval, seniorData.healthInfoApproval].filter(Boolean).length}개 승인됨
-                          </Badge>
+                          <Label>행정코드 (숫자)</Label>
+                          <Input value={seniorData.admCode} onChange={e => setSeniorData({ ...seniorData, admCode: e.target.value })} placeholder="예: 1111000000" />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-
-                  <Button type="submit" className="w-full" size="lg">
-                    <Save className="w-4 h-4 mr-2" />
-                    어르신 등록하기
+                  <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                    {loading ? "등록 중..." : "어르신 등록하기"}
                   </Button>
                 </div>
               </div>
             </form>
           </TabsContent>
 
-          {/* 보호자 등록 탭 */}
           <TabsContent value="guardian" className="mt-6">
             <form onSubmit={handleGuardianSubmit}>
               <div className="grid lg:grid-cols-3 gap-6">
-                {/* 기본 정보 */}
                 <div className="lg:col-span-2 space-y-6">
+                  {/* 계정 정보 */}
                   <Card className="shadow-card border-0">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Heart className="w-5 h-5 text-primary" />
-                        보호자 기본 정보
-                      </CardTitle>
-                      <CardDescription>보호자의 기본 정보를 입력해주세요</CardDescription>
+                      <CardTitle className="flex items-center gap-2 text-lg"><Key className="w-5 h-5 text-primary" /> 계정 정보</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="guardian-name">성명 *</Label>
-                          <Input
-                            id="guardian-name"
-                            placeholder="홍길동"
-                            value={guardianData.name}
-                            onChange={(e) => setGuardianData({ ...guardianData, name: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="guardian-birth">생년월일 *</Label>
-                          <Input
-                            id="guardian-birth"
-                            type="date"
-                            value={guardianData.birthDate}
-                            onChange={(e) => setGuardianData({ ...guardianData, birthDate: e.target.value })}
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="guardian-phone">연락처 *</Label>
-                          <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input
-                              id="guardian-phone"
-                              placeholder="010-0000-0000"
-                              className="pl-10"
-                              value={guardianData.phone}
-                              onChange={(e) => setGuardianData({ ...guardianData, phone: e.target.value })}
-                              required
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="guardian-email">이메일</Label>
-                          <Input
-                            id="guardian-email"
-                            type="email"
-                            placeholder="example@email.com"
-                            value={guardianData.email}
-                            onChange={(e) => setGuardianData({ ...guardianData, email: e.target.value })}
-                          />
-                        </div>
+                    <CardContent className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>로그인 ID *</Label>
+                        <Input value={guardianData.loginId} onChange={e => setGuardianData({ ...guardianData, loginId: e.target.value })} required />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="guardian-address">주소</Label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <Input
-                            id="guardian-address"
-                            placeholder="서울시 강남구 역삼동"
-                            className="pl-10"
-                            value={guardianData.address}
-                            onChange={(e) => setGuardianData({ ...guardianData, address: e.target.value })}
-                          />
-                        </div>
+                        <Label>비밀번호 *</Label>
+                        <Input type="password" value={guardianData.password} onChange={e => setGuardianData({ ...guardianData, password: e.target.value })} required />
                       </div>
                     </CardContent>
                   </Card>
 
+                  {/* 기본 정보 */}
                   <Card className="shadow-card border-0">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-lg">
-                        <User className="w-5 h-5 text-info" />
-                        어르신 연결
+                        <Heart className="w-5 h-5 text-primary" /> 보호자 정보
                       </CardTitle>
-                      <CardDescription>보호할 어르신 정보를 입력해주세요</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="guardian-senior">담당 어르신 *</Label>
-                          <Input
-                            id="guardian-senior"
-                            placeholder="어르신 성함"
-                            value={guardianData.seniorName}
-                            onChange={(e) => setGuardianData({ ...guardianData, seniorName: e.target.value })}
-                            required
-                          />
+                          <Label>성명 *</Label>
+                          <Input value={guardianData.name} onChange={e => setGuardianData({ ...guardianData, name: e.target.value })} required />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="guardian-relation">관계 *</Label>
-                          <Select
-                            value={guardianData.relation}
-                            onValueChange={(value) => setGuardianData({ ...guardianData, relation: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="관계 선택" />
-                            </SelectTrigger>
+                          <Label>연락처 *</Label>
+                          <Input value={guardianData.phone} onChange={e => setGuardianData({ ...guardianData, phone: e.target.value })} required />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>주소</Label>
+                        <Input value={guardianData.address} onChange={e => setGuardianData({ ...guardianData, address: e.target.value })} />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* 연결 정보 */}
+                  <Card className="shadow-card border-0">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg"><User className="w-5 h-5 text-info" /> 어르신 연결</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>어르신 회원 ID (숫자) *</Label>
+                          <Input type="number" value={guardianData.seniorId} onChange={e => setGuardianData({ ...guardianData, seniorId: e.target.value })} required placeholder="시스템 사용자 ID" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>관계 *</Label>
+                          <Select value={guardianData.relation} onValueChange={v => setGuardianData({ ...guardianData, relation: v })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="child">자녀</SelectItem>
-                              <SelectItem value="spouse">배우자</SelectItem>
-                              <SelectItem value="sibling">형제/자매</SelectItem>
-                              <SelectItem value="grandchild">손자녀</SelectItem>
-                              <SelectItem value="relative">친척</SelectItem>
-                              <SelectItem value="caregiver">돌봄제공자</SelectItem>
-                              <SelectItem value="other">기타</SelectItem>
+                              <SelectItem value="FAMILY">가족</SelectItem>
+                              <SelectItem value="CAREGIVER">간병인</SelectItem>
+                              <SelectItem value="OTHER">기타</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                </div>
 
-                {/* 정보 접근 승인 */}
-                <div className="space-y-6">
-                  <Card className="shadow-card border-0">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Shield className="w-5 h-5 text-destructive" />
-                        정보 접근 승인
-                      </CardTitle>
-                      <CardDescription>
-                        보호자의 어르신 정보 조회 권한을 설정합니다
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="p-4 rounded-xl bg-info/10 border border-info/20">
-                        <p className="text-sm text-info font-medium mb-2">ℹ️ 안내</p>
-                        <p className="text-xs text-muted-foreground">
-                          보호자는 승인된 항목에 한해 어르신의 정보를 조회할 수 있습니다.
-                        </p>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <FileText className="w-5 h-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-medium">민감정보 조회</p>
-                              <p className="text-xs text-muted-foreground">주민등록번호, 금융정보 등</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={guardianData.sensitiveInfoApproval}
-                            onCheckedChange={(checked) => 
-                              setGuardianData({ ...guardianData, sensitiveInfoApproval: checked })
-                            }
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
-                              <Pill className="w-5 h-5 text-warning" />
-                            </div>
-                            <div>
-                              <p className="font-medium">복약정보 조회</p>
-                              <p className="text-xs text-muted-foreground">처방약, 복용 일정 등</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={guardianData.medicationInfoApproval}
-                            onCheckedChange={(checked) => 
-                              setGuardianData({ ...guardianData, medicationInfoApproval: checked })
-                            }
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                              <Heart className="w-5 h-5 text-success" />
-                            </div>
-                            <div>
-                              <p className="font-medium">건강정보 조회</p>
-                              <p className="text-xs text-muted-foreground">진료 기록, 건강 상태 등</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={guardianData.healthInfoApproval}
-                            onCheckedChange={(checked) => 
-                              setGuardianData({ ...guardianData, healthInfoApproval: checked })
-                            }
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-                              <Phone className="w-5 h-5 text-accent" />
-                            </div>
-                            <div>
-                              <p className="font-medium">통화기록 조회</p>
-                              <p className="text-xs text-muted-foreground">AI 안부전화 기록</p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={guardianData.callRecordAccess}
-                            onCheckedChange={(checked) => 
-                              setGuardianData({ ...guardianData, callRecordAccess: checked })
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                          <Badge variant={
-                            guardianData.sensitiveInfoApproval || 
-                            guardianData.medicationInfoApproval || 
-                            guardianData.healthInfoApproval ||
-                            guardianData.callRecordAccess 
-                              ? "default" 
-                              : "secondary"
-                          }>
-                            {[
-                              guardianData.sensitiveInfoApproval, 
-                              guardianData.medicationInfoApproval, 
-                              guardianData.healthInfoApproval,
-                              guardianData.callRecordAccess
-                            ].filter(Boolean).length}개 승인됨
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Button type="submit" className="w-full" size="lg">
-                    <Save className="w-4 h-4 mr-2" />
-                    보호자 등록하기
+                  <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                    {loading ? "등록 중..." : "보호자 등록하기"}
                   </Button>
                 </div>
               </div>

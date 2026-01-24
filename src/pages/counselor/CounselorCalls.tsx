@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
+import {
   Search,
   Calendar,
   Clock,
@@ -8,7 +8,8 @@ import {
   Smile,
   Meh,
   Frown,
-  Phone
+  Phone,
+  Loader2
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -29,72 +30,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { counselorNavItems } from "@/config/counselorNavItems";
-
-const callRecords = [
-  {
-    id: 1,
-    seniorName: "김순자",
-    seniorAge: 78,
-    date: "2024-01-15",
-    time: "10:30",
-    duration: "15분 23초",
-    emotion: "good",
-    summary: "오늘 아침 식사를 잘 하셨고, 컨디션이 좋으심. 손자 이야기를 즐겁게 하심.",
-    transcript: "상담사: 안녕하세요, 김순자 어르신. 오늘 기분이 어떠세요?\n어르신: 네, 오늘 기분이 좋아요. 아침에 손자가 전화했거든요.\n상담사: 오, 그러셨군요. 손자분이 뭐라고 하셨어요?\n어르신: 다음 주에 놀러 온다고 했어요. 너무 기대돼요...",
-    keywords: ["식사 완료", "손자", "기분 좋음"],
-  },
-  {
-    id: 2,
-    seniorName: "박영희",
-    seniorAge: 82,
-    date: "2024-01-15",
-    time: "09:45",
-    duration: "12분 08초",
-    emotion: "bad",
-    summary: "어젯밤 잠을 잘 못 주무심. 무릎 통증 호소. 우울감 표현.",
-    transcript: "상담사: 안녕하세요, 박영희 어르신. 잘 주무셨어요?\n어르신: 아이고, 어젯밤에 통 잠을 못 잤어요. 무릎이 쑤셔서...\n상담사: 많이 아프세요? 병원에 가보셔야 할 것 같은데요.\n어르신: 병원은 무슨... 나 혼자 어떻게 가...",
-    keywords: ["수면 부족", "무릎 통증", "우울"],
-  },
-  {
-    id: 3,
-    seniorName: "이철수",
-    seniorAge: 75,
-    date: "2024-01-15",
-    time: "09:15",
-    duration: "18분 45초",
-    emotion: "neutral",
-    summary: "전반적으로 양호함. 약 복용 확인 완료. 외출 계획 있음.",
-    transcript: "상담사: 안녕하세요, 이철수 어르신. 오늘 약은 드셨어요?\n어르신: 네, 아까 아침에 먹었어요.\n상담사: 잘 하셨어요. 오늘 특별한 계획 있으세요?\n어르신: 오후에 경로당에 가려고요...",
-    keywords: ["약 복용", "경로당", "외출"],
-  },
-  {
-    id: 4,
-    seniorName: "정말자",
-    seniorAge: 80,
-    date: "2024-01-14",
-    time: "11:00",
-    duration: "14분 32초",
-    emotion: "good",
-    summary: "어제 딸이 방문하여 기분 좋으심. 건강 상태 양호.",
-    transcript: "상담사: 안녕하세요, 정말자 어르신. 어떻게 지내세요?\n어르신: 아이고, 어제 우리 딸이 왔다 갔어요. 맛있는 것도 많이 해주고...\n상담사: 좋으셨겠네요. 뭘 해주던가요?\n어르신: 갈비찜을 해줬어요. 얼마나 맛있던지...",
-    keywords: ["가족 방문", "기분 좋음", "식사"],
-  },
-  {
-    id: 5,
-    seniorName: "최영호",
-    seniorAge: 79,
-    date: "2024-01-14",
-    time: "10:15",
-    duration: "11분 18초",
-    emotion: "neutral",
-    summary: "일상적인 대화. 특이사항 없음. 다음 건강검진 일정 안내.",
-    transcript: "상담사: 안녕하세요, 최영호 어르신. 오늘 컨디션은 어떠세요?\n어르신: 뭐, 그냥 그래요. 매일 비슷비슷하지...\n상담사: 네, 다음 주에 건강검진 있으신 거 알고 계시죠?\n어르신: 아, 그래요? 잊고 있었네...",
-    keywords: ["건강검진", "일상"],
-  },
-];
+import callReviewsApi from "@/api/callReviews";
+import usersApi from "@/api/users";
+import { CallRecordSummaryResponse, MyProfileResponse } from "@/types/api";
 
 const EmotionIcon = ({ emotion }: { emotion: string }) => {
-  switch (emotion) {
+  switch (emotion?.toLowerCase()) {
     case "good":
       return <Smile className="w-5 h-5 text-success" />;
     case "neutral":
@@ -109,22 +50,62 @@ const EmotionIcon = ({ emotion }: { emotion: string }) => {
 const CounselorCalls = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [dateFilter, setDateFilter] = useState("all");
   const [emotionFilter, setEmotionFilter] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [callRecords, setCallRecords] = useState<CallRecordSummaryResponse[]>([]);
+  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+
+        // 사용자 프로필 조회
+        const profile = await usersApi.getMyProfile();
+        setUserProfile(profile);
+
+        // 통화 기록 조회
+        const callsResponse = await callReviewsApi.getCallRecordsForCounselor({ size: 50 });
+        setCallRecords(callsResponse.content);
+      } catch (error) {
+        console.error('Failed to fetch call records:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const filteredCalls = callRecords.filter((call) => {
-    const matchesSearch = call.seniorName.includes(searchTerm) || call.summary.includes(searchTerm);
-    const matchesEmotion = emotionFilter === "all" || call.emotion === emotionFilter;
+    const matchesSearch = call.elderlyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      call.summary?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesEmotion = emotionFilter === "all" || call.emotion?.toLowerCase() === emotionFilter;
     return matchesSearch && matchesEmotion;
   });
 
-  const todayCalls = callRecords.filter(c => c.date === "2024-01-15").length;
-  const avgDuration = "14분 15초";
+  // 통계 계산
+  const today = new Date().toISOString().split('T')[0];
+  const todayCalls = callRecords.filter(c => c.callAt?.startsWith(today)).length;
+  const avgDuration = callRecords.length > 0
+    ? Math.round(callRecords.reduce((sum, c) => sum + (c.duration || 0), 0) / callRecords.length)
+    : 0;
+  const badEmotionCount = callRecords.filter(c => c.emotion?.toLowerCase() === 'bad').length;
+
+  if (isLoading) {
+    return (
+      <DashboardLayout role="counselor" userName="로딩중..." navItems={counselorNavItems}>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
       role="counselor"
-      userName="김상담"
+      userName={userProfile?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">
@@ -171,7 +152,7 @@ const CounselorCalls = () => {
                   <Clock className="h-5 w-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{avgDuration}</p>
+                  <p className="text-2xl font-bold">{avgDuration}분</p>
                   <p className="text-sm text-muted-foreground">평균 통화시간</p>
                 </div>
               </div>
@@ -184,7 +165,7 @@ const CounselorCalls = () => {
                   <Frown className="h-5 w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{callRecords.filter(c => c.emotion === "bad").length}</p>
+                  <p className="text-2xl font-bold">{badEmotionCount}</p>
                   <p className="text-sm text-muted-foreground">주의 필요</p>
                 </div>
               </div>
@@ -229,55 +210,69 @@ const CounselorCalls = () => {
             <CardDescription>클릭하여 상세 내용을 확인하세요</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>어르신</TableHead>
-                  <TableHead>일시</TableHead>
-                  <TableHead>통화시간</TableHead>
-                  <TableHead>감정상태</TableHead>
-                  <TableHead>요약</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCalls.map((call) => (
-                  <TableRow 
-                    key={call.id} 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => navigate(`/counselor/calls/${call.id}`)}
-                  >
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{call.seniorName}</p>
-                        <p className="text-xs text-muted-foreground">{call.seniorAge}세</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p>{call.date}</p>
-                        <p className="text-xs text-muted-foreground">{call.time}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{call.duration}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <EmotionIcon emotion={call.emotion} />
-                        <span className="text-sm">
-                          {call.emotion === "good" ? "좋음" : call.emotion === "neutral" ? "보통" : "주의"}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-[300px]">
-                      <p className="truncate text-sm text-muted-foreground">{call.summary}</p>
-                    </TableCell>
-                    <TableCell>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </TableCell>
+            {filteredCalls.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {callRecords.length === 0 ? '통화 기록이 없습니다.' : '검색 결과가 없습니다.'}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>어르신</TableHead>
+                    <TableHead>일시</TableHead>
+                    <TableHead>통화시간</TableHead>
+                    <TableHead>감정상태</TableHead>
+                    <TableHead>요약</TableHead>
+                    <TableHead>리뷰</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredCalls.map((call) => (
+                    <TableRow
+                      key={call.callId}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/counselor/calls/${call.callId}`)}
+                    >
+                      <TableCell>
+                        <p className="font-medium">{call.elderlyName}</p>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p>{call.callAt?.split('T')[0]}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {call.callAt?.split('T')[1]?.substring(0, 5)}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{call.duration}분</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <EmotionIcon emotion={call.emotion || 'neutral'} />
+                          <span className="text-sm">
+                            {call.emotion?.toLowerCase() === "good" ? "좋음" :
+                              call.emotion?.toLowerCase() === "neutral" ? "보통" : "주의"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-[300px]">
+                        <p className="truncate text-sm text-muted-foreground">{call.summary}</p>
+                      </TableCell>
+                      <TableCell>
+                        {call.hasReview ? (
+                          <span className="text-xs text-success">완료</span>
+                        ) : (
+                          <span className="text-xs text-warning">미작성</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

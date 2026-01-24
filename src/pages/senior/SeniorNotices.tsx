@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,52 +9,47 @@ import {
   Megaphone,
   Pin,
   Calendar,
-  Volume2
+  Volume2,
+  Loader2
 } from "lucide-react";
-
-interface Notice {
-  id: string;
-  title: string;
-  content: string;
-  category: "공지" | "긴급" | "이벤트";
-  isPinned: boolean;
-  date: string;
-}
-
-const mockNotices: Notice[] = [
-  {
-    id: "1",
-    title: "설날 연휴 상담 안내",
-    content: "설날 연휴 기간(2월 9일~12일)에도 긴급 상담은 정상 운영됩니다.\n\n긴급한 상황이 있으시면 언제든지 긴급 연락 버튼을 눌러주세요.\n\n명절 연휴 건강하게 보내세요!",
-    category: "긴급",
-    isPinned: true,
-    date: "2024-02-01",
-  },
-  {
-    id: "2",
-    title: "2024년 새해 복 많이 받으세요",
-    content: "새해 첫날, 어르신들의 건강과 행복을 기원합니다.\n\n올해도 마음돌봄이 함께 하겠습니다.\n\n늘 건강하시고 행복하세요!",
-    category: "공지",
-    isPinned: true,
-    date: "2024-01-01",
-  },
-  {
-    id: "3",
-    title: "봄맞이 건강 프로그램 안내",
-    content: "봄을 맞아 어르신들을 위한 특별 건강 프로그램이 진행됩니다.\n\n참여를 원하시면 담당 상담사에게 말씀해주세요.\n\n- 일시: 3월 중\n- 내용: 스트레칭, 건강 강좌",
-    category: "이벤트",
-    isPinned: false,
-    date: "2024-02-15",
-  },
-];
+import noticesApi from "@/api/notices";
+import { NoticeResponse } from "@/types/api";
 
 const SeniorNotices = () => {
   const navigate = useNavigate();
-  const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
+  const [selectedNotice, setSelectedNotice] = useState<NoticeResponse | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notices, setNotices] = useState<NoticeResponse[]>([]);
 
-  const handleNoticeClick = (notice: Notice) => {
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        setIsLoading(true);
+        const response = await noticesApi.getNotices({ size: 30 });
+        setNotices(response.content);
+      } catch (error) {
+        console.error('Failed to fetch notices:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNotices();
+  }, []);
+
+  const handleNoticeClick = async (notice: NoticeResponse) => {
     setSelectedNotice(notice);
+    if (!notice.isRead) {
+      try {
+        await noticesApi.markAsRead(notice.id);
+        setNotices(prev =>
+          prev.map(n => n.id === notice.id ? { ...n, isRead: true } : n)
+        );
+      } catch (error) {
+        console.error('Failed to mark as read:', error);
+      }
+    }
   };
 
   const handleSpeak = () => {
@@ -71,7 +66,7 @@ const SeniorNotices = () => {
     utterance.lang = "ko-KR";
     utterance.rate = 0.8;
     utterance.onend = () => setIsSpeaking(false);
-    
+
     window.speechSynthesis.speak(utterance);
     setIsSpeaking(true);
   };
@@ -97,6 +92,14 @@ const SeniorNotices = () => {
         return <Badge className="bg-primary/10 text-primary border-0 text-base px-3 py-1">공지</Badge>;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -124,40 +127,49 @@ const SeniorNotices = () => {
       </header>
 
       <main className="p-6 space-y-4">
-        {mockNotices.map((notice) => (
-          <button
-            key={notice.id}
-            onClick={() => handleNoticeClick(notice)}
-            className="w-full text-left"
-          >
-            <Card className="hover:shadow-lg transition-all active:scale-[0.98]">
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <div className={`w-14 h-14 rounded-xl ${getCategoryStyle(notice.category)} flex items-center justify-center flex-shrink-0`}>
-                    {notice.isPinned ? (
-                      <Pin className="w-7 h-7" />
-                    ) : (
-                      <Megaphone className="w-7 h-7" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      {getCategoryBadge(notice.category)}
-                      {notice.isPinned && (
-                        <Badge variant="outline" className="text-sm">고정</Badge>
+        {notices.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground text-lg">
+            공지사항이 없습니다.
+          </div>
+        ) : (
+          notices.map((notice) => (
+            <button
+              key={notice.id}
+              onClick={() => handleNoticeClick(notice)}
+              className="w-full text-left"
+            >
+              <Card className="hover:shadow-lg transition-all active:scale-[0.98]">
+                <CardContent className="p-5">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-14 h-14 rounded-xl ${getCategoryStyle(notice.category)} flex items-center justify-center flex-shrink-0`}>
+                      {notice.isImportant ? (
+                        <Pin className="w-7 h-7" />
+                      ) : (
+                        <Megaphone className="w-7 h-7" />
                       )}
                     </div>
-                    <p className="font-bold text-lg line-clamp-2">{notice.title}</p>
-                    <div className="flex items-center gap-2 mt-2 text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span className="text-sm">{notice.date}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        {getCategoryBadge(notice.category)}
+                        {notice.isImportant && (
+                          <Badge variant="outline" className="text-sm">고정</Badge>
+                        )}
+                        {!notice.isRead && (
+                          <Badge className="bg-primary text-primary-foreground text-sm">NEW</Badge>
+                        )}
+                      </div>
+                      <p className="font-bold text-lg line-clamp-2">{notice.title}</p>
+                      <div className="flex items-center gap-2 mt-2 text-muted-foreground">
+                        <Calendar className="w-4 h-4" />
+                        <span className="text-sm">{notice.createdAt?.split('T')[0]}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </button>
-        ))}
+                </CardContent>
+              </Card>
+            </button>
+          ))
+        )}
       </main>
 
       {/* Notice Detail Dialog */}
@@ -176,7 +188,7 @@ const SeniorNotices = () => {
             </DialogTitle>
             <DialogDescription className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              {selectedNotice?.date}
+              {selectedNotice?.createdAt?.split('T')[0]}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -187,9 +199,8 @@ const SeniorNotices = () => {
           <DialogFooter className="flex flex-col gap-3 sm:flex-col">
             <Button
               onClick={handleSpeak}
-              className={`w-full h-16 text-lg font-bold rounded-xl gap-3 ${
-                isSpeaking ? "bg-warning hover:bg-warning/90" : ""
-              }`}
+              className={`w-full h-16 text-lg font-bold rounded-xl gap-3 ${isSpeaking ? "bg-warning hover:bg-warning/90" : ""
+                }`}
             >
               <Volume2 className="w-6 h-6" />
               {isSpeaking ? "읽기 중지" : "소리로 읽어주기"}

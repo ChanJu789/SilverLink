@@ -1,4 +1,5 @@
-import { 
+import { useState, useEffect } from "react";
+import {
   Heart,
   Utensils,
   Activity,
@@ -12,7 +13,8 @@ import {
   ChevronRight,
   MessageSquare,
   FileText,
-  HelpCircle
+  HelpCircle,
+  Loader2
 } from "lucide-react";
 import { guardianNavItems } from "@/config/guardianNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -20,29 +22,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useNavigate } from "react-router-dom";
+import guardiansApi from "@/api/guardians";
+import callReviewsApi from "@/api/callReviews";
+import usersApi from "@/api/users";
+import { GuardianElderlyResponse, GuardianCallReviewResponse, MyProfileResponse } from "@/types/api";
 
-// Mock data
-const parentStatus = {
-  name: "김순자",
-  age: 78,
-  lastCall: "2024-01-15 10:30",
-  emotion: "good",
-  meal: "완료",
-  health: "양호",
-  specialNote: null,
-};
-
-const recentCalls = [
-  { id: 1, date: "2024-01-15", time: "10:30", duration: "15분", emotion: "good", summary: "오늘 아침 식사 잘 하셨고, 컨디션 좋으심" },
-  { id: 2, date: "2024-01-14", time: "10:15", duration: "12분", emotion: "neutral", summary: "어제 잠을 잘 못 주무셨다고 하심" },
-  { id: 3, date: "2024-01-13", time: "10:45", duration: "18분", emotion: "good", summary: "손자 이야기를 많이 하심, 기분 좋으심" },
-];
-
-const emotionStats = {
-  good: 75,
-  neutral: 20,
-  bad: 5,
-};
+// EmotionIcon 컴포넌트
 
 const EmotionIcon = ({ emotion }: { emotion: string }) => {
   switch (emotion) {
@@ -58,10 +44,79 @@ const EmotionIcon = ({ emotion }: { emotion: string }) => {
 };
 
 const GuardianDashboard = () => {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+  const [elderlyData, setElderlyData] = useState<GuardianElderlyResponse | null>(null);
+  const [recentCalls, setRecentCalls] = useState<GuardianCallReviewResponse[]>([]);
+  const [emotionStats, setEmotionStats] = useState({ good: 0, neutral: 0, bad: 0 });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+
+        // 사용자 프로필 조회
+        const profile = await usersApi.getMyProfile();
+        setUserProfile(profile);
+
+        // 내 어르신 목록 조회
+        const elderlyResponse = await guardiansApi.getMyElderly();
+        setElderlyData(elderlyResponse);
+
+        // 첫 번째 어르신의 통화 기록 조회
+        if (elderlyResponse.elderlyList?.length > 0) {
+          const firstElderly = elderlyResponse.elderlyList[0];
+          const callsResponse = await callReviewsApi.getCallReviewsForGuardian(firstElderly.elderlyId);
+          setRecentCalls(callsResponse.content.slice(0, 3)); // 최근 3건
+
+          // 감정 통계 계산
+          const stats = { good: 0, neutral: 0, bad: 0 };
+          callsResponse.content.forEach((call) => {
+            if (call.emotion === 'GOOD') stats.good++;
+            else if (call.emotion === 'NEUTRAL') stats.neutral++;
+            else if (call.emotion === 'BAD') stats.bad++;
+          });
+          const total = callsResponse.content.length || 1;
+          setEmotionStats({
+            good: Math.round((stats.good / total) * 100),
+            neutral: Math.round((stats.neutral / total) * 100),
+            bad: Math.round((stats.bad / total) * 100),
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // 로딩 중 표시
+  if (isLoading) {
+    return (
+      <DashboardLayout role="guardian" userName="로딩중..." navItems={guardianNavItems}>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // 어르신 정보
+  const firstElderly = elderlyData?.elderlyList?.[0];
+  const parentStatus = {
+    name: firstElderly?.name || "정보 없음",
+    age: firstElderly?.age || 0,
+    relationType: firstElderly?.relationType || "",
+  };
+
   return (
     <DashboardLayout
       role="guardian"
-      userName="홍길동"
+      userName={userProfile?.name || "보호자"}
       navItems={guardianNavItems}
     >
       <div className="space-y-6">
@@ -104,16 +159,16 @@ const GuardianDashboard = () => {
               <div className="p-4 rounded-xl bg-accent/10">
                 <div className="flex items-center gap-2 text-accent mb-2">
                   <Utensils className="w-4 h-4" />
-                  <span className="text-sm">식사</span>
+                  <span className="text-sm">관계</span>
                 </div>
-                <p className="font-semibold text-foreground">{parentStatus.meal}</p>
+                <p className="font-semibold text-foreground">{parentStatus.relationType || '-'}</p>
               </div>
               <div className="p-4 rounded-xl bg-primary/10">
                 <div className="flex items-center gap-2 text-primary mb-2">
                   <Activity className="w-4 h-4" />
-                  <span className="text-sm">건강 상태</span>
+                  <span className="text-sm">나이</span>
                 </div>
-                <p className="font-semibold text-foreground">{parentStatus.health}</p>
+                <p className="font-semibold text-foreground">{parentStatus.age}세</p>
               </div>
             </div>
           </CardContent>
@@ -134,20 +189,21 @@ const GuardianDashboard = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 {recentCalls.map((call) => (
-                  <div 
-                    key={call.id}
+                  <div
+                    key={call.callId}
                     className="p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/guardian/calls/${call.callId}`)}
                   >
                     <div className="flex items-start gap-4">
                       <div className="w-10 h-10 rounded-full bg-card flex items-center justify-center shadow-card">
-                        <EmotionIcon emotion={call.emotion} />
+                        <EmotionIcon emotion={call.emotion?.toLowerCase() || 'neutral'} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-foreground">{call.date}</span>
-                          <span className="text-sm text-muted-foreground">{call.time}</span>
+                          <span className="font-medium text-foreground">{call.callAt?.split('T')[0]}</span>
+                          <span className="text-sm text-muted-foreground">{call.callAt?.split('T')[1]?.substring(0, 5)}</span>
                           <Badge variant="secondary" className="text-xs">
-                            {call.duration}
+                            {call.duration}분
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground line-clamp-1">

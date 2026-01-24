@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { 
+import { useState, useEffect } from "react";
+import {
   Search,
   Send,
   Clock,
   CheckCircle2,
-  MessageSquare
+  MessageSquare,
+  Loader2
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,131 +16,130 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import { toast } from "sonner";
+import inquiriesApi from "@/api/inquiries";
+import usersApi from "@/api/users";
+import { InquiryResponse, MyProfileResponse } from "@/types/api";
 
-const inquiries = [
-  {
-    id: 1,
-    guardianName: "홍길동",
-    seniorName: "김순자",
-    title: "어머니 건강 상태 문의",
-    status: "waiting",
-    createdAt: "2024-01-15 14:30",
-    lastMessage: "어머니께서 요즘 식사를 잘 안하신다고 하셔서 걱정됩니다...",
-    messages: [
-      {
-        id: 1,
-        sender: "guardian",
-        content: "안녕하세요, 어머니 담당 상담사님. 어머니께서 요즘 식사를 잘 안하신다고 하셔서 걱정됩니다. 혹시 통화하실 때 특이사항이 있으셨나요?",
-        timestamp: "2024-01-15 14:30"
-      }
-    ]
-  },
-  {
-    id: 2,
-    guardianName: "박민수",
-    seniorName: "박영희",
-    title: "정기 통화 시간 변경 요청",
-    status: "answered",
-    createdAt: "2024-01-14 10:00",
-    lastMessage: "변경 완료되었습니다. 앞으로 오전 10시에 연락드리겠습니다.",
-    messages: [
-      {
-        id: 1,
-        sender: "guardian",
-        content: "안녕하세요, 아버지 통화 시간을 오전 10시로 변경 부탁드립니다.",
-        timestamp: "2024-01-14 10:00"
-      },
-      {
-        id: 2,
-        sender: "counselor",
-        content: "안녕하세요, 보호자님. 네, 변경 완료되었습니다. 앞으로 오전 10시에 연락드리겠습니다.",
-        timestamp: "2024-01-14 11:30"
-      }
-    ]
-  },
-  {
-    id: 3,
-    guardianName: "이영희",
-    seniorName: "이철수",
-    title: "우울증상 관련 상담 요청",
-    status: "waiting",
-    createdAt: "2024-01-15 09:00",
-    lastMessage: "아버지께서 요즘 많이 우울해하시는 것 같아요...",
-    messages: [
-      {
-        id: 1,
-        sender: "guardian",
-        content: "상담사님, 아버지께서 요즘 많이 우울해하시는 것 같아요. 손자가 해외로 유학을 가서 그런 것 같은데, 전문적인 상담이 필요할까요?",
-        timestamp: "2024-01-15 09:00"
-      }
-    ]
-  },
-  {
-    id: 4,
-    guardianName: "정수민",
-    seniorName: "정말자",
-    title: "복지 서비스 신청 도움 요청",
-    status: "waiting",
-    createdAt: "2024-01-14 16:00",
-    lastMessage: "어머니께서 복지 서비스 신청을 원하시는데...",
-    messages: [
-      {
-        id: 1,
-        sender: "guardian",
-        content: "안녕하세요, 어머니께서 노인복지관 이용을 원하시는데 신청 방법을 잘 모르시겠다고 하세요. 도움을 받을 수 있을까요?",
-        timestamp: "2024-01-14 16:00"
-      }
-    ]
-  },
-  {
-    id: 5,
-    guardianName: "최미영",
-    seniorName: "최영호",
-    title: "약 복용 시간 확인 요청",
-    status: "answered",
-    createdAt: "2024-01-13 13:00",
-    lastMessage: "네, 통화 시마다 꼭 확인해드리겠습니다.",
-    messages: [
-      {
-        id: 1,
-        sender: "guardian",
-        content: "아버지께서 약 드시는 걸 자주 잊으시는데, 통화하실 때 확인 부탁드려도 될까요?",
-        timestamp: "2024-01-13 13:00"
-      },
-      {
-        id: 2,
-        sender: "counselor",
-        content: "안녕하세요, 보호자님. 네, 통화 시마다 꼭 확인해드리겠습니다. 걱정 마세요.",
-        timestamp: "2024-01-13 14:30"
-      }
-    ]
-  },
-];
+interface InquiryWithMessages extends InquiryResponse {
+  messages?: Array<{
+    id: number;
+    sender: 'guardian' | 'counselor';
+    content: string;
+    timestamp: string;
+  }>;
+}
 
 const CounselorInquiries = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedInquiry, setSelectedInquiry] = useState<typeof inquiries[0] | null>(inquiries[0]);
+  const [selectedInquiry, setSelectedInquiry] = useState<InquiryWithMessages | null>(null);
   const [replyMessage, setReplyMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [inquiries, setInquiries] = useState<InquiryWithMessages[]>([]);
+  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+
+        const profile = await usersApi.getMyProfile();
+        setUserProfile(profile);
+
+        const response = await inquiriesApi.getInquiries({ size: 50 });
+        const inquiriesWithMessages = response.content.map(inquiry => ({
+          ...inquiry,
+          messages: [
+            {
+              id: 1,
+              sender: 'guardian' as const,
+              content: inquiry.content,
+              timestamp: inquiry.createdAt || ''
+            },
+            ...(inquiry.answer ? [{
+              id: 2,
+              sender: 'counselor' as const,
+              content: inquiry.answer,
+              timestamp: inquiry.answeredAt || ''
+            }] : [])
+          ]
+        }));
+
+        setInquiries(inquiriesWithMessages);
+        if (inquiriesWithMessages.length > 0) {
+          setSelectedInquiry(inquiriesWithMessages[0]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch inquiries:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const filteredInquiries = inquiries.filter((inquiry) =>
-    inquiry.title.includes(searchTerm) || 
-    inquiry.guardianName.includes(searchTerm) ||
-    inquiry.seniorName.includes(searchTerm)
+    inquiry.title?.includes(searchTerm) ||
+    inquiry.authorName?.includes(searchTerm)
   );
 
-  const waitingCount = inquiries.filter(i => i.status === "waiting").length;
-  const answeredCount = inquiries.filter(i => i.status === "answered").length;
+  const waitingCount = inquiries.filter(i => i.status === 'PENDING' || i.status === 'waiting').length;
+  const answeredCount = inquiries.filter(i => i.status === 'ANSWERED' || i.status === 'answered').length;
 
-  const handleReply = () => {
+  const handleReply = async () => {
     if (!replyMessage.trim() || !selectedInquiry) return;
-    // Add reply logic here
-    setReplyMessage("");
+
+    try {
+      setIsSubmitting(true);
+      await inquiriesApi.registerAnswer(selectedInquiry.id, { answer: replyMessage });
+
+      // Update local state
+      const updatedInquiry: InquiryWithMessages = {
+        ...selectedInquiry,
+        status: 'ANSWERED',
+        answer: replyMessage,
+        answeredAt: new Date().toISOString(),
+        messages: [
+          ...(selectedInquiry.messages || []),
+          {
+            id: (selectedInquiry.messages?.length || 0) + 1,
+            sender: 'counselor',
+            content: replyMessage,
+            timestamp: new Date().toISOString()
+          }
+        ]
+      };
+
+      setInquiries(prev => prev.map(i => i.id === selectedInquiry.id ? updatedInquiry : i));
+      setSelectedInquiry(updatedInquiry);
+      setReplyMessage("");
+      toast.success("답변이 등록되었습니다.");
+    } catch (error) {
+      console.error('Failed to submit reply:', error);
+      toast.error("답변 등록에 실패했습니다.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout role="counselor" userName="로딩중..." navItems={counselorNavItems}>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const isAnswered = (status: string) => status === 'ANSWERED' || status === 'answered';
 
   return (
     <DashboardLayout
       role="counselor"
-      userName="김상담"
+      userName={userProfile?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">
@@ -213,41 +213,45 @@ const CounselorInquiries = () => {
             <CardContent className="p-0">
               <ScrollArea className="h-[500px]">
                 <div className="space-y-1 p-4 pt-0">
-                  {filteredInquiries.map((inquiry) => (
-                    <div
-                      key={inquiry.id}
-                      className={`p-4 rounded-xl cursor-pointer transition-colors ${
-                        selectedInquiry?.id === inquiry.id 
-                          ? "bg-primary/10 border border-primary/30" 
-                          : "bg-secondary/30 hover:bg-secondary/50"
-                      }`}
-                      onClick={() => setSelectedInquiry(inquiry)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Avatar className="w-10 h-10">
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {inquiry.guardianName.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-sm truncate">{inquiry.guardianName}</span>
-                            <Badge 
-                              variant={inquiry.status === "waiting" ? "destructive" : "secondary"}
-                              className="text-xs"
-                            >
-                              {inquiry.status === "waiting" ? "대기" : "완료"}
-                            </Badge>
+                  {filteredInquiries.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {searchTerm ? '검색 결과가 없습니다.' : '문의가 없습니다.'}
+                    </div>
+                  ) : (
+                    filteredInquiries.map((inquiry) => (
+                      <div
+                        key={inquiry.id}
+                        className={`p-4 rounded-xl cursor-pointer transition-colors ${selectedInquiry?.id === inquiry.id
+                            ? "bg-primary/10 border border-primary/30"
+                            : "bg-secondary/30 hover:bg-secondary/50"
+                          }`}
+                        onClick={() => setSelectedInquiry(inquiry)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Avatar className="w-10 h-10">
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                              {inquiry.authorName?.charAt(0) || '?'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium text-sm truncate">{inquiry.authorName}</span>
+                              <Badge
+                                variant={isAnswered(inquiry.status) ? "secondary" : "destructive"}
+                                className="text-xs"
+                              >
+                                {isAnswered(inquiry.status) ? "완료" : "대기"}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-foreground mt-1 truncate">{inquiry.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {inquiry.createdAt?.split('T')[0]}
+                            </p>
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {inquiry.seniorName} 어르신 보호자
-                          </p>
-                          <p className="text-sm text-foreground mt-1 truncate">{inquiry.title}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{inquiry.createdAt}</p>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </ScrollArea>
             </CardContent>
@@ -262,59 +266,63 @@ const CounselorInquiries = () => {
                     <div>
                       <CardTitle>{selectedInquiry.title}</CardTitle>
                       <CardDescription className="mt-1">
-                        {selectedInquiry.guardianName} ({selectedInquiry.seniorName} 어르신 보호자)
+                        {selectedInquiry.authorName}
                       </CardDescription>
                     </div>
-                    <Badge 
-                      variant={selectedInquiry.status === "waiting" ? "destructive" : "secondary"}
+                    <Badge
+                      variant={isAnswered(selectedInquiry.status) ? "secondary" : "destructive"}
                     >
-                      {selectedInquiry.status === "waiting" ? "답변 대기" : "답변 완료"}
+                      {isAnswered(selectedInquiry.status) ? "답변 완료" : "답변 대기"}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <ScrollArea className="h-[350px] p-6">
                     <div className="space-y-4">
-                      {selectedInquiry.messages.map((message) => (
+                      {selectedInquiry.messages?.map((message) => (
                         <div
                           key={message.id}
                           className={`flex ${message.sender === "counselor" ? "justify-end" : "justify-start"}`}
                         >
                           <div
-                            className={`max-w-[80%] p-4 rounded-2xl ${
-                              message.sender === "counselor"
+                            className={`max-w-[80%] p-4 rounded-2xl ${message.sender === "counselor"
                                 ? "bg-primary text-primary-foreground rounded-br-sm"
                                 : "bg-secondary rounded-bl-sm"
-                            }`}
+                              }`}
                           >
                             <p className="text-sm">{message.content}</p>
-                            <p className={`text-xs mt-2 ${
-                              message.sender === "counselor" ? "text-primary-foreground/70" : "text-muted-foreground"
-                            }`}>
-                              {message.timestamp}
+                            <p className={`text-xs mt-2 ${message.sender === "counselor" ? "text-primary-foreground/70" : "text-muted-foreground"
+                              }`}>
+                              {message.timestamp?.split('T')[0]}
                             </p>
                           </div>
                         </div>
                       ))}
                     </div>
                   </ScrollArea>
-                  <div className="p-4 border-t">
-                    <div className="flex gap-2">
-                      <Textarea
-                        placeholder="답변을 입력하세요..."
-                        value={replyMessage}
-                        onChange={(e) => setReplyMessage(e.target.value)}
-                        className="min-h-[80px]"
-                      />
-                      <Button 
-                        className="px-4"
-                        onClick={handleReply}
-                        disabled={!replyMessage.trim()}
-                      >
-                        <Send className="w-5 h-5" />
-                      </Button>
+                  {!isAnswered(selectedInquiry.status) && (
+                    <div className="p-4 border-t">
+                      <div className="flex gap-2">
+                        <Textarea
+                          placeholder="답변을 입력하세요..."
+                          value={replyMessage}
+                          onChange={(e) => setReplyMessage(e.target.value)}
+                          className="min-h-[80px]"
+                        />
+                        <Button
+                          className="px-4"
+                          onClick={handleReply}
+                          disabled={!replyMessage.trim() || isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Send className="w-5 h-5" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </>
             ) : (
