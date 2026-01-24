@@ -10,7 +10,10 @@ import {
   Heart,
   AlertCircle,
   Key,
-  Search
+  Search,
+  CheckCircle,
+  XCircle,
+  Loader2
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import { Link } from "react-router-dom";
@@ -33,6 +36,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Shield, FileText } from "lucide-react";
 import { registerElderly, registerGuardian } from "@/api/admins";
+import elderlyApi from "@/api/elderly";
 import AddressSearch, { AddressData } from "@/components/common/AddressSearch";
 import PhoneVerification from "@/components/common/PhoneVerification";
 
@@ -72,7 +76,7 @@ const MemberRegistration = () => {
     address: "",
     detailAddress: "",
     zipcode: "",
-    relation: "FAMILY",
+    relation: "CHILD",
     seniorId: "", // 연결할 어르신 ID
     memo: "",
     // 정보 승인 (UI용)
@@ -82,6 +86,45 @@ const MemberRegistration = () => {
   });
   const [guardianPhoneVerified, setGuardianPhoneVerified] = useState(false);
   const [guardianProofToken, setGuardianProofToken] = useState("");
+
+  // 어르신 검색 상태
+  const [elderlySearchId, setElderlySearchId] = useState("");
+  const [elderlySearchResult, setElderlySearchResult] = useState<{
+    id: number;
+    name: string;
+    phone?: string;
+    birthDate?: string;
+  } | null>(null);
+  const [elderlySearching, setElderlySearching] = useState(false);
+  const [elderlySearchError, setElderlySearchError] = useState("");
+
+  // 어르신 검색 함수
+  const handleElderlySearch = async () => {
+    if (!elderlySearchId || isNaN(Number(elderlySearchId))) {
+      setElderlySearchError("유효한 ID를 입력하세요.");
+      return;
+    }
+
+    setElderlySearching(true);
+    setElderlySearchError("");
+    setElderlySearchResult(null);
+
+    try {
+      const result = await elderlyApi.getSummary(Number(elderlySearchId));
+      setElderlySearchResult({
+        id: Number(elderlySearchId),
+        name: result.name,
+        phone: result.phone,
+        birthDate: result.birthDate,
+      });
+      setGuardianData({ ...guardianData, seniorId: elderlySearchId });
+    } catch (error: any) {
+      setElderlySearchError("해당 ID의 어르신을 찾을 수 없습니다.");
+      setElderlySearchResult(null);
+    } finally {
+      setElderlySearching(false);
+    }
+  };
 
   // 어르신 주소 검색 결과 처리
   const handleSeniorAddressSelect = (data: AddressData) => {
@@ -195,6 +238,16 @@ const MemberRegistration = () => {
       return;
     }
 
+    // 어르신 검색 확인
+    if (!elderlySearchResult) {
+      toast({
+        variant: "destructive",
+        title: "어르신 확인 필요",
+        description: "먼저 연결할 어르신을 검색해주세요.",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -220,11 +273,13 @@ const MemberRegistration = () => {
       // Reset
       setGuardianData({
         loginId: "", password: "", name: "", phone: "", email: "",
-        address: "", detailAddress: "", zipcode: "", relation: "FAMILY",
+        address: "", detailAddress: "", zipcode: "", relation: "CHILD",
         seniorId: "", memo: "", sensitiveInfoApproval: true, medicationInfoApproval: true, healthInfoApproval: true,
       });
       setGuardianPhoneVerified(false);
       setGuardianProofToken("");
+      setElderlySearchResult(null);
+      setElderlySearchId("");
     } catch (error: any) {
       // 백엔드에서 반환하는 오류 메시지 추출
       let errorMessage = "어르신 ID가 유효한지 확인해주세요.";
@@ -503,24 +558,80 @@ const MemberRegistration = () => {
                   <Card className="shadow-card border-0">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-lg"><User className="w-5 h-5 text-info" /> 어르신 연결</CardTitle>
+                      <CardDescription>연결할 어르신의 회원 ID를 입력하고 검색 버튼을 눌러 확인하세요</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>어르신 회원 ID (숫자) *</Label>
-                          <Input type="number" value={guardianData.seniorId} onChange={e => setGuardianData({ ...guardianData, seniorId: e.target.value })} required placeholder="시스템 사용자 ID" />
+                      {/* 어르신 검색 */}
+                      <div className="space-y-2">
+                        <Label>어르신 회원 ID 검색 *</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            value={elderlySearchId}
+                            onChange={e => {
+                              setElderlySearchId(e.target.value);
+                              setElderlySearchResult(null);
+                              setElderlySearchError("");
+                            }}
+                            placeholder="어르신 ID 입력"
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleElderlySearch}
+                            disabled={elderlySearching || !elderlySearchId}
+                          >
+                            {elderlySearching ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Search className="w-4 h-4" />
+                            )}
+                            <span className="ml-1">검색</span>
+                          </Button>
                         </div>
-                        <div className="space-y-2">
-                          <Label>관계 *</Label>
-                          <Select value={guardianData.relation} onValueChange={v => setGuardianData({ ...guardianData, relation: v })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="FAMILY">가족</SelectItem>
-                              <SelectItem value="CAREGIVER">간병인</SelectItem>
-                              <SelectItem value="OTHER">기타</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+
+                        {/* 검색 결과 */}
+                        {elderlySearchResult && (
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-3">
+                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="font-medium text-green-700">어르신 확인됨</p>
+                              <p className="text-sm text-green-600">
+                                이름: <strong>{elderlySearchResult.name}</strong>
+                                {elderlySearchResult.phone && ` | 연락처: ${elderlySearchResult.phone}`}
+                                {elderlySearchResult.birthDate && ` | 생년월일: ${elderlySearchResult.birthDate}`}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 검색 오류 */}
+                        {elderlySearchError && (
+                          <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-center gap-2">
+                            <XCircle className="w-5 h-5 text-red-600" />
+                            <p className="text-sm text-red-700">{elderlySearchError}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 관계 선택 */}
+                      <div className="space-y-2">
+                        <Label>관계 *</Label>
+                        <Select value={guardianData.relation} onValueChange={v => setGuardianData({ ...guardianData, relation: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CHILD">자녀</SelectItem>
+                            <SelectItem value="SPOUSE">배우자</SelectItem>
+                            <SelectItem value="RELATIVE">친척</SelectItem>
+                            <SelectItem value="OTHER">기타</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>메모</Label>
+                        <Input value={guardianData.memo} onChange={e => setGuardianData({ ...guardianData, memo: e.target.value })} placeholder="관리자 메모" />
                       </div>
                     </CardContent>
                   </Card>
@@ -529,9 +640,15 @@ const MemberRegistration = () => {
                     type="submit"
                     className="w-full"
                     size="lg"
-                    disabled={loading || !guardianPhoneVerified}
+                    disabled={loading || !guardianPhoneVerified || !elderlySearchResult}
                   >
-                    {loading ? "등록 중..." : !guardianPhoneVerified ? "휴대폰 인증 필요" : "보호자 등록하기"}
+                    {loading
+                      ? "등록 중..."
+                      : !guardianPhoneVerified
+                        ? "휴대폰 인증 필요"
+                        : !elderlySearchResult
+                          ? "어르신 검색 필요"
+                          : "보호자 등록하기"}
                   </Button>
                 </div>
               </div>
@@ -544,3 +661,4 @@ const MemberRegistration = () => {
 };
 
 export default MemberRegistration;
+

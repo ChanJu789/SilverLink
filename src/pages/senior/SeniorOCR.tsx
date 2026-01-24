@@ -13,10 +13,13 @@ import {
   FileText,
   Loader2
 } from "lucide-react";
+import ocrApi from "@/api/ocr";
+import { getErrorMessage } from "@/utils/errorUtils";
 
 const SeniorOCR = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -25,12 +28,13 @@ const SeniorOCR = () => {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImage(reader.result as string);
-        processImage();
       };
       reader.readAsDataURL(file);
+      processImage(file);
     }
   };
 
@@ -40,32 +44,27 @@ const SeniorOCR = () => {
     }
   };
 
-  const processImage = async () => {
+  const processImage = async (file: File) => {
     setIsProcessing(true);
-    // Simulate OCR processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    // Mock extracted text
-    const mockText = `[추출된 문서 내용]
+    setExtractedText("");
 
-안녕하세요, 어르신.
+    try {
+      const result = await ocrApi.analyzeDocument(file);
 
-이 문서는 2024년 1월 건강검진 결과입니다.
-
-혈압: 정상 (120/80)
-혈당: 정상 (95mg/dL)
-콜레스테롤: 약간 높음 (210mg/dL)
-
-다음 건강검진 예정일: 2024년 7월 15일
-
-문의사항이 있으시면 담당 상담사에게 연락해주세요.
-
-감사합니다.
-마음돌봄 건강관리팀`;
-
-    setExtractedText(mockText);
-    setIsProcessing(false);
-    toast.success("문서를 읽었어요!");
+      if (result.text) {
+        setExtractedText(result.text);
+        toast.success("문서를 읽었어요!");
+      } else {
+        setExtractedText("문서에서 텍스트를 찾을 수 없었어요.");
+        toast.warning("문서 인식이 어려워요. 다시 찍어보세요.");
+      }
+    } catch (error) {
+      console.error("OCR 처리 실패:", error);
+      toast.error(getErrorMessage(error, "문서를 읽는데 실패했어요."));
+      setExtractedText("");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleSpeak = () => {
@@ -81,7 +80,7 @@ const SeniorOCR = () => {
     utterance.lang = "ko-KR";
     utterance.rate = 0.8;
     utterance.onend = () => setIsSpeaking(false);
-    
+
     window.speechSynthesis.speak(utterance);
     setIsSpeaking(true);
   };
@@ -212,9 +211,8 @@ const SeniorOCR = () => {
             <div className="space-y-4">
               <Button
                 onClick={handleSpeak}
-                className={`w-full h-20 text-xl font-bold rounded-2xl gap-3 ${
-                  isSpeaking ? "bg-warning hover:bg-warning/90" : ""
-                }`}
+                className={`w-full h-20 text-xl font-bold rounded-2xl gap-3 ${isSpeaking ? "bg-warning hover:bg-warning/90" : ""
+                  }`}
                 size="lg"
               >
                 <Volume2 className="w-8 h-8" />

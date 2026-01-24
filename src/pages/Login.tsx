@@ -82,21 +82,41 @@ const Login = () => {
         password: formData.password,
       });
 
+      // 서버에서 받은 실제 role로만 네비게이션 (보안 강화)
+      const serverRole = response.role?.toLowerCase();
+
+      if (!serverRole) {
+        toast.error("로그인 실패", {
+          description: "사용자 역할을 확인할 수 없습니다.",
+        });
+        return;
+      }
+
+      // 역할별 제목 매핑
+      const roleNames: Record<string, string> = {
+        guardian: "보호자",
+        counselor: "상담사",
+        admin: "관리자",
+        elderly: "어르신",
+      };
+
       toast.success("로그인 성공", {
-        description: `${roles.find((r) => r.id === selectedRole)?.title}으로 로그인되었습니다.`,
+        description: `${roleNames[serverRole] || serverRole}으로 로그인되었습니다.`,
       });
 
-      // 서버에서 받은 role 기반으로 네비게이션 (또는 선택된 role 사용)
-      const userRole = response.role?.toLowerCase() || selectedRole;
-
-      if (userRole === "guardian" || selectedRole === "guardian") {
+      // 서버에서 받은 실제 role 기반으로만 네비게이션
+      if (serverRole === "guardian") {
         navigate("/guardian");
-      } else if (userRole === "counselor" || selectedRole === "counselor") {
+      } else if (serverRole === "counselor") {
         navigate("/counselor");
-      } else if (userRole === "admin" || selectedRole === "admin") {
+      } else if (serverRole === "admin") {
         navigate("/admin");
-      } else if (userRole === "elderly" || selectedRole === "senior") {
+      } else if (serverRole === "elderly") {
         navigate("/senior");
+      } else {
+        toast.error("알 수 없는 역할", {
+          description: `역할 '${serverRole}'은(는) 지원되지 않습니다.`,
+        });
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || "로그인에 실패했습니다.";
@@ -290,14 +310,10 @@ const Login = () => {
                 <button className="text-muted-foreground hover:text-foreground transition-colors">
                   비밀번호 찾기
                 </button>
-                <span className="text-border">|</span>
-                <button
-                  className="text-primary hover:text-primary/80 font-medium transition-colors"
-                  onClick={() => navigate("/signup")}
-                >
-                  회원가입
-                </button>
               </div>
+              <p className="mt-4 text-center text-xs text-muted-foreground">
+                회원가입은 관리자를 통해서만 가능합니다
+              </p>
             </CardContent>
           </Card>
 

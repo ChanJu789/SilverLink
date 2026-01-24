@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,28 +6,43 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { 
-  Heart, 
-  Fingerprint, 
+import {
+  Heart,
+  Fingerprint,
   Phone,
   Shield,
   CheckCircle2,
   AlertCircle,
   Loader2,
   UserPlus,
-  LogIn
+  ArrowLeft,
+  RefreshCw
 } from "lucide-react";
 import { useWebAuthn, isWebAuthnSupported } from "@/hooks/useWebAuthn";
+import { requestVerificationCode, verifyCode } from "@/api/phoneVerification";
+import { setAccessToken } from "@/api/index";
+import apiClient from "@/api/index";
+import { getErrorMessage } from "@/utils/errorUtils";
 
 const SeniorLogin = () => {
   const navigate = useNavigate();
+
+  // 휴대폰 인증 상태
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [verificationId, setVerificationId] = useState<number | null>(null);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [expiresIn, setExpiresIn] = useState(0);
+
+  // 지문 인증 상태
   const [isRegistrationMode, setIsRegistrationMode] = useState(false);
   const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
   const [registrationName, setRegistrationName] = useState("");
-  
+
   const {
-    isSupported,
     isPlatformAvailable,
     isRegistering,
     isAuthenticating,
@@ -40,6 +55,131 @@ const SeniorLogin = () => {
   useEffect(() => {
     checkPlatformAuthenticator();
   }, [checkPlatformAuthenticator]);
+
+  // 타이머 효과
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setInterval(() => setCooldown(c => c - 1), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [cooldown]);
+
+  useEffect(() => {
+    if (expiresIn > 0) {
+      const timer = setInterval(() => setExpiresIn(e => e - 1), 1000);
+      return () => clearInterval(timer);
+    } else if (expiresIn === 0 && isCodeSent && verificationId) {
+      // 인증 만료
+      toast.error("인증 시간이 만료되었어요", {
+        description: "다시 인증번호를 받아주세요.",
+      });
+      resetVerification();
+    }
+  }, [expiresIn, isCodeSent, verificationId]);
+
+  const resetVerification = () => {
+    setIsCodeSent(false);
+    setVerificationId(null);
+    setVerificationCode("");
+    setExpiresIn(0);
+  };
+
+  const formatPhone = (phone: string) => {
+    // 숫자만 추출
+    const digits = phone.replace(/\D/g, "");
+    // 하이픈 추가
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setPhoneNumber(formatted);
+    // 번호 변경 시 인증 상태 리셋
+    if (isCodeSent) {
+      resetVerification();
+    }
+  };
+
+  // 인증번호 발송
+  const handleSendCode = async () => {
+    const digits = phoneNumber.replace(/\D/g, "");
+    if (digits.length < 10) {
+      toast.error("휴대폰 번호를 정확히 입력해주세요.");
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const response = await requestVerificationCode(digits, "DEVICE_REGISTRATION");
+      setVerificationId(response.verificationId);
+      setIsCodeSent(true);
+      setCooldown(60); // 60초 재발송 대기
+
+      // 만료 시간 계산
+      const expireAt = new Date(response.expireAt);
+      const now = new Date();
+      const diffSeconds = Math.floor((expireAt.getTime() - now.getTime()) / 1000);
+      setExpiresIn(Math.max(diffSeconds, 0));
+
+      toast.success("인증번호가 발송되었어요!", {
+        description: "문자 메시지를 확인해주세요.",
+      });
+    } catch (err) {
+      toast.error(getErrorMessage(err, "인증번호 발송에 실패했어요."));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // 인증 확인 및 로그인
+  const handleVerifyAndLogin = async () => {
+    if (!verificationId || verificationCode.length !== 6) {
+      toast.error("인증번호 6자리를 입력해주세요.");
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const verifyResponse = await verifyCode(verificationId, verificationCode);
+
+      if (verifyResponse.verified) {
+        // proofToken으로 로그인 처리
+        try {
+          const loginResponse = await apiClient.post('/api/auth/login/phone', {
+            phone: phoneNumber.replace(/\D/g, ""),
+            proofToken: verifyResponse.proofToken,
+          });
+
+          if (loginResponse.data.accessToken) {
+            setAccessToken(loginResponse.data.accessToken);
+          }
+
+          toast.success("로그인 성공!", {
+            description: "어서오세요. 마음돌봄 서비스입니다.",
+          });
+          navigate("/senior");
+        } catch (loginErr: any) {
+          // 로그인 API가 없으면 인증 성공만으로 진행 (임시)
+          if (loginErr.response?.status === 404) {
+            toast.success("인증 완료!", {
+              description: "마음돌봄 서비스를 이용해주세요.",
+            });
+            navigate("/senior");
+          } else {
+            throw loginErr;
+          }
+        }
+      } else {
+        toast.error("인증에 실패했어요. 다시 시도해주세요.");
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, "인증에 실패했어요."));
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   // 지문 인증 로그인
   const handleBiometricLogin = async () => {
@@ -64,7 +204,7 @@ const SeniorLogin = () => {
     const credential = await register(registrationName);
     if (credential) {
       toast.success("지문 등록 완료!", {
-        description: "이제 지문으로 로그인할 수 있습니다.",
+        description: "이제 지문으로 로그인할 수 있어요.",
       });
       setShowRegistrationDialog(false);
       setRegistrationName("");
@@ -74,13 +214,10 @@ const SeniorLogin = () => {
     }
   };
 
-  // 휴대폰 인증 로그인 (기존 방식)
-  const handlePhoneLogin = () => {
-    if (!phoneNumber.trim()) {
-      toast.error("휴대폰 번호를 입력해주세요.");
-      return;
-    }
-    toast.success("인증번호가 발송되었습니다.");
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const webAuthnSupport = isWebAuthnSupported();
@@ -89,210 +226,200 @@ const SeniorLogin = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/10 to-background flex flex-col">
       {/* Header */}
-      <header className="p-6 text-center">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center">
-            <Heart className="w-10 h-10 text-primary-foreground" />
+      <header className="p-4 sm:p-6">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-12 h-12"
+            onClick={() => navigate("/login")}
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-primary flex items-center justify-center">
+              <Heart className="w-7 h-7 sm:w-10 sm:h-10 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">마음돌봄</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">국가 복지 서비스</p>
+            </div>
           </div>
         </div>
-        <h1 className="text-3xl font-bold text-foreground">마음돌봄</h1>
-        <p className="text-lg text-muted-foreground mt-2">국가 복지 서비스</p>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-6">
+      <main className="flex-1 flex items-start justify-center p-4 sm:p-6 pt-4">
+        <div className="w-full max-w-md space-y-5">
           {/* Title */}
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-foreground">
-              {isRegistrationMode ? "생체 인증 등록" : "어르신 로그인"}
+          <div className="text-center space-y-1">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+              {isRegistrationMode ? "지문 등록" : "어르신 로그인"}
             </h2>
-            <p className="text-lg text-muted-foreground">
-              {isRegistrationMode 
-                ? "지문을 등록하시면 더 쉽게 로그인할 수 있어요" 
-                : "간편하게 로그인하세요"}
+            <p className="text-base sm:text-lg text-muted-foreground">
+              {isRegistrationMode
+                ? "지문을 등록하면 더 쉽게 로그인할 수 있어요"
+                : "휴대폰 번호로 간편하게 로그인하세요"}
             </p>
           </div>
 
-          {/* Biometric Login Card */}
-          {showBiometric && !isRegistrationMode && (
-            <Card className="shadow-lg border-2 border-primary/20">
-              <CardHeader className="text-center pb-2">
-                <div className="mx-auto w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                  <Fingerprint className="w-12 h-12 text-primary" />
-                </div>
-                <CardTitle className="text-xl">지문으로 로그인</CardTitle>
-                <CardDescription className="text-base">
-                  등록된 지문으로 빠르게 로그인하세요
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button
-                  onClick={handleBiometricLogin}
-                  className="w-full h-16 text-xl font-bold rounded-xl"
-                  size="lg"
-                  disabled={isAuthenticating}
-                >
-                  {isAuthenticating ? (
-                    <>
-                      <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                      인증 중...
-                    </>
-                  ) : (
-                    <>
-                      <Fingerprint className="w-6 h-6 mr-3" />
-                      지문 인증하기
-                    </>
-                  )}
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  className="w-full h-12 text-lg"
-                  onClick={() => setShowRegistrationDialog(true)}
-                >
-                  <UserPlus className="w-5 h-5 mr-2" />
-                  새 지문 등록하기
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Registration Mode */}
-          {isRegistrationMode && showBiometric && (
-            <Card className="shadow-lg border-2 border-success/20">
-              <CardHeader className="text-center pb-2">
-                <div className="mx-auto w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mb-2">
-                  <Shield className="w-12 h-12 text-success" />
-                </div>
-                <CardTitle className="text-xl">지문 등록</CardTitle>
-                <CardDescription className="text-base">
-                  이름을 입력하고 지문을 등록하세요
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="regName" className="text-lg">이름</Label>
-                  <Input
-                    id="regName"
-                    placeholder="이름을 입력하세요"
-                    value={registrationName}
-                    onChange={(e) => setRegistrationName(e.target.value)}
-                    className="h-14 text-lg"
-                  />
-                </div>
-                
-                <Button
-                  onClick={handleBiometricRegistration}
-                  className="w-full h-16 text-xl font-bold rounded-xl bg-success hover:bg-success/90"
-                  size="lg"
-                  disabled={isRegistering || !registrationName.trim()}
-                >
-                  {isRegistering ? (
-                    <>
-                      <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                      등록 중...
-                    </>
-                  ) : (
-                    <>
-                      <Fingerprint className="w-6 h-6 mr-3" />
-                      지문 등록하기
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full h-12 text-lg"
-                  onClick={() => setIsRegistrationMode(false)}
-                >
-                  뒤로 가기
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* WebAuthn Not Supported Warning */}
-          {!showBiometric && (
-            <Card className="shadow-lg border-2 border-warning/20">
-              <CardContent className="p-6 text-center">
-                <AlertCircle className="w-12 h-12 text-warning mx-auto mb-4" />
-                <p className="text-lg font-medium text-foreground mb-2">
-                  이 기기에서는 지문 인증을 사용할 수 없어요
-                </p>
-                <p className="text-muted-foreground">
-                  아래 휴대폰 번호로 로그인해주세요
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Divider */}
-          {showBiometric && !isRegistrationMode && (
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-background px-4 text-muted-foreground text-base">
-                  또는
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Phone Login Card */}
+          {/* Phone Login Card - Main */}
           {!isRegistrationMode && (
-            <Card className="shadow-lg">
-              <CardHeader className="pb-2">
+            <Card className="shadow-lg border-2 border-primary/30">
+              <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
-                    <Phone className="w-6 h-6 text-info" />
+                  <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Phone className="w-7 h-7 text-primary" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">휴대폰 인증</CardTitle>
+                    <CardTitle className="text-lg sm:text-xl">휴대폰 인증</CardTitle>
                     <CardDescription className="text-base">
-                      휴대폰 번호로 로그인하세요
+                      문자로 받은 번호를 입력하세요
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* 휴대폰 번호 입력 */}
                 <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-lg">휴대폰 번호</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="010-0000-0000"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="h-14 text-lg"
-                  />
+                  <Label htmlFor="phone" className="text-base sm:text-lg font-medium">휴대폰 번호</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="010-0000-0000"
+                      value={phoneNumber}
+                      onChange={handlePhoneChange}
+                      className="h-14 text-lg flex-1"
+                      disabled={isCodeSent && expiresIn > 0}
+                    />
+                    <Button
+                      onClick={handleSendCode}
+                      variant={isCodeSent ? "outline" : "default"}
+                      className="h-14 px-4 text-base font-medium min-w-[100px]"
+                      disabled={isSending || cooldown > 0 || phoneNumber.replace(/\D/g, "").length < 10}
+                    >
+                      {isSending ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : cooldown > 0 ? (
+                        `${cooldown}초`
+                      ) : isCodeSent ? (
+                        <><RefreshCw className="w-4 h-4 mr-1" />재발송</>
+                      ) : (
+                        "인증요청"
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                
-                <Button
-                  onClick={handlePhoneLogin}
-                  variant="outline"
-                  className="w-full h-14 text-lg font-medium rounded-xl"
-                  size="lg"
-                >
-                  <LogIn className="w-5 h-5 mr-2" />
-                  인증번호 받기
-                </Button>
+
+                {/* 인증번호 입력 (발송 후 표시) */}
+                {isCodeSent && (
+                  <div className="space-y-3 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="code" className="text-base sm:text-lg font-medium">인증번호</Label>
+                      {expiresIn > 0 && (
+                        <span className="text-sm text-destructive font-medium">
+                          남은 시간: {formatTime(expiresIn)}
+                        </span>
+                      )}
+                    </div>
+                    <Input
+                      id="code"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      placeholder="6자리 숫자"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      className="h-16 text-2xl text-center tracking-[0.5em] font-bold"
+                      autoFocus
+                    />
+
+                    <Button
+                      onClick={handleVerifyAndLogin}
+                      className="w-full h-16 text-xl font-bold rounded-xl"
+                      size="lg"
+                      disabled={isVerifying || verificationCode.length !== 6 || expiresIn === 0}
+                    >
+                      {isVerifying ? (
+                        <>
+                          <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                          확인 중...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-6 h-6 mr-3" />
+                          로그인
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
 
-          {/* Back to Main Login */}
-          <div className="text-center">
-            <Button
-              variant="ghost"
-              className="text-lg text-muted-foreground"
-              onClick={() => navigate("/login")}
-            >
-              다른 계정으로 로그인
-            </Button>
-          </div>
+          {/* Biometric Options */}
+          {showBiometric && !isRegistrationMode && (
+            <>
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-background px-4 text-muted-foreground text-base">
+                    또는
+                  </span>
+                </div>
+              </div>
+
+              {/* Biometric Login */}
+              <Card className="shadow-md">
+                <CardContent className="p-4 space-y-3">
+                  <Button
+                    onClick={handleBiometricLogin}
+                    variant="outline"
+                    className="w-full h-14 text-lg font-medium rounded-xl"
+                    size="lg"
+                    disabled={isAuthenticating}
+                  >
+                    {isAuthenticating ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        인증 중...
+                      </>
+                    ) : (
+                      <>
+                        <Fingerprint className="w-5 h-5 mr-2" />
+                        지문으로 로그인
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    className="w-full h-12 text-base text-muted-foreground"
+                    onClick={() => setShowRegistrationDialog(true)}
+                  >
+                    <UserPlus className="w-5 h-5 mr-2" />
+                    새 지문 등록하기
+                  </Button>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {/* WebAuthn Not Supported - 더 작게 표시 */}
+          {!showBiometric && !isRegistrationMode && (
+            <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                이 기기에서는 지문 인증을 사용할 수 없어요
+              </p>
+            </div>
+          )}
         </div>
       </main>
 
@@ -308,7 +435,7 @@ const SeniorLogin = () => {
               이름을 입력하고 지문을 등록하세요
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="dialogName" className="text-lg">이름</Label>
@@ -351,12 +478,12 @@ const SeniorLogin = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Success Info */}
+      {/* Footer */}
       {showBiometric && !isRegistrationMode && (
-        <footer className="p-6 text-center">
+        <footer className="p-4 text-center">
           <div className="flex items-center justify-center gap-2 text-success">
-            <CheckCircle2 className="w-5 h-5" />
-            <span className="text-sm">이 기기는 생체 인증을 지원합니다</span>
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="text-sm">이 기기는 생체 인증을 지원해요</span>
           </div>
         </footer>
       )}
@@ -365,3 +492,4 @@ const SeniorLogin = () => {
 };
 
 export default SeniorLogin;
+
