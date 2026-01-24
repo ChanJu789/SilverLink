@@ -11,11 +11,12 @@ import {
   Trash2,
   Download,
   Loader2,
-  Users
+  Users,
+  X
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -42,11 +43,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import usersApi from "@/api/users";
 import counselorsApi from "@/api/counselors";
-import { MyProfileResponse, CounselorResponse } from "@/types/api";
+import guardiansApi from "@/api/guardians";
+import elderlyApi from "@/api/elderly";
+import assignmentsApi from "@/api/assignments";
+import { MyProfileResponse, CounselorResponse, GuardianResponse, ElderlySummaryResponse, GuardianElderlyResponse } from "@/types/api";
+import { AssignmentResponse } from "@/api/assignments";
 
 const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
@@ -83,26 +95,27 @@ const RoleBadge = ({ role }: { role: string }) => {
   }
 };
 
-interface MemberData {
-  id: number;
-  name: string;
-  email?: string;
-  phone?: string;
-  role: string;
-  status: string;
-  createdAt?: string;
-  assignedCount?: number;
-}
-
 const MemberManagement = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
-  const [members, setMembers] = useState<MemberData[]>([]);
-  const [counselors, setCounselors] = useState<CounselorResponse[]>([]);
   const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+
+  // Data states
+  const [counselors, setCounselors] = useState<CounselorResponse[]>([]);
+  const [guardians, setGuardians] = useState<GuardianResponse[]>([]);
+  const [elderly, setElderly] = useState<ElderlySummaryResponse[]>([]);
+
+  // Detail dialog states
+  const [selectedCounselor, setSelectedCounselor] = useState<CounselorResponse | null>(null);
+  const [counselorElderly, setCounselorElderly] = useState<AssignmentResponse[]>([]);
+  const [selectedGuardian, setSelectedGuardian] = useState<GuardianResponse | null>(null);
+  const [guardianElderly, setGuardianElderly] = useState<GuardianElderlyResponse | null>(null);
+  const [selectedElderly, setSelectedElderly] = useState<ElderlySummaryResponse | null>(null);
+  const [elderlyAssignment, setElderlyAssignment] = useState<AssignmentResponse | null>(null);
+  const [elderlyGuardian, setElderlyGuardian] = useState<GuardianResponse | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
 
   // Stats
   const [stats, setStats] = useState({
@@ -113,59 +126,117 @@ const MemberManagement = () => {
   });
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-
-        // Get current user profile
-        const profile = await usersApi.getMyProfile();
-        setUserProfile(profile);
-
-        // Get all counselors
-        const counselorList = await counselorsApi.getAllCounselors();
-        setCounselors(counselorList);
-
-        // Transform counselors to member format
-        const memberList: MemberData[] = counselorList.map((c) => ({
-          id: c.userId,
-          name: c.name,
-          email: c.email,
-          phone: c.phone,
-          role: 'counselor',
-          status: 'active',
-          createdAt: c.approvedAt?.split('T')[0] || '',
-          assignedCount: c.elderlyCount || 0
-        }));
-
-        setMembers(memberList);
-
-        // Update stats
-        setStats({
-          counselors: counselorList.length,
-          guardians: 0, // Would need guardians API
-          seniors: counselorList.reduce((sum, c) => sum + (c.elderlyCount || 0), 0),
-          pending: 0 // Would need pending count API
-        });
-
-      } catch (error) {
-        console.error('Failed to fetch members:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
 
-  const filteredMembers = members.filter((member) => {
-    const matchesSearch =
-      member.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.phone?.includes(searchQuery);
-    const matchesRole = roleFilter === "all" || member.role === roleFilter;
-    const matchesStatus = statusFilter === "all" || member.status === statusFilter;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+
+      // Get current user profile
+      const profile = await usersApi.getMyProfile();
+      setUserProfile(profile);
+
+      // Fetch all data in parallel
+      const [counselorList, guardianList, elderlyList] = await Promise.all([
+        counselorsApi.getAllCounselors(),
+        guardiansApi.getAllGuardians(),
+        elderlyApi.getAllElderlyForAdmin()
+      ]);
+
+      setCounselors(counselorList);
+      setGuardians(guardianList);
+      setElderly(elderlyList);
+
+      // Update stats
+      setStats({
+        counselors: counselorList.length,
+        guardians: guardianList.length,
+        seniors: elderlyList.length,
+        pending: 0
+      });
+
+    } catch (error) {
+      console.error('Failed to fetch members:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Counselor click handler - show assigned elderly
+  const handleCounselorClick = async (counselor: CounselorResponse) => {
+    setSelectedCounselor(counselor);
+    setIsDetailLoading(true);
+    try {
+      const assignments = await assignmentsApi.getCounselorAssignments(counselor.userId);
+      setCounselorElderly(assignments);
+    } catch (error) {
+      console.error('Failed to fetch counselor assignments:', error);
+      setCounselorElderly([]);
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  // Guardian click handler - show assigned elderly
+  const handleGuardianClick = async (guardian: GuardianResponse) => {
+    setSelectedGuardian(guardian);
+    setIsDetailLoading(true);
+    try {
+      const elderlyData = await guardiansApi.getElderlyByGuardianForAdmin(guardian.userId);
+      setGuardianElderly(elderlyData);
+    } catch (error) {
+      console.error('Failed to fetch guardian elderly:', error);
+      setGuardianElderly(null);
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  // Elderly click handler - show counselor and guardian
+  const handleElderlyClick = async (elderlyMember: ElderlySummaryResponse) => {
+    setSelectedElderly(elderlyMember);
+    setIsDetailLoading(true);
+    setElderlyAssignment(null);
+    setElderlyGuardian(null);
+
+    try {
+      const [assignment, guardian] = await Promise.allSettled([
+        assignmentsApi.getElderlyAssignment(elderlyMember.elderlyId),
+        guardiansApi.getGuardianByElderlyForAdmin(elderlyMember.elderlyId)
+      ]);
+
+      if (assignment.status === 'fulfilled') {
+        setElderlyAssignment(assignment.value);
+      }
+      if (guardian.status === 'fulfilled') {
+        setElderlyGuardian(guardian.value);
+      }
+    } catch (error) {
+      console.error('Failed to fetch elderly details:', error);
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  // Filter functions
+  const filteredCounselors = counselors.filter((c) =>
+    c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.phone?.includes(searchQuery)
+  );
+
+  const filteredGuardians = guardians.filter((g) =>
+    g.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    g.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    g.phone?.includes(searchQuery)
+  );
+
+  const filteredElderly = elderly.filter((e) =>
+    e.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    e.phone?.includes(searchQuery) ||
+    e.address?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (isLoading) {
     return (
@@ -258,124 +329,81 @@ const MemberManagement = () => {
           </Card>
         </div>
 
+        {/* Search */}
+        <Card className="shadow-card border-0">
+          <CardContent className="p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="이름, 이메일, 전화번호로 검색..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Tabs */}
         <Tabs defaultValue="counselors" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="counselors">상담사</TabsTrigger>
-            <TabsTrigger value="guardians">보호자</TabsTrigger>
-            <TabsTrigger value="seniors">어르신</TabsTrigger>
+            <TabsTrigger value="counselors">상담사 ({filteredCounselors.length})</TabsTrigger>
+            <TabsTrigger value="guardians">보호자 ({filteredGuardians.length})</TabsTrigger>
+            <TabsTrigger value="seniors">어르신 ({filteredElderly.length})</TabsTrigger>
           </TabsList>
 
+          {/* Counselors Tab */}
           <TabsContent value="counselors" className="space-y-4">
-            {/* Filters */}
-            <Card className="shadow-card border-0">
-              <CardContent className="p-4">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="이름, 이메일, 전화번호로 검색..."
-                      className="pl-10"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="상태" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체 상태</SelectItem>
-                      <SelectItem value="active">활성</SelectItem>
-                      <SelectItem value="pending">승인대기</SelectItem>
-                      <SelectItem value="inactive">비활성</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Table */}
             <Card className="shadow-card border-0">
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>회원</TableHead>
-                      <TableHead>역할</TableHead>
+                      <TableHead>상담사</TableHead>
                       <TableHead>연락처</TableHead>
-                      <TableHead>상태</TableHead>
-                      <TableHead>승인일</TableHead>
-                      <TableHead>담당</TableHead>
+                      <TableHead>담당 어르신</TableHead>
+                      <TableHead>등록일</TableHead>
                       <TableHead className="text-right">관리</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredMembers.length === 0 ? (
+                    {filteredCounselors.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                           {searchQuery ? '검색 결과가 없습니다.' : '등록된 상담사가 없습니다.'}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredMembers.map((member) => (
-                        <TableRow key={member.id}>
+                      filteredCounselors.map((counselor) => (
+                        <TableRow
+                          key={counselor.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleCounselorClick(counselor)}
+                        >
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <Avatar className="w-9 h-9">
-                                <AvatarFallback className="bg-secondary text-secondary-foreground text-sm">
-                                  {member.name?.charAt(0)}
+                                <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                                  {counselor.name?.charAt(0)}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <p className="font-medium">{member.name}</p>
-                                <p className="text-sm text-muted-foreground">{member.email}</p>
+                                <p className="font-medium">{counselor.name}</p>
+                                <p className="text-sm text-muted-foreground">{counselor.email}</p>
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell><RoleBadge role={member.role} /></TableCell>
-                          <TableCell className="text-muted-foreground">{member.phone}</TableCell>
-                          <TableCell><StatusBadge status={member.status} /></TableCell>
-                          <TableCell className="text-muted-foreground">{member.createdAt}</TableCell>
+                          <TableCell className="text-muted-foreground">{counselor.phone}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{counselor.assignedElderlyCount || 0}명</Badge>
+                          </TableCell>
                           <TableCell className="text-muted-foreground">
-                            {member.assignedCount}명
+                            {counselor.createdAt?.split('T')[0]}
                           </TableCell>
                           <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  상세보기
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  수정
-                                </DropdownMenuItem>
-                                {member.status === "pending" && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-success">
-                                      <CheckCircle2 className="w-4 h-4 mr-2" />
-                                      승인
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-destructive">
-                                      <XCircle className="w-4 h-4 mr-2" />
-                                      거절
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive">
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  삭제
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))
@@ -386,22 +414,332 @@ const MemberManagement = () => {
             </Card>
           </TabsContent>
 
+          {/* Guardians Tab */}
           <TabsContent value="guardians" className="space-y-4">
             <Card className="shadow-card border-0">
-              <CardContent className="p-8 text-center text-muted-foreground">
-                보호자 목록을 표시하려면 백엔드 API가 필요합니다.
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>보호자</TableHead>
+                      <TableHead>연락처</TableHead>
+                      <TableHead>등록일</TableHead>
+                      <TableHead className="text-right">관리</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredGuardians.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          {searchQuery ? '검색 결과가 없습니다.' : '등록된 보호자가 없습니다.'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredGuardians.map((guardian) => (
+                        <TableRow
+                          key={guardian.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleGuardianClick(guardian)}
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="w-9 h-9">
+                                <AvatarFallback className="bg-accent/10 text-accent text-sm">
+                                  {guardian.name?.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{guardian.name}</p>
+                                <p className="text-sm text-muted-foreground">{guardian.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{guardian.phone}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {guardian.createdAt?.split('T')[0]}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* Seniors Tab */}
           <TabsContent value="seniors" className="space-y-4">
             <Card className="shadow-card border-0">
-              <CardContent className="p-8 text-center text-muted-foreground">
-                어르신 목록을 표시하려면 백엔드 API가 필요합니다.
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>어르신</TableHead>
+                      <TableHead>연락처</TableHead>
+                      <TableHead>나이</TableHead>
+                      <TableHead>주소</TableHead>
+                      <TableHead>담당 상담사</TableHead>
+                      <TableHead className="text-right">관리</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredElderly.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          {searchQuery ? '검색 결과가 없습니다.' : '등록된 어르신이 없습니다.'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredElderly.map((elderlyMember) => (
+                        <TableRow
+                          key={elderlyMember.elderlyId}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleElderlyClick(elderlyMember)}
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="w-9 h-9">
+                                <AvatarFallback className="bg-info/10 text-info text-sm">
+                                  {elderlyMember.name?.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{elderlyMember.name}</p>
+                                <p className="text-sm text-muted-foreground">{elderlyMember.gender}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{elderlyMember.phone}</TableCell>
+                          <TableCell className="text-muted-foreground">{elderlyMember.age}세</TableCell>
+                          <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                            {elderlyMember.address}
+                          </TableCell>
+                          <TableCell>
+                            {elderlyMember.counselorName ? (
+                              <Badge variant="secondary">{elderlyMember.counselorName}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">미배정</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Counselor Detail Dialog */}
+        <Dialog open={!!selectedCounselor} onOpenChange={() => setSelectedCounselor(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                <Avatar className="w-10 h-10">
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {selectedCounselor?.name?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <span>{selectedCounselor?.name}</span>
+                  <p className="text-sm font-normal text-muted-foreground">상담사</p>
+                </div>
+              </DialogTitle>
+              <DialogDescription>담당 어르신 목록</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">이메일</p>
+                  <p className="font-medium">{selectedCounselor?.email}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">연락처</p>
+                  <p className="font-medium">{selectedCounselor?.phone}</p>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">담당 어르신 ({counselorElderly.length}명)</h4>
+                {isDetailLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  </div>
+                ) : counselorElderly.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">배정된 어르신이 없습니다.</p>
+                ) : (
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {counselorElderly.map((assignment) => (
+                      <div key={assignment.assignmentId} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className="bg-info/10 text-info text-xs">
+                            {assignment.elderlyName?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{assignment.elderlyName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            배정일: {assignment.assignedAt?.split('T')[0]}
+                          </p>
+                        </div>
+                        <StatusBadge status={assignment.status} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Guardian Detail Dialog */}
+        <Dialog open={!!selectedGuardian} onOpenChange={() => setSelectedGuardian(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                <Avatar className="w-10 h-10">
+                  <AvatarFallback className="bg-accent/10 text-accent">
+                    {selectedGuardian?.name?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <span>{selectedGuardian?.name}</span>
+                  <p className="text-sm font-normal text-muted-foreground">보호자</p>
+                </div>
+              </DialogTitle>
+              <DialogDescription>담당 어르신 목록</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">이메일</p>
+                  <p className="font-medium">{selectedGuardian?.email}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">연락처</p>
+                  <p className="font-medium">{selectedGuardian?.phone}</p>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-medium mb-2">담당 어르신</h4>
+                {isDetailLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  </div>
+                ) : !guardianElderly?.elderlyList?.length ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">연결된 어르신이 없습니다.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {guardianElderly.elderlyList.map((e) => (
+                      <div key={e.elderlyId} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className="bg-info/10 text-info text-xs">
+                            {e.name?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{e.name}</p>
+                          <p className="text-xs text-muted-foreground">{e.age}세</p>
+                        </div>
+                        <Badge variant="outline">{e.relationType}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Elderly Detail Dialog */}
+        <Dialog open={!!selectedElderly} onOpenChange={() => setSelectedElderly(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                <Avatar className="w-10 h-10">
+                  <AvatarFallback className="bg-info/10 text-info">
+                    {selectedElderly?.name?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <span>{selectedElderly?.name}</span>
+                  <p className="text-sm font-normal text-muted-foreground">
+                    {selectedElderly?.age}세 | {selectedElderly?.gender}
+                  </p>
+                </div>
+              </DialogTitle>
+              <DialogDescription>관계 정보</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="text-sm">
+                <p className="text-muted-foreground">주소</p>
+                <p className="font-medium">{selectedElderly?.address || '정보 없음'}</p>
+              </div>
+              <div className="text-sm">
+                <p className="text-muted-foreground">연락처</p>
+                <p className="font-medium">{selectedElderly?.phone || '정보 없음'}</p>
+              </div>
+
+              {isDetailLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <h4 className="font-medium mb-2">담당 상담사</h4>
+                    {elderlyAssignment ? (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                        <Avatar className="w-10 h-10">
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {elderlyAssignment.counselorName?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{elderlyAssignment.counselorName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            배정일: {elderlyAssignment.assignedAt?.split('T')[0]}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2">배정된 상담사가 없습니다.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-2">보호자</h4>
+                    {elderlyGuardian ? (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-accent/5 border border-accent/20">
+                        <Avatar className="w-10 h-10">
+                          <AvatarFallback className="bg-accent/10 text-accent">
+                            {elderlyGuardian.name?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{elderlyGuardian.name}</p>
+                          <p className="text-xs text-muted-foreground">{elderlyGuardian.phone}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2">연결된 보호자가 없습니다.</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

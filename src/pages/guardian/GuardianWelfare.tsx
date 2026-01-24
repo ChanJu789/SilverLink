@@ -145,9 +145,10 @@ const GuardianWelfare = () => {
   const filteredServices = services.filter((service) => {
     const matchesCategory = selectedCategory === "all" ||
       service.category?.includes(selectedCategory);
+    // region 대신 jurMnofNm(소관기관) 사용
     const matchesRegion = selectedRegion === "all" ||
-      service.region?.includes("전국") ||
-      service.region?.includes(selectedRegion);
+      service.jurMnofNm?.includes("전국") ||
+      service.jurMnofNm?.includes(selectedRegion);
     return matchesCategory && matchesRegion;
   });
 
@@ -310,18 +311,18 @@ const GuardianWelfare = () => {
                                 </div>
                                 <Badge variant="outline">{service.category}</Badge>
                               </div>
-                              <h3 className="font-semibold text-foreground mb-1">{service.serviceName}</h3>
+                              <h3 className="font-semibold text-foreground mb-1">{service.servNm}</h3>
                               <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                                {service.summary}
+                                {service.servDgst}
                               </p>
                               <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <Users className="w-3 h-3" />
-                                  {service.targetGroup}
+                                  {service.source === 'CENTRAL' ? '중앙정부' : '지자체'}
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <MapPin className="w-3 h-3" />
-                                  {service.region}
+                                  {service.jurMnofNm || '전국'}
                                 </span>
                               </div>
                             </div>
@@ -337,7 +338,7 @@ const GuardianWelfare = () => {
                             {getCategoryIcon(service.category)}
                           </div>
                           <div>
-                            <DialogTitle className="text-xl">{service.serviceName}</DialogTitle>
+                            <DialogTitle className="text-xl">{service.servNm}</DialogTitle>
                             <DialogDescription>{service.category}</DialogDescription>
                           </div>
                         </div>
@@ -347,19 +348,19 @@ const GuardianWelfare = () => {
                           <div className="space-y-6 py-4">
                             <div>
                               <h4 className="font-medium text-foreground mb-2">서비스 안내</h4>
-                              <p className="text-muted-foreground">{selectedService.content || selectedService.summary}</p>
+                              <p className="text-muted-foreground">{selectedService.alwServCn || selectedService.servDgst}</p>
                             </div>
 
                             <Separator />
 
                             <div>
                               <h4 className="font-medium text-foreground mb-2">지원 대상</h4>
-                              <p className="text-muted-foreground">{selectedService.targetGroup}</p>
+                              <p className="text-muted-foreground">{selectedService.targetDtlCn || '해당 정보 없음'}</p>
                             </div>
 
                             <div>
-                              <h4 className="font-medium text-foreground mb-2">신청 방법</h4>
-                              <p className="text-muted-foreground">{selectedService.applicationMethod || '관할 주민센터 방문 또는 온라인 신청'}</p>
+                              <h4 className="font-medium text-foreground mb-2">선정 기준</h4>
+                              <p className="text-muted-foreground">{selectedService.slctCritCn || '관할 주민센터 방문 또는 온라인 신청'}</p>
                             </div>
 
                             <Separator />
@@ -367,17 +368,17 @@ const GuardianWelfare = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div className="p-4 rounded-xl bg-muted/50">
                                 <p className="text-sm text-muted-foreground mb-1">문의처</p>
-                                <p className="font-medium text-foreground">{selectedService.contactInfo || '129 (정부민원안내)'}</p>
+                                <p className="font-medium text-foreground">{selectedService.rprsCtadr || '129 (정부민원안내)'}</p>
                               </div>
                               <div className="p-4 rounded-xl bg-muted/50">
-                                <p className="text-sm text-muted-foreground mb-1">지역</p>
-                                <p className="font-medium text-foreground">{selectedService.region}</p>
+                                <p className="text-sm text-muted-foreground mb-1">소관기관</p>
+                                <p className="font-medium text-foreground">{selectedService.jurMnofNm || '미상'}</p>
                               </div>
                             </div>
 
-                            {selectedService.websiteUrl && (
+                            {selectedService.servDtlLink && (
                               <Button asChild className="w-full">
-                                <a href={selectedService.websiteUrl} target="_blank" rel="noopener noreferrer">
+                                <a href={selectedService.servDtlLink} target="_blank" rel="noopener noreferrer">
                                   <ExternalLink className="w-4 h-4 mr-2" />
                                   상세정보 및 신청 바로가기
                                 </a>

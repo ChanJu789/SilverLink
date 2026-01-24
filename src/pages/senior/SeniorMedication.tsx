@@ -35,6 +35,8 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import medicationsApi, { MedicationResponse, MedicationRequest } from "@/api/medications";
+import ocrApi from "@/api/ocr";
+import { getErrorMessage } from "@/utils/errorUtils";
 
 interface Medication {
   id: number;
@@ -65,6 +67,37 @@ const mapToLocal = (response: MedicationResponse): Medication => ({
   endDate: response.endDate || undefined,
   instructions: response.instructions || undefined,
 });
+
+// 텍스트에서 복용 시간 추출
+const parseTimesFromText = (text: string): string[] => {
+  const times: string[] = [];
+  const lowerText = text.toLowerCase();
+
+  if (lowerText.includes("아침") || lowerText.includes("조식") || lowerText.includes("기상")) {
+    times.push("morning");
+  }
+  if (lowerText.includes("점심") || lowerText.includes("중식") || lowerText.includes("낮")) {
+    times.push("noon");
+  }
+  if (lowerText.includes("저녁") || lowerText.includes("석식")) {
+    times.push("evening");
+  }
+  if (lowerText.includes("취침") || lowerText.includes("자기") || lowerText.includes("밤")) {
+    times.push("night");
+  }
+
+  // 하루 3회 패턴
+  if (lowerText.includes("1일 3회") || lowerText.includes("하루 3회")) {
+    return ["morning", "noon", "evening"];
+  }
+  // 하루 2회 패턴
+  if (lowerText.includes("1일 2회") || lowerText.includes("하루 2회")) {
+    if (!times.includes("morning")) times.push("morning");
+    if (!times.includes("evening")) times.push("evening");
+  }
+
+  return times.length > 0 ? times : ["morning"]; // 기본값
+};
 
 const SeniorMedication = () => {
   const navigate = useNavigate();
@@ -116,32 +149,55 @@ const SeniorMedication = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setCapturedImage(reader.result as string);
-        processImage();
       };
       reader.readAsDataURL(file);
+      processImage(file);
     }
   };
 
-  const processImage = async () => {
+  const processImage = async (file: File) => {
     setIsProcessing(true);
     toast.info("약봉투를 분석하고 있어요...");
 
-    // TODO: 실제 OCR API 연동
-    // 현재는 Mock 데이터로 시뮬레이션
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    try {
+      const result = await ocrApi.analyzeDocument(file);
 
-    // Mock OCR result - simulating extracted medication info
-    const mockOcrResult: Partial<Medication> = {
-      name: "고혈압약 (로사르탄)",
-      dosage: "50mg 1정",
-      times: ["morning", "evening"],
-      instructions: "식후 복용, 자몽주스와 함께 복용 금지",
-    };
+      let medicationInfo: Partial<Medication>;
 
-    setOcrResult(mockOcrResult);
-    setIsProcessing(false);
-    setShowOCRResult(true);
-    toast.success("약 정보를 읽었어요!");
+      // OCR 결과에서 약 정보 추출
+      if (result.medication) {
+        // API가 직접 약 정보를 반환한 경우
+        medicationInfo = {
+          name: result.medication.name || "인식된 약",
+          dosage: result.medication.dosage,
+          times: result.medication.times || parseTimesFromText(result.text || ""),
+          instructions: result.medication.instructions,
+        };
+      } else if (result.text) {
+        // 텍스트에서 파싱
+        const text = result.text;
+        const lines = text.split('\n').filter(l => l.trim());
+
+        medicationInfo = {
+          name: lines[0]?.substring(0, 50) || "인식된 약",
+          dosage: lines.find(l => l.includes("정") || l.includes("mg") || l.includes("ml"))?.trim(),
+          times: parseTimesFromText(text),
+          instructions: lines.find(l => l.includes("복용") || l.includes("식후") || l.includes("식전"))?.trim(),
+        };
+      } else {
+        throw new Error("인식된 내용이 없어요.");
+      }
+
+      setOcrResult(medicationInfo);
+      setShowOCRResult(true);
+      toast.success("약 정보를 읽었어요!");
+    } catch (error) {
+      console.error("OCR 처리 실패:", error);
+      toast.error(getErrorMessage(error, "약봉투 인식에 실패했어요. 다시 찍어보세요."));
+      resetCapture();
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const confirmOCRResult = async () => {

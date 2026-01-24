@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-import SignUp from "./pages/SignUp";
 import GuardianDashboard from "./pages/guardian/GuardianDashboard";
 import GuardianCalls from "./pages/guardian/GuardianCalls";
 import GuardianCallDetail from "./pages/guardian/GuardianCallDetail";
@@ -54,7 +53,6 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
           {/* Guardian Routes */}
           <Route path="/guardian" element={<GuardianDashboard />} />
           <Route path="/guardian/calls" element={<GuardianCalls />} />
