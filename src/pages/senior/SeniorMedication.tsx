@@ -1,14 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  ArrowLeft, 
-  Camera, 
-  Pill, 
-  Clock, 
-  Plus, 
-  Trash2, 
-  Edit2, 
-  Bell, 
+import {
+  ArrowLeft,
+  Camera,
+  Pill,
+  Clock,
+  Plus,
+  Trash2,
+  Edit2,
+  Bell,
   Check,
   Volume2,
   ImageIcon,
@@ -16,7 +16,8 @@ import {
   Sun,
   Sunrise,
   Sunset,
-  Moon
+  Moon,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +34,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import medicationsApi, { MedicationResponse, MedicationRequest } from "@/api/medications";
 
 interface Medication {
   id: number;
@@ -52,44 +54,55 @@ const TIME_OPTIONS = [
   { id: "night", label: "취침전", icon: Moon, time: "22:00" },
 ];
 
+// API 응답을 로컬 형식으로 변환
+const mapToLocal = (response: MedicationResponse): Medication => ({
+  id: response.id,
+  name: response.name,
+  dosage: response.dosage || "",
+  times: response.times || [],
+  reminder: response.reminder,
+  startDate: response.startDate || new Date().toISOString().split('T')[0],
+  endDate: response.endDate || undefined,
+  instructions: response.instructions || undefined,
+});
+
 const SeniorMedication = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // States
-  const [medications, setMedications] = useState<Medication[]>([
-    {
-      id: 1,
-      name: "혈압약 (아모디핀)",
-      dosage: "5mg 1정",
-      times: ["morning"],
-      reminder: true,
-      startDate: "2024-01-01",
-      instructions: "식후 30분 복용",
-    },
-    {
-      id: 2,
-      name: "당뇨약 (메트포르민)",
-      dosage: "500mg 1정",
-      times: ["morning", "evening"],
-      reminder: true,
-      startDate: "2024-01-01",
-      instructions: "식사와 함께 복용",
-    },
-  ]);
-  
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showOCRResult, setShowOCRResult] = useState(false);
   const [ocrResult, setOcrResult] = useState<Partial<Medication> | null>(null);
-  const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
-  
+
   // New medication form states
   const [newMedName, setNewMedName] = useState("");
   const [newMedDosage, setNewMedDosage] = useState("");
   const [newMedTimes, setNewMedTimes] = useState<string[]>([]);
   const [newMedInstructions, setNewMedInstructions] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // 데이터 로드
+  useEffect(() => {
+    const fetchMedications = async () => {
+      try {
+        setLoading(true);
+        const data = await medicationsApi.getMyMedications();
+        setMedications(data.map(mapToLocal));
+      } catch (error) {
+        console.error("복약 목록 로드 실패:", error);
+        // 로그인되지 않은 경우 빈 목록 유지
+        setMedications([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMedications();
+  }, []);
 
   const handleCameraCapture = () => {
     if (fileInputRef.current) {
@@ -112,10 +125,11 @@ const SeniorMedication = () => {
   const processImage = async () => {
     setIsProcessing(true);
     toast.info("약봉투를 분석하고 있어요...");
-    
-    // Simulate OCR processing
+
+    // TODO: 실제 OCR API 연동
+    // 현재는 Mock 데이터로 시뮬레이션
     await new Promise((resolve) => setTimeout(resolve, 2500));
-    
+
     // Mock OCR result - simulating extracted medication info
     const mockOcrResult: Partial<Medication> = {
       name: "고혈압약 (로사르탄)",
@@ -123,26 +137,33 @@ const SeniorMedication = () => {
       times: ["morning", "evening"],
       instructions: "식후 복용, 자몽주스와 함께 복용 금지",
     };
-    
+
     setOcrResult(mockOcrResult);
     setIsProcessing(false);
     setShowOCRResult(true);
     toast.success("약 정보를 읽었어요!");
   };
 
-  const confirmOCRResult = () => {
+  const confirmOCRResult = async () => {
     if (ocrResult) {
-      const newMed: Medication = {
-        id: Date.now(),
-        name: ocrResult.name || "새 약",
-        dosage: ocrResult.dosage || "",
-        times: ocrResult.times || ["morning"],
-        reminder: true,
-        startDate: new Date().toISOString().split('T')[0],
-        instructions: ocrResult.instructions,
-      };
-      setMedications([...medications, newMed]);
-      toast.success("복약 일정이 등록되었어요!");
+      try {
+        setSubmitting(true);
+        const request: MedicationRequest = {
+          medicationName: ocrResult.name || "새 약",
+          dosageText: ocrResult.dosage,
+          times: ocrResult.times || ["morning"],
+          instructions: ocrResult.instructions,
+        };
+
+        const response = await medicationsApi.createMedication(request);
+        setMedications([...medications, mapToLocal(response)]);
+        toast.success("복약 일정이 등록되었어요!");
+      } catch (error) {
+        console.error("복약 등록 실패:", error);
+        toast.error("등록에 실패했습니다.");
+      } finally {
+        setSubmitting(false);
+      }
     }
     resetCapture();
   };
@@ -157,14 +178,14 @@ const SeniorMedication = () => {
   };
 
   const toggleTime = (timeId: string) => {
-    setNewMedTimes(prev => 
-      prev.includes(timeId) 
+    setNewMedTimes(prev =>
+      prev.includes(timeId)
         ? prev.filter(t => t !== timeId)
         : [...prev, timeId]
     );
   };
 
-  const handleAddMedication = () => {
+  const handleAddMedication = async () => {
     if (!newMedName.trim()) {
       toast.error("약 이름을 입력해주세요");
       return;
@@ -174,20 +195,26 @@ const SeniorMedication = () => {
       return;
     }
 
-    const newMed: Medication = {
-      id: Date.now(),
-      name: newMedName,
-      dosage: newMedDosage,
-      times: newMedTimes,
-      reminder: true,
-      startDate: new Date().toISOString().split('T')[0],
-      instructions: newMedInstructions,
-    };
+    try {
+      setSubmitting(true);
+      const request: MedicationRequest = {
+        medicationName: newMedName,
+        dosageText: newMedDosage,
+        times: newMedTimes,
+        instructions: newMedInstructions,
+      };
 
-    setMedications([...medications, newMed]);
-    resetForm();
-    setShowAddDialog(false);
-    toast.success("복약 일정이 등록되었어요!");
+      const response = await medicationsApi.createMedication(request);
+      setMedications([...medications, mapToLocal(response)]);
+      resetForm();
+      setShowAddDialog(false);
+      toast.success("복약 일정이 등록되었어요!");
+    } catch (error) {
+      console.error("복약 등록 실패:", error);
+      toast.error("등록에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const resetForm = () => {
@@ -197,15 +224,27 @@ const SeniorMedication = () => {
     setNewMedInstructions("");
   };
 
-  const deleteMedication = (id: number) => {
-    setMedications(medications.filter(m => m.id !== id));
-    toast.success("복약 일정이 삭제되었어요");
+  const deleteMedication = async (id: number) => {
+    try {
+      await medicationsApi.deleteMedication(id);
+      setMedications(medications.filter(m => m.id !== id));
+      toast.success("복약 일정이 삭제되었어요");
+    } catch (error) {
+      console.error("삭제 실패:", error);
+      toast.error("삭제에 실패했습니다.");
+    }
   };
 
-  const toggleReminder = (id: number) => {
-    setMedications(medications.map(m => 
-      m.id === id ? { ...m, reminder: !m.reminder } : m
-    ));
+  const toggleReminder = async (id: number) => {
+    try {
+      const response = await medicationsApi.toggleReminder(id);
+      setMedications(medications.map(m =>
+        m.id === id ? { ...m, reminder: response.reminder } : m
+      ));
+    } catch (error) {
+      console.error("알림 토글 실패:", error);
+      toast.error("설정 변경에 실패했습니다.");
+    }
   };
 
   const getTimeLabel = (timeId: string) => {
@@ -215,12 +254,20 @@ const SeniorMedication = () => {
   const speakMedication = (med: Medication) => {
     const timeLabels = med.times.map(t => getTimeLabel(t)).join(", ");
     const text = `${med.name}, ${med.dosage}, ${timeLabels}에 복용하세요. ${med.instructions || ""}`;
-    
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "ko-KR";
     utterance.rate = 0.8;
     window.speechSynthesis.speak(utterance);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-success" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-32">
@@ -301,7 +348,7 @@ const SeniorMedication = () => {
                     <p className="text-muted-foreground text-sm">아래 내용을 확인해주세요</p>
                   </div>
                 </div>
-                
+
                 <div className="p-4 bg-muted rounded-xl space-y-3">
                   <div>
                     <Label className="text-muted-foreground text-sm">약 이름</Label>
@@ -339,8 +386,10 @@ const SeniorMedication = () => {
                   </Button>
                   <Button
                     onClick={confirmOCRResult}
+                    disabled={submitting}
                     className="flex-1 h-14 text-lg rounded-xl bg-success hover:bg-success/90"
                   >
+                    {submitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
                     등록하기
                   </Button>
                 </div>
@@ -407,8 +456,8 @@ const SeniorMedication = () => {
                         const timeOption = TIME_OPTIONS.find(t => t.id === time);
                         const Icon = timeOption?.icon || Clock;
                         return (
-                          <Badge 
-                            key={time} 
+                          <Badge
+                            key={time}
                             variant="secondary"
                             className="py-2 px-4 text-sm gap-2"
                           >
@@ -534,8 +583,10 @@ const SeniorMedication = () => {
             </Button>
             <Button
               onClick={handleAddMedication}
+              disabled={submitting}
               className="flex-1 h-12 bg-success hover:bg-success/90"
             >
+              {submitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
               등록하기
             </Button>
           </DialogFooter>

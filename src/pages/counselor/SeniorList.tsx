@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,84 +28,79 @@ import {
   Activity,
   AlertTriangle,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import { toast } from "sonner";
+import assignmentsApi, { AssignmentResponse } from "@/api/assignments";
+import counselorsApi from "@/api/counselors";
 
-// Mock data
-const seniors = [
-  {
-    id: "1",
-    name: "김영숙",
-    age: 78,
-    gender: "여성",
-    phone: "010-1234-5678",
-    address: "서울시 강남구",
-    lastCall: "2024-12-26",
-    emotionState: "좋음",
-    riskLevel: "낮음",
-    guardian: "김민수",
-  },
-  {
-    id: "2",
-    name: "박철수",
-    age: 82,
-    gender: "남성",
-    phone: "010-2345-6789",
-    address: "서울시 서초구",
-    lastCall: "2024-12-26",
-    emotionState: "보통",
-    riskLevel: "보통",
-    guardian: "박영희",
-  },
-  {
-    id: "3",
-    name: "이순자",
-    age: 75,
-    gender: "여성",
-    phone: "010-3456-7890",
-    address: "서울시 송파구",
-    lastCall: "2024-12-25",
-    emotionState: "나쁨",
-    riskLevel: "높음",
-    guardian: "이철호",
-  },
-  {
-    id: "4",
-    name: "정말자",
-    age: 80,
-    gender: "여성",
-    phone: "010-4567-8901",
-    address: "서울시 강동구",
-    lastCall: "2024-12-26",
-    emotionState: "매우 좋음",
-    riskLevel: "낮음",
-    guardian: "정수민",
-  },
-  {
-    id: "5",
-    name: "최영호",
-    age: 79,
-    gender: "남성",
-    phone: "010-5678-9012",
-    address: "서울시 마포구",
-    lastCall: "2024-12-24",
-    emotionState: "보통",
-    riskLevel: "보통",
-    guardian: "최미영",
-  },
-];
+interface Senior {
+  id: string;
+  name: string;
+  age?: number;
+  gender?: string;
+  phone?: string;
+  address?: string;
+  lastCall?: string;
+  emotionState: string;
+  riskLevel: string;
+  guardian?: string;
+}
 
 export default function SeniorList() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [riskFilter, setRiskFilter] = useState("all");
   const [emotionFilter, setEmotionFilter] = useState("all");
+  const [seniors, setSeniors] = useState<Senior[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [counselorName, setCounselorName] = useState("상담사");
+
+  // 데이터 로드
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        // 상담사 정보 조회
+        try {
+          const counselorInfo = await counselorsApi.getMyInfo();
+          setCounselorName(counselorInfo.name);
+        } catch (e) {
+          console.log("상담사 정보 조회 실패:", e);
+        }
+
+        // 배정된 어르신 목록 조회
+        const assignments = await assignmentsApi.getMyAssignments();
+
+        // 배정 데이터를 Senior 형식으로 변환
+        const seniorList: Senior[] = assignments
+          .filter(a => a.status === 'ACTIVE')
+          .map(assignment => ({
+            id: String(assignment.elderlyId),
+            name: assignment.elderlyName,
+            emotionState: "보통",  // 이 정보는 별도 API에서 가져와야 함
+            riskLevel: "낮음",     // 이 정보는 별도 API에서 가져와야 함
+          }));
+
+        setSeniors(seniorList);
+      } catch (error) {
+        console.error("데이터 로드 실패:", error);
+        // 로그인되지 않은 경우 등 오류 시 빈 목록 표시
+        setSeniors([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const filteredSeniors = seniors.filter((senior) => {
     const matchesSearch =
       senior.name.includes(searchTerm) ||
-      senior.phone.includes(searchTerm) ||
-      senior.address.includes(searchTerm);
+      (senior.phone?.includes(searchTerm) ?? false) ||
+      (senior.address?.includes(searchTerm) ?? false);
     const matchesRisk = riskFilter === "all" || senior.riskLevel === riskFilter;
     const matchesEmotion = emotionFilter === "all" || senior.emotionState === emotionFilter;
     return matchesSearch && matchesRisk && matchesEmotion;
@@ -131,10 +126,25 @@ export default function SeniorList() {
     return variants[level] || variants["보통"];
   };
 
+  if (loading) {
+    return (
+      <DashboardLayout
+        role="counselor"
+        userName={counselorName}
+        userAvatar=""
+        navItems={counselorNavItems}
+      >
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
       role="counselor"
-      userName="이상담"
+      userName={counselorName}
       userAvatar=""
       navItems={counselorNavItems}
     >
@@ -198,7 +208,7 @@ export default function SeniorList() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {seniors.filter((s) => s.lastCall === "2024-12-26").length}
+                    {seniors.filter((s) => s.lastCall === new Date().toISOString().split('T')[0]).length}
                   </p>
                   <p className="text-sm text-muted-foreground">오늘 통화 완료</p>
                 </div>
@@ -257,52 +267,58 @@ export default function SeniorList() {
             <CardTitle>어르신 목록 ({filteredSeniors.length}명)</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>이름</TableHead>
-                  <TableHead>나이/성별</TableHead>
-                  <TableHead>연락처</TableHead>
-                  <TableHead>지역</TableHead>
-                  <TableHead>보호자</TableHead>
-                  <TableHead>최근 통화</TableHead>
-                  <TableHead>감정 상태</TableHead>
-                  <TableHead>위험도</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSeniors.map((senior) => (
-                  <TableRow
-                    key={senior.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => navigate(`/counselor/seniors/${senior.id}`)}
-                  >
-                    <TableCell className="font-medium">{senior.name}</TableCell>
-                    <TableCell>
-                      {senior.age}세 / {senior.gender}
-                    </TableCell>
-                    <TableCell>{senior.phone}</TableCell>
-                    <TableCell>{senior.address}</TableCell>
-                    <TableCell>{senior.guardian}</TableCell>
-                    <TableCell>{senior.lastCall}</TableCell>
-                    <TableCell>
-                      <Badge className={getEmotionBadge(senior.emotionState)}>
-                        {senior.emotionState}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getRiskBadge(senior.riskLevel)}>
-                        {senior.riskLevel}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </TableCell>
+            {seniors.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                배정된 어르신이 없습니다.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>이름</TableHead>
+                    <TableHead>나이/성별</TableHead>
+                    <TableHead>연락처</TableHead>
+                    <TableHead>지역</TableHead>
+                    <TableHead>보호자</TableHead>
+                    <TableHead>최근 통화</TableHead>
+                    <TableHead>감정 상태</TableHead>
+                    <TableHead>위험도</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredSeniors.map((senior) => (
+                    <TableRow
+                      key={senior.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/counselor/seniors/${senior.id}`)}
+                    >
+                      <TableCell className="font-medium">{senior.name}</TableCell>
+                      <TableCell>
+                        {senior.age ? `${senior.age}세` : '-'} / {senior.gender || '-'}
+                      </TableCell>
+                      <TableCell>{senior.phone || '-'}</TableCell>
+                      <TableCell>{senior.address || '-'}</TableCell>
+                      <TableCell>{senior.guardian || '-'}</TableCell>
+                      <TableCell>{senior.lastCall || '-'}</TableCell>
+                      <TableCell>
+                        <Badge className={getEmotionBadge(senior.emotionState)}>
+                          {senior.emotionState}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getRiskBadge(senior.riskLevel)}>
+                          {senior.riskLevel}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

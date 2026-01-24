@@ -1,22 +1,18 @@
-import { useState } from "react";
-import { 
+import { useState, useEffect } from "react";
+import {
   Search,
-  Filter,
   Clock,
   CheckCircle2,
   AlertCircle,
-  XCircle,
-  Eye,
-  MessageCircle,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -35,97 +31,154 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { MessageSquare } from "lucide-react";
+import { toast } from "sonner";
+import complaintsApi, { ComplaintResponse } from "@/api/complaints";
 
-const complaints = [
-  { 
-    id: 1, 
-    guardian: "홍길동", 
-    counselor: "김상담",
-    senior: "김순자",
-    category: "상담사 응대",
-    title: "상담사 불친절 불만",
-    content: "담당 상담사가 통화 시 불친절하게 응대하였습니다. 어머니께서 상담사의 말투가 차갑다고 느끼셨습니다.",
-    status: "pending",
-    createdAt: "2024-01-15 10:30",
-    priority: "high"
-  },
-  { 
-    id: 2, 
-    guardian: "박민수", 
-    counselor: "이복지",
-    senior: "박영희",
-    category: "통화 품질",
-    title: "통화 연결 지연",
-    content: "예정된 시간에 통화가 연결되지 않아 어머니께서 불안해하셨습니다.",
-    status: "in_progress",
-    createdAt: "2024-01-14 15:20",
-    priority: "medium"
-  },
-  { 
-    id: 3, 
-    guardian: "이영희", 
-    counselor: "최상담",
-    senior: "이철수",
-    category: "서비스 불만",
-    title: "AI 응답 부정확",
-    content: "AI가 아버지의 말씀을 제대로 이해하지 못하고 엉뚱한 답변을 했습니다.",
-    status: "completed",
-    createdAt: "2024-01-13 09:15",
-    priority: "low",
-    response: "AI 모델 개선 작업을 진행하였습니다. 추가 모니터링 중입니다."
-  },
-  { 
-    id: 4, 
-    guardian: "정철수", 
-    counselor: "김상담",
-    senior: "정미영",
-    category: "상담사 변경",
-    title: "담당 상담사 변경 요청",
-    content: "현재 담당 상담사와의 소통이 원활하지 않아 변경을 요청드립니다.",
-    status: "pending",
-    createdAt: "2024-01-15 14:45",
-    priority: "medium"
-  },
-];
-
-const stats = {
-  total: 24,
-  pending: 8,
-  inProgress: 6,
-  completed: 10,
-};
+interface ComplaintDisplay {
+  id: number;
+  title: string;
+  content: string;
+  category: string | null;
+  status: 'WAITING' | 'PROCESSING' | 'RESOLVED' | 'REJECTED';
+  createdAt: string;
+  response: string | null;
+  respondedByName: string | null;
+}
 
 const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
-    case "pending":
+    case "WAITING":
       return <Badge className="bg-warning/10 text-warning border-0">접수</Badge>;
-    case "in_progress":
+    case "PROCESSING":
       return <Badge className="bg-info/10 text-info border-0">처리중</Badge>;
-    case "completed":
+    case "RESOLVED":
       return <Badge className="bg-success/10 text-success border-0">완료</Badge>;
+    case "REJECTED":
+      return <Badge className="bg-destructive/10 text-destructive border-0">반려</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
 };
 
-const PriorityBadge = ({ priority }: { priority: string }) => {
-  switch (priority) {
-    case "high":
-      return <Badge variant="destructive">긴급</Badge>;
-    case "medium":
-      return <Badge variant="outline">보통</Badge>;
-    case "low":
-      return <Badge variant="secondary">낮음</Badge>;
-    default:
-      return null;
-  }
-};
-
 const ComplaintManagement = () => {
+  const [complaints, setComplaints] = useState<ComplaintDisplay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedComplaint, setSelectedComplaint] = useState<typeof complaints[0] | null>(null);
-  const [response, setResponse] = useState("");
+  const [selectedComplaint, setSelectedComplaint] = useState<ComplaintDisplay | null>(null);
+  const [responseText, setResponseText] = useState("");
+
+  // 통계
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    completed: 0,
+  });
+
+  // 데이터 로드
+  const fetchComplaints = async () => {
+    try {
+      setLoading(true);
+
+      let response;
+      if (statusFilter === "all") {
+        response = await complaintsApi.getAllComplaints({ size: 100 });
+      } else {
+        const status = statusFilter as 'WAITING' | 'PROCESSING' | 'RESOLVED' | 'REJECTED';
+        response = await complaintsApi.getComplaintsByStatus(status, { size: 100 });
+      }
+
+      const mappedComplaints: ComplaintDisplay[] = (response.content || []).map((c: ComplaintResponse) => ({
+        id: c.id,
+        title: c.title,
+        content: c.content,
+        category: c.category,
+        status: c.status,
+        createdAt: c.createdAt ? new Date(c.createdAt).toLocaleString() : '',
+        response: c.response,
+        respondedByName: c.respondedByName,
+      }));
+
+      setComplaints(mappedComplaints);
+
+      // 통계 계산
+      const allResponse = await complaintsApi.getAllComplaints({ size: 1000 });
+      const allComplaints = allResponse.content || [];
+      setStats({
+        total: allComplaints.length,
+        pending: allComplaints.filter((c: ComplaintResponse) => c.status === 'WAITING').length,
+        inProgress: allComplaints.filter((c: ComplaintResponse) => c.status === 'PROCESSING').length,
+        completed: allComplaints.filter((c: ComplaintResponse) => c.status === 'RESOLVED').length,
+      });
+
+    } catch (error) {
+      console.error("민원 로드 실패:", error);
+      toast.error("민원 목록을 불러오는데 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchComplaints();
+  }, [statusFilter]);
+
+  // 검색 필터링
+  const filteredComplaints = complaints.filter(c =>
+    c.title.includes(searchQuery) || c.content.includes(searchQuery)
+  );
+
+  // 상태 변경
+  const handleStatusChange = async (newStatus: 'PROCESSING' | 'RESOLVED' | 'REJECTED') => {
+    if (!selectedComplaint) return;
+
+    try {
+      setSubmitting(true);
+      await complaintsApi.updateComplaintStatus(selectedComplaint.id, newStatus);
+      toast.success("상태가 변경되었습니다.");
+      await fetchComplaints();
+      setSelectedComplaint(null);
+    } catch (error) {
+      console.error("상태 변경 실패:", error);
+      toast.error("상태 변경에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 답변 등록
+  const handleReply = async () => {
+    if (!selectedComplaint || !responseText.trim()) {
+      toast.error("답변 내용을 입력해주세요.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await complaintsApi.replyToComplaint(selectedComplaint.id, responseText);
+      toast.success("답변이 등록되었습니다.");
+      setResponseText("");
+      await fetchComplaints();
+      setSelectedComplaint(null);
+    } catch (error) {
+      console.error("답변 등록 실패:", error);
+      toast.error("답변 등록에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -202,8 +255,8 @@ const ComplaintManagement = () => {
             <div className="flex flex-col md:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input 
-                  placeholder="보호자, 상담사, 어르신 이름으로 검색..." 
+                <Input
+                  placeholder="제목, 내용으로 검색..."
                   className="pl-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -215,9 +268,10 @@ const ComplaintManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체 상태</SelectItem>
-                  <SelectItem value="pending">접수</SelectItem>
-                  <SelectItem value="in_progress">처리중</SelectItem>
-                  <SelectItem value="completed">완료</SelectItem>
+                  <SelectItem value="WAITING">접수</SelectItem>
+                  <SelectItem value="PROCESSING">처리중</SelectItem>
+                  <SelectItem value="RESOLVED">완료</SelectItem>
+                  <SelectItem value="REJECTED">반려</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -227,38 +281,43 @@ const ComplaintManagement = () => {
         {/* Complaints List */}
         <Card className="shadow-card border-0">
           <CardContent className="p-0">
-            <div className="divide-y divide-border">
-              {complaints.map((complaint) => (
-                <div 
-                  key={complaint.id}
-                  className="p-6 hover:bg-muted/30 transition-colors cursor-pointer"
-                  onClick={() => setSelectedComplaint(complaint)}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <PriorityBadge priority={complaint.priority} />
-                        <StatusBadge status={complaint.status} />
-                        <Badge variant="outline">{complaint.category}</Badge>
+            {filteredComplaints.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                민원이 없습니다.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {filteredComplaints.map((complaint) => (
+                  <div
+                    key={complaint.id}
+                    className="p-6 hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedComplaint(complaint);
+                      setResponseText("");
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <StatusBadge status={complaint.status} />
+                          {complaint.category && (
+                            <Badge variant="outline">{complaint.category}</Badge>
+                          )}
+                        </div>
+                        <h3 className="font-semibold text-lg mb-1">{complaint.title}</h3>
+                        <p className="text-muted-foreground line-clamp-2 mb-3">{complaint.content}</p>
                       </div>
-                      <h3 className="font-semibold text-lg mb-1">{complaint.title}</h3>
-                      <p className="text-muted-foreground line-clamp-2 mb-3">{complaint.content}</p>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>보호자: {complaint.guardian}</span>
-                        <span>상담사: {complaint.counselor}</span>
-                        <span>어르신: {complaint.senior}</span>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">{complaint.createdAt}</p>
+                        <Button variant="ghost" size="sm" className="mt-2">
+                          상세보기 <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">{complaint.createdAt}</p>
-                      <Button variant="ghost" size="sm" className="mt-2">
-                        상세보기 <ChevronRight className="w-4 h-4 ml-1" />
-                      </Button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -269,47 +328,38 @@ const ComplaintManagement = () => {
               <>
                 <DialogHeader>
                   <div className="flex items-center gap-2 mb-2">
-                    <PriorityBadge priority={selectedComplaint.priority} />
                     <StatusBadge status={selectedComplaint.status} />
-                    <Badge variant="outline">{selectedComplaint.category}</Badge>
+                    {selectedComplaint.category && (
+                      <Badge variant="outline">{selectedComplaint.category}</Badge>
+                    )}
                   </div>
                   <DialogTitle>{selectedComplaint.title}</DialogTitle>
                   <DialogDescription>
-                    {selectedComplaint.createdAt} · 보호자: {selectedComplaint.guardian}
+                    {selectedComplaint.createdAt}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="p-4 rounded-xl bg-secondary/30">
-                    <p className="text-sm text-muted-foreground mb-1">불편사항 내용</p>
+                    <p className="text-sm text-muted-foreground mb-1">민원 내용</p>
                     <p>{selectedComplaint.content}</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="p-3 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">보호자</p>
-                      <p className="font-medium">{selectedComplaint.guardian}</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">담당 상담사</p>
-                      <p className="font-medium">{selectedComplaint.counselor}</p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">어르신</p>
-                      <p className="font-medium">{selectedComplaint.senior}</p>
-                    </div>
-                  </div>
+
                   {selectedComplaint.response && (
                     <div className="p-4 rounded-xl bg-success/10 border border-success/20">
-                      <p className="text-sm text-success font-medium mb-1">답변 완료</p>
+                      <p className="text-sm text-success font-medium mb-1">
+                        답변 완료 {selectedComplaint.respondedByName && `(${selectedComplaint.respondedByName})`}
+                      </p>
                       <p className="text-foreground">{selectedComplaint.response}</p>
                     </div>
                   )}
-                  {selectedComplaint.status !== "completed" && (
+
+                  {selectedComplaint.status !== "RESOLVED" && (
                     <div className="space-y-2">
                       <Label>답변 작성</Label>
-                      <Textarea 
-                        placeholder="불편사항에 대한 답변을 작성하세요..."
-                        value={response}
-                        onChange={(e) => setResponse(e.target.value)}
+                      <Textarea
+                        placeholder="민원에 대한 답변을 작성하세요..."
+                        value={responseText}
+                        onChange={(e) => setResponseText(e.target.value)}
                         rows={4}
                       />
                     </div>
@@ -317,10 +367,22 @@ const ComplaintManagement = () => {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setSelectedComplaint(null)}>닫기</Button>
-                  {selectedComplaint.status !== "completed" && (
+                  {selectedComplaint.status !== "RESOLVED" && (
                     <>
-                      <Button variant="secondary">처리중으로 변경</Button>
-                      <Button>답변 등록</Button>
+                      {selectedComplaint.status === "WAITING" && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleStatusChange('PROCESSING')}
+                          disabled={submitting}
+                        >
+                          {submitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                          처리중으로 변경
+                        </Button>
+                      )}
+                      <Button onClick={handleReply} disabled={submitting || !responseText.trim()}>
+                        {submitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                        답변 등록
+                      </Button>
                     </>
                   )}
                 </DialogFooter>

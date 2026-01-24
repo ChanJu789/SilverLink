@@ -7,6 +7,16 @@ interface NoticeListParams {
     size?: number;
 }
 
+// 공지사항 생성/수정 요청 타입
+export interface NoticeRequest {
+    title: string;
+    content: string;
+    category?: string;
+    isImportant?: boolean;
+    isPopup?: boolean;
+    targetRoles?: string[];
+}
+
 /**
  * 공지사항 목록 조회
  * GET /api/notices
@@ -42,9 +52,54 @@ export const markAsRead = async (id: number): Promise<void> => {
     await apiClient.post(`/api/notices/${id}/read`);
 };
 
+// ==================
+// 관리자용 API
+// ==================
+
+/**
+ * 관리자: 공지사항 목록 조회
+ * GET /api/admin/notices
+ */
+export const getAdminNotices = async (params?: NoticeListParams): Promise<PageResponse<NoticeResponse>> => {
+    const response = await apiClient.get<PageResponse<NoticeResponse>>('/api/admin/notices', { params });
+    return response.data;
+};
+
+/**
+ * 관리자: 공지사항 생성
+ * POST /api/admin/notices
+ */
+export const createNotice = async (request: NoticeRequest): Promise<number> => {
+    const response = await apiClient.post<number>('/api/admin/notices', request);
+    return response.data;
+};
+
+/**
+ * 관리자: 공지사항 상세 조회
+ * GET /api/admin/notices/{id}
+ */
+export const getAdminNoticeDetail = async (id: number): Promise<NoticeResponse> => {
+    const response = await apiClient.get<NoticeResponse>(`/api/admin/notices/${id}`);
+    return response.data;
+};
+
+/**
+ * 관리자: 공지사항 삭제
+ * DELETE /api/admin/notices/{id}
+ */
+export const deleteNotice = async (id: number): Promise<void> => {
+    await apiClient.delete(`/api/admin/notices/${id}`);
+};
+
 export default {
     getNotices,
     getPopups,
     getNoticeDetail,
     markAsRead,
+    // Admin APIs
+    getAdminNotices,
+    createNotice,
+    getAdminNoticeDetail,
+    deleteNotice,
 };
+

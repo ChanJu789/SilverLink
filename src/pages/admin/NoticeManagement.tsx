@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,77 +18,30 @@ import {
   Trash2,
   Eye,
   Pin,
-  Calendar
+  Loader2
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import { Megaphone } from "lucide-react";
+import noticesApi, { NoticeRequest } from "@/api/notices";
+import { NoticeResponse } from "@/types/api";
 
 interface Notice {
-  id: string;
+  id: number;
   title: string;
   content: string;
-  category: "공지" | "업데이트" | "이벤트" | "긴급";
-  target: "전체" | "보호자" | "상담사" | "어르신";
+  category: string;
+  targetRoles: string[];
   isPinned: boolean;
   isPublished: boolean;
-  views: number;
+  viewCount: number;
   createdAt: string;
   updatedAt: string;
 }
 
-const mockNotices: Notice[] = [
-  {
-    id: "1",
-    title: "2024년 새해 복 많이 받으세요",
-    content: "마음돌봄 서비스를 이용해주시는 모든 분들께 감사드립니다. 2024년에도 더 나은 서비스로 보답하겠습니다.",
-    category: "공지",
-    target: "전체",
-    isPinned: true,
-    isPublished: true,
-    views: 1234,
-    createdAt: "2024-01-01",
-    updatedAt: "2024-01-01",
-  },
-  {
-    id: "2",
-    title: "시스템 정기 점검 안내",
-    content: "2024년 1월 20일 02:00 ~ 06:00 시스템 정기 점검이 예정되어 있습니다. 해당 시간에는 서비스 이용이 제한됩니다.",
-    category: "긴급",
-    target: "전체",
-    isPinned: true,
-    isPublished: true,
-    views: 856,
-    createdAt: "2024-01-15",
-    updatedAt: "2024-01-15",
-  },
-  {
-    id: "3",
-    title: "AI 분석 기능 업데이트 안내",
-    content: "더욱 정확한 감정 분석과 위험도 예측을 위한 AI 모델이 업데이트되었습니다.",
-    category: "업데이트",
-    target: "상담사",
-    isPinned: false,
-    isPublished: true,
-    views: 432,
-    createdAt: "2024-01-10",
-    updatedAt: "2024-01-12",
-  },
-  {
-    id: "4",
-    title: "설날 맞이 특별 이벤트",
-    content: "설날을 맞아 어르신들을 위한 특별 프로그램이 진행됩니다.",
-    category: "이벤트",
-    target: "어르신",
-    isPinned: false,
-    isPublished: false,
-    views: 0,
-    createdAt: "2024-01-18",
-    updatedAt: "2024-01-18",
-  },
-];
-
 const NoticeManagement = () => {
-  const [notices, setNotices] = useState<Notice[]>(mockNotices);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -99,11 +52,47 @@ const NoticeManagement = () => {
   const [formData, setFormData] = useState({
     title: "",
     content: "",
-    category: "공지" as Notice["category"],
-    target: "전체" as Notice["target"],
+    category: "공지",
+    target: "전체",
     isPinned: false,
     isPublished: true,
   });
+
+  // 데이터 로드
+  const fetchNotices = async () => {
+    try {
+      setLoading(true);
+      const response = await noticesApi.getAdminNotices({
+        keyword: searchTerm || undefined,
+        size: 100
+      });
+
+      // API 응답을 Notice 형식으로 변환
+      const mappedNotices: Notice[] = (response.content || []).map((n: NoticeResponse) => ({
+        id: n.id,
+        title: n.title,
+        content: n.content || '',
+        category: n.isImportant ? '긴급' : '공지',
+        targetRoles: n.targetRoles || ['전체'],
+        isPinned: n.isImportant || false,
+        isPublished: true,
+        viewCount: n.viewCount || 0,
+        createdAt: n.createdAt ? new Date(n.createdAt).toLocaleDateString() : '',
+        updatedAt: n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : '',
+      }));
+
+      setNotices(mappedNotices);
+    } catch (error) {
+      console.error("공지사항 로드 실패:", error);
+      toast.error("공지사항을 불러오는데 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotices();
+  }, []);
 
   const filteredNotices = notices.filter((notice) => {
     const matchesSearch = notice.title.includes(searchTerm) || notice.content.includes(searchTerm);
@@ -131,7 +120,7 @@ const NoticeManagement = () => {
       title: notice.title,
       content: notice.content,
       category: notice.category,
-      target: notice.target,
+      target: notice.targetRoles[0] || "전체",
       isPinned: notice.isPinned,
       isPublished: notice.isPublished,
     });
@@ -148,37 +137,69 @@ const NoticeManagement = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedNotice) {
-      setNotices((prev) => prev.filter((n) => n.id !== selectedNotice.id));
-      toast.success("공지사항이 삭제되었습니다.");
+      try {
+        await noticesApi.deleteNotice(selectedNotice.id);
+        setNotices((prev) => prev.filter((n) => n.id !== selectedNotice.id));
+        toast.success("공지사항이 삭제되었습니다.");
+      } catch (error) {
+        console.error("삭제 실패:", error);
+        toast.error("공지사항 삭제에 실패했습니다.");
+      }
     }
     setIsDeleteDialogOpen(false);
   };
 
-  const handleSubmit = () => {
-    const now = new Date().toISOString().split("T")[0];
-    if (isEditMode && selectedNotice) {
-      setNotices((prev) =>
-        prev.map((n) =>
-          n.id === selectedNotice.id
-            ? { ...n, ...formData, updatedAt: now }
-            : n
-        )
-      );
-      toast.success("공지사항이 수정되었습니다.");
-    } else {
-      const newNotice: Notice = {
-        id: String(notices.length + 1),
-        ...formData,
-        views: 0,
-        createdAt: now,
-        updatedAt: now,
-      };
-      setNotices((prev) => [newNotice, ...prev]);
-      toast.success("새 공지사항이 등록되었습니다.");
+  const handleSubmit = async () => {
+    if (!formData.title.trim() || !formData.content.trim()) {
+      toast.error("제목과 내용을 입력해주세요.");
+      return;
     }
-    setIsDialogOpen(false);
+
+    try {
+      setSubmitting(true);
+
+      const request: NoticeRequest = {
+        title: formData.title,
+        content: formData.content,
+        category: formData.category,
+        isImportant: formData.isPinned || formData.category === "긴급",
+        isPopup: false,
+        targetRoles: formData.target === "전체" ? undefined : [formData.target],
+      };
+
+      if (isEditMode && selectedNotice) {
+        // 수정은 현재 API에 없으므로 로컬에서 처리
+        setNotices((prev) =>
+          prev.map((n) =>
+            n.id === selectedNotice.id
+              ? {
+                ...n,
+                title: formData.title,
+                content: formData.content,
+                category: formData.category,
+                isPinned: formData.isPinned,
+                isPublished: formData.isPublished,
+                targetRoles: [formData.target],
+                updatedAt: new Date().toLocaleDateString()
+              }
+              : n
+          )
+        );
+        toast.success("공지사항이 수정되었습니다.");
+      } else {
+        await noticesApi.createNotice(request);
+        toast.success("새 공지사항이 등록되었습니다.");
+        await fetchNotices(); // 목록 새로고침
+      }
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error("저장 실패:", error);
+      toast.error("공지사항 저장에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getCategoryBadge = (category: string) => {
@@ -195,6 +216,16 @@ const NoticeManagement = () => {
         return <Badge variant="outline">{category}</Badge>;
     }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
@@ -307,60 +338,66 @@ const NoticeManagement = () => {
             <CardDescription>총 {filteredNotices.length}건</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>제목</TableHead>
-                    <TableHead>분류</TableHead>
-                    <TableHead>대상</TableHead>
-                    <TableHead>조회수</TableHead>
-                    <TableHead>등록일</TableHead>
-                    <TableHead>상태</TableHead>
-                    <TableHead className="text-right">관리</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredNotices.map((notice) => (
-                    <TableRow key={notice.id}>
-                      <TableCell>
-                        {notice.isPinned && <Pin className="w-4 h-4 text-warning" />}
-                      </TableCell>
-                      <TableCell>
-                        <p className="font-medium line-clamp-1">{notice.title}</p>
-                      </TableCell>
-                      <TableCell>{getCategoryBadge(notice.category)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{notice.target}</Badge>
-                      </TableCell>
-                      <TableCell>{notice.views.toLocaleString()}</TableCell>
-                      <TableCell>{notice.createdAt}</TableCell>
-                      <TableCell>
-                        {notice.isPublished ? (
-                          <Badge className="bg-success/10 text-success border-0">게시중</Badge>
-                        ) : (
-                          <Badge className="bg-muted text-muted-foreground border-0">비공개</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleView(notice)}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(notice)}>
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(notice)}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+            {filteredNotices.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                공지사항이 없습니다.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12"></TableHead>
+                      <TableHead>제목</TableHead>
+                      <TableHead>분류</TableHead>
+                      <TableHead>대상</TableHead>
+                      <TableHead>조회수</TableHead>
+                      <TableHead>등록일</TableHead>
+                      <TableHead>상태</TableHead>
+                      <TableHead className="text-right">관리</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredNotices.map((notice) => (
+                      <TableRow key={notice.id}>
+                        <TableCell>
+                          {notice.isPinned && <Pin className="w-4 h-4 text-warning" />}
+                        </TableCell>
+                        <TableCell>
+                          <p className="font-medium line-clamp-1">{notice.title}</p>
+                        </TableCell>
+                        <TableCell>{getCategoryBadge(notice.category)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{notice.targetRoles[0] || "전체"}</Badge>
+                        </TableCell>
+                        <TableCell>{notice.viewCount.toLocaleString()}</TableCell>
+                        <TableCell>{notice.createdAt}</TableCell>
+                        <TableCell>
+                          {notice.isPublished ? (
+                            <Badge className="bg-success/10 text-success border-0">게시중</Badge>
+                          ) : (
+                            <Badge className="bg-muted text-muted-foreground border-0">비공개</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => handleView(notice)}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(notice)}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDelete(notice)}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -388,9 +425,7 @@ const NoticeManagement = () => {
                 <Label>분류</Label>
                 <Select
                   value={formData.category}
-                  onValueChange={(value: Notice["category"]) =>
-                    setFormData({ ...formData, category: value })
-                  }
+                  onValueChange={(value) => setFormData({ ...formData, category: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -407,9 +442,7 @@ const NoticeManagement = () => {
                 <Label>대상</Label>
                 <Select
                   value={formData.target}
-                  onValueChange={(value: Notice["target"]) =>
-                    setFormData({ ...formData, target: value })
-                  }
+                  onValueChange={(value) => setFormData({ ...formData, target: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -451,7 +484,8 @@ const NoticeManagement = () => {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               취소
             </Button>
-            <Button onClick={handleSubmit}>
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               {isEditMode ? "수정 완료" : "등록"}
             </Button>
           </DialogFooter>
@@ -468,7 +502,7 @@ const NoticeManagement = () => {
             </div>
             <DialogTitle className="text-xl">{selectedNotice?.title}</DialogTitle>
             <DialogDescription>
-              {selectedNotice?.createdAt} | 조회수 {selectedNotice?.views.toLocaleString()}
+              {selectedNotice?.createdAt} | 조회수 {selectedNotice?.viewCount.toLocaleString()}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">

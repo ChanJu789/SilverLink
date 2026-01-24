@@ -49,18 +49,29 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config;
-    
+    const status = error.response?.status;
+    const errorData = error.response?.data as { error?: string; message?: string } | undefined;
+    const errorCode = errorData?.error;
+
+    // 세션 관련 오류 → 로그인 페이지로 리다이렉트
+    const sessionErrors = ['SESSION_EXPIRED', 'REFRESH_REUSED', 'INVALID_TOKEN', 'TOKEN_EXPIRED'];
+    if (sessionErrors.includes(errorCode || '')) {
+      setAccessToken(null);
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+
     // 401 에러이고 재시도하지 않았다면 토큰 갱신 시도
-    if (error.response?.status === 401 && originalRequest && !(originalRequest as any)._retry) {
+    if (status === 401 && originalRequest && !(originalRequest as any)._retry) {
       (originalRequest as any)._retry = true;
-      
+
       try {
         // 토큰 갱신 요청
         const response = await apiClient.post('/api/auth/refresh');
         const { accessToken: newToken } = response.data;
-        
+
         setAccessToken(newToken);
-        
+
         // 원래 요청 재시도
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -73,7 +84,7 @@ apiClient.interceptors.response.use(
         return Promise.reject(refreshError);
       }
     }
-    
+
     return Promise.reject(error);
   }
 );

@@ -9,7 +9,8 @@ import {
   User,
   Heart,
   AlertCircle,
-  Key
+  Key,
+  Search
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import { Link } from "react-router-dom";
@@ -32,6 +33,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Shield, FileText } from "lucide-react";
 import { registerElderly, registerGuardian } from "@/api/admins";
+import AddressSearch, { AddressData } from "@/components/common/AddressSearch";
+import PhoneVerification from "@/components/common/PhoneVerification";
 
 const MemberRegistration = () => {
   const { toast } = useToast();
@@ -56,6 +59,8 @@ const MemberRegistration = () => {
     medicationInfoApproval: true,
     healthInfoApproval: true,
   });
+  const [seniorPhoneVerified, setSeniorPhoneVerified] = useState(false);
+  const [seniorProofToken, setSeniorProofToken] = useState("");
 
   // 보호자 등록 정보
   const [guardianData, setGuardianData] = useState({
@@ -75,9 +80,53 @@ const MemberRegistration = () => {
     medicationInfoApproval: true,
     healthInfoApproval: true,
   });
+  const [guardianPhoneVerified, setGuardianPhoneVerified] = useState(false);
+  const [guardianProofToken, setGuardianProofToken] = useState("");
+
+  // 어르신 주소 검색 결과 처리
+  const handleSeniorAddressSelect = (data: AddressData) => {
+    setSeniorData({
+      ...seniorData,
+      address: data.address,
+      zipcode: data.zonecode,
+      admCode: data.bcode, // 법정동 코드를 행정코드로 활용
+    });
+  };
+
+  // 보호자 주소 검색 결과 처리
+  const handleGuardianAddressSelect = (data: AddressData) => {
+    setGuardianData({
+      ...guardianData,
+      address: data.address,
+      zipcode: data.zonecode,
+    });
+  };
+
+  // 어르신 휴대폰 인증 완료 처리
+  const handleSeniorPhoneVerified = (proofToken: string) => {
+    setSeniorPhoneVerified(true);
+    setSeniorProofToken(proofToken);
+  };
+
+  // 보호자 휴대폰 인증 완료 처리
+  const handleGuardianPhoneVerified = (proofToken: string) => {
+    setGuardianPhoneVerified(true);
+    setGuardianProofToken(proofToken);
+  };
 
   const handleSeniorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 휴대폰 인증 필수 체크
+    if (!seniorPhoneVerified) {
+      toast({
+        variant: "destructive",
+        title: "휴대폰 인증 필요",
+        description: "등록 전 휴대폰 인증을 완료해주세요.",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -93,7 +142,8 @@ const MemberRegistration = () => {
         addressLine1: seniorData.address,
         addressLine2: seniorData.detailAddress,
         zipcode: seniorData.zipcode || "00000",
-        memo: seniorData.memo
+        memo: seniorData.memo,
+        proofToken: seniorProofToken, // 휴대폰 인증 토큰
       });
 
       toast({
@@ -106,11 +156,26 @@ const MemberRegistration = () => {
         phone: "", address: "", detailAddress: "", zipcode: "", admCode: "",
         memo: "", sensitiveInfoApproval: true, medicationInfoApproval: true, healthInfoApproval: true,
       });
-    } catch (error) {
+      setSeniorPhoneVerified(false);
+      setSeniorProofToken("");
+    } catch (error: any) {
+      // 백엔드에서 반환하는 오류 메시지 추출
+      let errorMessage = "정보를 확인해주세요.";
+
+      if (error.response?.data) {
+        const data = error.response.data;
+        // { error: "CODE", message: "메시지" } 형태
+        if (data.message) {
+          errorMessage = data.message;
+        } else if (typeof data === 'string') {
+          errorMessage = data;
+        }
+      }
+
       toast({
         variant: "destructive",
         title: "등록 실패",
-        description: "정보를 확인해주세요. (ID/전화번호 중복 등)",
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -119,6 +184,17 @@ const MemberRegistration = () => {
 
   const handleGuardianSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 휴대폰 인증 필수 체크
+    if (!guardianPhoneVerified) {
+      toast({
+        variant: "destructive",
+        title: "휴대폰 인증 필요",
+        description: "등록 전 휴대폰 인증을 완료해주세요.",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -133,7 +209,8 @@ const MemberRegistration = () => {
         zipcode: guardianData.zipcode || "00000",
         elderlyUserId: Number(guardianData.seniorId),
         relationType: guardianData.relation,
-        memo: guardianData.memo
+        memo: guardianData.memo,
+        proofToken: guardianProofToken, // 휴대폰 인증 토큰
       });
 
       toast({
@@ -146,11 +223,26 @@ const MemberRegistration = () => {
         address: "", detailAddress: "", zipcode: "", relation: "FAMILY",
         seniorId: "", memo: "", sensitiveInfoApproval: true, medicationInfoApproval: true, healthInfoApproval: true,
       });
-    } catch (error) {
+      setGuardianPhoneVerified(false);
+      setGuardianProofToken("");
+    } catch (error: any) {
+      // 백엔드에서 반환하는 오류 메시지 추출
+      let errorMessage = "어르신 ID가 유효한지 확인해주세요.";
+
+      if (error.response?.data) {
+        const data = error.response.data;
+        // { error: "CODE", message: "메시지" } 형태
+        if (data.message) {
+          errorMessage = data.message;
+        } else if (typeof data === 'string') {
+          errorMessage = data;
+        }
+      }
+
       toast({
         variant: "destructive",
         title: "등록 실패",
-        description: "어르신 ID가 유효한지 확인해주세요.",
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -232,27 +324,80 @@ const MemberRegistration = () => {
                         </div>
                         <div className="space-y-2">
                           <Label>연락처 *</Label>
-                          <Input value={seniorData.phone} onChange={e => setSeniorData({ ...seniorData, phone: e.target.value })} required placeholder="010-0000-0000" />
+                          <Input
+                            value={seniorData.phone}
+                            onChange={e => {
+                              setSeniorData({ ...seniorData, phone: e.target.value });
+                              // 전화번호 변경 시 인증 초기화
+                              if (seniorPhoneVerified) {
+                                setSeniorPhoneVerified(false);
+                                setSeniorProofToken("");
+                              }
+                            }}
+                            required
+                            placeholder="010-0000-0000"
+                          />
                         </div>
                       </div>
+
+                      {/* 휴대폰 인증 */}
                       <div className="space-y-2">
-                        <Label>주소 *</Label>
-                        <Input value={seniorData.address} onChange={e => setSeniorData({ ...seniorData, address: e.target.value })} required placeholder="기본 주소" />
+                        <Label className="flex items-center gap-2">
+                          <Phone className="w-4 h-4" /> 휴대폰 인증 *
+                        </Label>
+                        <PhoneVerification
+                          phone={seniorData.phone}
+                          purpose="SIGNUP"
+                          onVerified={handleSeniorPhoneVerified}
+                          disabled={!seniorData.phone || seniorData.phone.length < 10}
+                        />
+                      </div>
+
+                      {/* 주소 검색 */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4" /> 주소 *
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            value={seniorData.address}
+                            onChange={e => setSeniorData({ ...seniorData, address: e.target.value })}
+                            required
+                            placeholder="주소 검색 버튼을 클릭하세요"
+                            readOnly
+                            className="flex-1"
+                          />
+                          <AddressSearch onSelect={handleSeniorAddressSelect} />
+                        </div>
+                        {seniorData.zipcode && (
+                          <div className="flex gap-2 mt-1">
+                            <Badge variant="secondary">우편번호: {seniorData.zipcode}</Badge>
+                            {seniorData.admCode && (
+                              <Badge variant="outline">행정코드: {seniorData.admCode}</Badge>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>상세 주소</Label>
-                          <Input value={seniorData.detailAddress} onChange={e => setSeniorData({ ...seniorData, detailAddress: e.target.value })} />
+                          <Input value={seniorData.detailAddress} onChange={e => setSeniorData({ ...seniorData, detailAddress: e.target.value })} placeholder="동/호수 입력" />
                         </div>
                         <div className="space-y-2">
-                          <Label>행정코드 (숫자)</Label>
-                          <Input value={seniorData.admCode} onChange={e => setSeniorData({ ...seniorData, admCode: e.target.value })} placeholder="예: 1111000000" />
+                          <Label>메모</Label>
+                          <Input value={seniorData.memo} onChange={e => setSeniorData({ ...seniorData, memo: e.target.value })} placeholder="관리자 메모" />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                  <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                    {loading ? "등록 중..." : "어르신 등록하기"}
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    size="lg"
+                    disabled={loading || !seniorPhoneVerified}
+                  >
+                    {loading ? "등록 중..." : !seniorPhoneVerified ? "휴대폰 인증 필요" : "어르신 등록하기"}
                   </Button>
                 </div>
               </div>
@@ -295,12 +440,61 @@ const MemberRegistration = () => {
                         </div>
                         <div className="space-y-2">
                           <Label>연락처 *</Label>
-                          <Input value={guardianData.phone} onChange={e => setGuardianData({ ...guardianData, phone: e.target.value })} required />
+                          <Input
+                            value={guardianData.phone}
+                            onChange={e => {
+                              setGuardianData({ ...guardianData, phone: e.target.value });
+                              // 전화번호 변경 시 인증 초기화
+                              if (guardianPhoneVerified) {
+                                setGuardianPhoneVerified(false);
+                                setGuardianProofToken("");
+                              }
+                            }}
+                            required
+                            placeholder="010-0000-0000"
+                          />
                         </div>
                       </div>
+
+                      {/* 휴대폰 인증 */}
                       <div className="space-y-2">
-                        <Label>주소</Label>
-                        <Input value={guardianData.address} onChange={e => setGuardianData({ ...guardianData, address: e.target.value })} />
+                        <Label className="flex items-center gap-2">
+                          <Phone className="w-4 h-4" /> 휴대폰 인증 *
+                        </Label>
+                        <PhoneVerification
+                          phone={guardianData.phone}
+                          purpose="SIGNUP"
+                          onVerified={handleGuardianPhoneVerified}
+                          disabled={!guardianData.phone || guardianData.phone.length < 10}
+                        />
+                      </div>
+
+                      {/* 주소 검색 */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4" /> 주소
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            value={guardianData.address}
+                            onChange={e => setGuardianData({ ...guardianData, address: e.target.value })}
+                            placeholder="주소 검색 버튼을 클릭하세요"
+                            readOnly
+                            className="flex-1"
+                          />
+                          <AddressSearch onSelect={handleGuardianAddressSelect} />
+                        </div>
+                        {guardianData.zipcode && (
+                          <Badge variant="secondary" className="mt-1">우편번호: {guardianData.zipcode}</Badge>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>상세 주소</Label>
+                        <Input value={guardianData.detailAddress} onChange={e => setGuardianData({ ...guardianData, detailAddress: e.target.value })} placeholder="동/호수 입력" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>이메일</Label>
+                        <Input type="email" value={guardianData.email} onChange={e => setGuardianData({ ...guardianData, email: e.target.value })} placeholder="example@email.com" />
                       </div>
                     </CardContent>
                   </Card>
@@ -331,8 +525,13 @@ const MemberRegistration = () => {
                     </CardContent>
                   </Card>
 
-                  <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                    {loading ? "등록 중..." : "보호자 등록하기"}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    size="lg"
+                    disabled={loading || !guardianPhoneVerified}
+                  >
+                    {loading ? "등록 중..." : !guardianPhoneVerified ? "휴대폰 인증 필요" : "보호자 등록하기"}
                   </Button>
                 </div>
               </div>
