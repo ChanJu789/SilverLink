@@ -15,7 +15,8 @@ class AppCreator:
         # set app default
         self.app = FastAPI(
             title=configs.PROJECT_NAME,
-            openapi_url=f"{configs.API}/openapi.json",
+            openapi_url="/openapi.json",
+            docs_url="/docs",
             version="0.0.1",
         )
 
@@ -37,7 +38,7 @@ class AppCreator:
         # set routes
         @self.app.get("/")
         def root():
-            return "service is working"
+            return "service is working" 
 
         self.app.include_router(routers, prefix=configs.API_STR)
         # self.app.include_router(v2_routers, prefix=configs.API_V2_STR)
@@ -47,7 +48,20 @@ app = app_creator.app
 # db = app_creator.db
 container = app_creator.container
 
+# Prefetch Greeting Audio
+greeting = "안녕하세요! 찬주님 실버링크에서 연락드렸습니다. 잘 지내시죠?"
+print("⏳ Prefetching Greeting TTS...")
+try:
+    import asyncio
+    @app.on_event("startup")
+    async def prefetch_greeting():
+        tts_service = container.tts()
+        await tts_service.asultlux(greeting)
+        print("✅ Greeting TTS Prefetched!")
+except Exception as e:
+    print(f"⚠️ Prefetch failed: {e}")
+
 print('Documents: http://localhost:8000/docs')
 
 if __name__ == '__main__':
-    uvicorn.run("app.main:app", reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=5000, reload=True)
