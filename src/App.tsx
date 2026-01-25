@@ -4,52 +4,61 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import Index from "./pages/Index";
-import Login from "./pages/Login";
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import ForgotId from "./pages/auth/ForgotId";
-import GuardianDashboard from "./pages/guardian/GuardianDashboard";
-import GuardianCalls from "./pages/guardian/GuardianCalls";
-import GuardianCallDetail from "./pages/guardian/GuardianCallDetail";
-import GuardianStats from "./pages/guardian/GuardianStats";
-import GuardianWelfare from "./pages/guardian/GuardianWelfare";
-import GuardianInquiry from "./pages/guardian/GuardianInquiry";
-import GuardianComplaint from "./pages/guardian/GuardianComplaint";
-import GuardianNotices from "./pages/guardian/GuardianNotices";
-import GuardianProfile from "./pages/guardian/GuardianProfile";
-import CounselorDashboard from "./pages/counselor/CounselorDashboard";
-import SeniorList from "./pages/counselor/SeniorList";
-import SeniorDetail from "./pages/counselor/SeniorDetail";
-import CounselorAlerts from "./pages/counselor/CounselorAlerts";
-import CounselorRecords from "./pages/counselor/CounselorRecords";
-import CounselorNotices from "./pages/counselor/CounselorNotices";
-import CounselorInquiries from "./pages/counselor/CounselorInquiries";
-import CounselorCalls from "./pages/counselor/CounselorCalls";
-import CounselorCallDetail from "./pages/counselor/CounselorCallDetail";
-import CounselorSensitiveInfo from "./pages/counselor/CounselorSensitiveInfo";
-import CounselorProfile from "./pages/counselor/CounselorProfile";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import MemberManagement from "./pages/admin/MemberManagement";
-import AssignmentManagement from "./pages/admin/AssignmentManagement";
-import AIStats from "./pages/admin/AIStats";
-import ComplaintManagement from "./pages/admin/ComplaintManagement";
-import SystemSettings from "./pages/admin/SystemSettings";
-import NoticeManagement from "./pages/admin/NoticeManagement";
-import SensitiveInfoManagement from "./pages/admin/SensitiveInfoManagement";
-import MemberRegistration from "./pages/admin/MemberRegistration";
-import AdminProfile from "./pages/admin/AdminProfile";
-import PolicyManagement from "./pages/admin/PolicyManagement";
-import FAQPage from "./pages/faq/FAQPage";
-import SeniorDashboard from "./pages/senior/SeniorDashboard";
-import SeniorLogin from "./pages/senior/SeniorLogin";
-import SeniorOCR from "./pages/senior/SeniorOCR";
-import SeniorHealth from "./pages/senior/SeniorHealth";
-import SeniorMedication from "./pages/senior/SeniorMedication";
-import SeniorNotices from "./pages/senior/SeniorNotices";
-import SeniorFAQ from "./pages/senior/SeniorFAQ";
-import NotFound from "./pages/NotFound";
+import { lazy, Suspense } from "react"; 
+
 
 const queryClient = new QueryClient();
+const Index = lazy(() => import("./pages/Index"));
+const Login = lazy(() => import("./pages/Login"));
+const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
+const ForgotId = lazy(() => import("./pages/auth/ForgotId"));
+
+const GuardianDashboard = lazy(() => import("./pages/guardian/GuardianDashboard"));
+const GuardianCalls = lazy(() => import("./pages/guardian/GuardianCalls"));
+const GuardianCallDetail = lazy(() => import("./pages/guardian/GuardianCallDetail"));
+const GuardianStats = lazy(() => import("./pages/guardian/GuardianStats"));
+const GuardianWelfare = lazy(() => import("./pages/guardian/GuardianWelfare"));
+const GuardianInquiry = lazy(() => import("./pages/guardian/GuardianInquiry"));
+const GuardianComplaint = lazy(() => import("./pages/guardian/GuardianComplaint"));
+const GuardianNotices = lazy(() => import("./pages/guardian/GuardianNotices"));
+const GuardianProfile = lazy(() => import("./pages/guardian/GuardianProfile"));
+
+const CounselorDashboard = lazy(() => import("./pages/counselor/CounselorDashboard"));
+const SeniorList = lazy(() => import("./pages/counselor/SeniorList"));
+const SeniorDetail = lazy(() => import("./pages/counselor/SeniorDetail"));
+const CounselorAlerts = lazy(() => import("./pages/counselor/CounselorAlerts"));
+const CounselorRecords = lazy(() => import("./pages/counselor/CounselorRecords"));
+const CounselorNotices = lazy(() => import("./pages/counselor/CounselorNotices"));
+const CounselorInquiries = lazy(() => import("./pages/counselor/CounselorInquiries"));
+const CounselorCalls = lazy(() => import("./pages/counselor/CounselorCalls"));
+const CounselorCallDetail = lazy(() => import("./pages/counselor/CounselorCallDetail"));
+const CounselorSensitiveInfo = lazy(() => import("./pages/counselor/CounselorSensitiveInfo"));
+const CounselorProfile = lazy(() => import("./pages/counselor/CounselorProfile"));
+
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const MemberManagement = lazy(() => import("./pages/admin/MemberManagement"));
+const AssignmentManagement = lazy(() => import("./pages/admin/AssignmentManagement"));
+const AIStats = lazy(() => import("./pages/admin/AIStats"));
+const ComplaintManagement = lazy(() => import("./pages/admin/ComplaintManagement"));
+const SystemSettings = lazy(() => import("./pages/admin/SystemSettings"));
+const NoticeManagement = lazy(() => import("./pages/admin/NoticeManagement"));
+const SensitiveInfoManagement = lazy(() => import("./pages/admin/SensitiveInfoManagement"));
+const MemberRegistration = lazy(() => import("./pages/admin/MemberRegistration"));
+const AdminProfile = lazy(() => import("./pages/admin/AdminProfile"));
+const PolicyManagement = lazy(() => import("./pages/admin/PolicyManagement"));
+
+const FAQPage = lazy(() => import("./pages/faq/FAQPage"));
+
+const SeniorDashboard = lazy(() => import("./pages/senior/SeniorDashboard"));
+const SeniorLogin = lazy(() => import("./pages/senior/SeniorLogin"));
+const SeniorOCR = lazy(() => import("./pages/senior/SeniorOCR"));
+const SeniorHealth = lazy(() => import("./pages/senior/SeniorHealth"));
+const SeniorMedication = lazy(() => import("./pages/senior/SeniorMedication"));
+const SeniorNotices = lazy(() => import("./pages/senior/SeniorNotices"));
+const SeniorFAQ = lazy(() => import("./pages/senior/SeniorFAQ"));
+
+const NotFound = lazy(() => import("./pages/NotFound"));
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -58,6 +67,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+        <Suspense fallback={<div>Loading...</div>}>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
@@ -109,6 +119,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
