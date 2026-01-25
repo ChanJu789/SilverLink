@@ -24,7 +24,7 @@ def safe_print(text):
     except UnicodeEncodeError:
         try:
             print(text.encode('utf-8').decode('cp949', 'ignore'))
-        except:
+        except Exception:
             print(text.encode('ascii', 'ignore').decode('ascii'))
 
 def log_conversation(role, message, session_id=None, latency=None, level="INFO"):

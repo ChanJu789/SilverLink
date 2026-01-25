@@ -7,10 +7,8 @@ import audioop
 from app.callbot.repository.callbot_repository import CallbotRepository
 from app.callbot.services.base_service import BaseService
 from app.integration.llm.openai_client import LLM
-from app.integration.stt.clova_client import STT
 from app.integration.tts.luxia_client import TTS
 from app.integration.call import CALL
-from app.util.log import log_conversation, measure_execution
 from app.core.config import configs
 
 class CallbotService(BaseService):

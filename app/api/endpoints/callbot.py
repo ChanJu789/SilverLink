@@ -48,7 +48,7 @@ async def voice(
     os.makedirs("logs", exist_ok=True)
     
     with open(log_path, "a", encoding="utf-8") as f:
-        f.write(f"--- Voice Endpoint Hit ---\n")
+        f.write("--- Voice Endpoint Hit ---\n")
     
     try:
         # Initialize history for this call

@@ -1,4 +1,3 @@
-from openai import OpenAI
 from dependency_injector import containers, providers
 
 # from app.core.database import Database
@@ -10,7 +9,6 @@ from app.chatbot.services import ChatbotService
 from app.ocr.services import OcrService
 from app.core.config import configs
 from app.integration.llm.openai_client import LLM
-from app.integration.stt.clova_client import STT
 from app.integration.tts.luxia_client import TTS
 from app.integration.call import CALL
 

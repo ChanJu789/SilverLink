@@ -1,7 +1,7 @@
 from functools import wraps
 import inspect
 
-from dependency_injector.wiring import Provide, inject as di_inject
+from dependency_injector.wiring import inject as di_inject
 from loguru import logger
 
 from app.callbot.services.base_service import BaseService as CallbotService

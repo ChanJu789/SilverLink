@@ -1,6 +1,4 @@
-from contextlib import AbstractContextManager, contextmanager
-from typing import Any, Generator
-from openai import OpenAI
+from typing import Any
 import requests
 import json
 

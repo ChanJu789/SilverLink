@@ -52,7 +52,6 @@ container = app_creator.container
 greeting = "안녕하세요! 찬주님 실버링크에서 연락드렸습니다. 잘 지내시죠?"
 print("⏳ Prefetching Greeting TTS...")
 try:
-    import asyncio
     @app.on_event("startup")
     async def prefetch_greeting():
         tts_service = container.tts()
