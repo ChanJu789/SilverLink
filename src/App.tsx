@@ -38,6 +38,7 @@ import NoticeManagement from "./pages/admin/NoticeManagement";
 import SensitiveInfoManagement from "./pages/admin/SensitiveInfoManagement";
 import MemberRegistration from "./pages/admin/MemberRegistration";
 import AdminProfile from "./pages/admin/AdminProfile";
+import PolicyManagement from "./pages/admin/PolicyManagement";
 import FAQPage from "./pages/faq/FAQPage";
 import SeniorDashboard from "./pages/senior/SeniorDashboard";
 import SeniorLogin from "./pages/senior/SeniorLogin";
@@ -93,6 +94,7 @@ const App = () => (
             <Route path="/admin/complaints" element={<ComplaintManagement />} />
             <Route path="/admin/sensitive-info" element={<SensitiveInfoManagement />} />
             <Route path="/admin/notices" element={<NoticeManagement />} />
+            <Route path="/admin/policies" element={<PolicyManagement />} />
             <Route path="/admin/settings" element={<SystemSettings />} />
             <Route path="/admin/register" element={<MemberRegistration />} />
             <Route path="/admin/profile" element={<AdminProfile />} />
