@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { login } from "@/api/auth";
+import { getMyProfile } from "@/api/users";
 
 type UserRole = "guardian" | "counselor" | "admin" | "senior";
 
@@ -62,6 +64,7 @@ const roles: RoleConfig[] = [
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login: authLogin } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole>("guardian");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -92,6 +95,17 @@ const Login = () => {
         return;
       }
 
+      // 사용자 프로필 정보 가져오기
+      const userProfile = await getMyProfile();
+
+      // AuthContext에 로그인 상태 저장
+      authLogin(response.accessToken, {
+        id: userProfile.id,
+        role: serverRole,
+        name: userProfile.name,
+        loginId: formData.loginId,
+      });
+
       // 역할별 제목 매핑 (백엔드에서 대문자로 반환)
       const roleNames: Record<string, string> = {
         GUARDIAN: "보호자",
@@ -99,9 +113,6 @@ const Login = () => {
         ADMIN: "관리자",
         ELDERLY: "어르신",
       };
-
-      // 역할 정보를 localStorage에 저장 (메인화면에서 로그인 상태 확인용)
-      localStorage.setItem('userRole', serverRole);
 
       toast.success("로그인 성공", {
         description: `${roleNames[serverRole] || serverRole}으로 로그인되었습니다.`,

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { getRoleHomePath } from "@/contexts/AuthContext";
 
 interface NavItem {
   title: string;
@@ -54,7 +55,18 @@ const DashboardLayout = ({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
+  // 로고 클릭 핸들러
+  const handleLogoClick = () => {
+    if (user) {
+      // 로그인 상태: 현재 역할의 대시보드로 이동
+      navigate(getRoleHomePath(user.role));
+    } else {
+      // 비로그인 상태: 메인 페이지로 이동
+      navigate("/");
+    }
+  };
 
   const roleConfig = {
     guardian: {
@@ -100,7 +112,10 @@ const DashboardLayout = ({
           {/* Logo */}
           <div className="p-6 border-b border-sidebar-border">
             <div className="flex items-center justify-between">
-              <Link to="/" className="flex items-center gap-3">
+              <button 
+                onClick={handleLogoClick}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              >
                 <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
                   <Heart className="w-5 h-5 text-sidebar-primary-foreground" />
                 </div>
@@ -108,7 +123,7 @@ const DashboardLayout = ({
                   <h1 className="text-lg font-bold text-sidebar-foreground">마음돌봄</h1>
                   <p className="text-xs text-sidebar-foreground/60">국가 복지 서비스</p>
                 </div>
-              </Link>
+              </button>
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"

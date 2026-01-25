@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Heart,
@@ -51,6 +52,13 @@ const Index = () => {
 
   // 역할에 따른 대시보드 경로
   const dashboardPath = getRoleHomePath(role);
+
+  // 로그인 상태면 대시보드로 자동 리다이렉트
+  useEffect(() => {
+    if (!isLoading && isLoggedIn && role) {
+      navigate(dashboardPath, { replace: true });
+    }
+  }, [isLoading, isLoggedIn, role, dashboardPath, navigate]);
 
   // 로딩 중일 때는 기본 헤더 표시
   if (isLoading) {

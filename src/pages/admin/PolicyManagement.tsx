@@ -1,0 +1,377 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import { adminNavItems } from "@/config/adminNavItems";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Plus, Edit, Trash2, Eye, Search, Calendar } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface Policy {
+  id: number;
+  title: string;
+  category: string;
+  content: string;
+  status: "ACTIVE" | "DRAFT" | "ARCHIVED";
+  version: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
+
+const mockPolicies: Policy[] = [
+  {
+    id: 1,
+    title: "개인정보 처리방침",
+    category: "PRIVACY",
+    content: "본 개인정보 처리방침은...",
+    status: "ACTIVE",
+    version: "1.2",
+    createdAt: "2024-01-15",
+    updatedAt: "2024-03-20",
+    createdBy: "관리자",
+  },
+  {
+    id: 2,
+    title: "서비스 이용약관",
+    category: "TERMS",
+    content: "제1조 (목적) 본 약관은...",
+    status: "ACTIVE",
+    version: "2.0",
+    createdAt: "2024-01-10",
+    updatedAt: "2024-02-15",
+    createdBy: "관리자",
+  },
+];
+
+const PolicyManagement = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [policies, setPolicies] = useState<Policy[]>(mockPolicies);
+  const [isCreating, setIsCreating] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState<string>("ALL");
+  const [filterStatus, setFilterStatus] = useState<string>("ALL");
+
+  const [formData, setFormData] = useState<{
+    title: string;
+    category: string;
+    content: string;
+    status: "ACTIVE" | "DRAFT" | "ARCHIVED";
+    version: string;
+  }>({
+    title: "",
+    category: "PRIVACY",
+    content: "",
+    status: "DRAFT",
+    version: "1.0",
+  });
+
+  const categories = [
+    { value: "PRIVACY", label: "개인정보 처리방침" },
+    { value: "TERMS", label: "서비스 이용약관" },
+    { value: "OPERATION", label: "운영정책" },
+    { value: "SECURITY", label: "보안정책" },
+    { value: "OTHER", label: "기타" },
+  ];
+
+  const statusConfig = {
+    ACTIVE: { label: "활성", color: "bg-success text-success-foreground" },
+    DRAFT: { label: "임시저장", color: "bg-secondary text-secondary-foreground" },
+    ARCHIVED: { label: "보관", color: "bg-muted text-muted-foreground" },
+  };
+
+  const handleCreate = () => {
+    setIsCreating(true);
+    setEditingPolicy(null);
+    setFormData({
+      title: "",
+      category: "PRIVACY",
+      content: "",
+      status: "DRAFT",
+      version: "1.0",
+    });
+  };
+
+  const handleEdit = (policy: Policy) => {
+    setEditingPolicy(policy);
+    setIsCreating(true);
+    setFormData({
+      title: policy.title,
+      category: policy.category,
+      content: policy.content,
+      status: policy.status,
+      version: policy.version,
+    });
+  };
+
+  const handleSave = () => {
+    if (!formData.title || !formData.content) {
+      toast.error("필수 항목을 입력해주세요");
+      return;
+    }
+
+    if (editingPolicy) {
+      setPolicies(policies.map(p => 
+        p.id === editingPolicy.id 
+          ? { ...p, ...formData, updatedAt: new Date().toISOString().split('T')[0] }
+          : p
+      ));
+      toast.success("정책이 수정되었습니다");
+    } else {
+      const newPolicy: Policy = {
+        id: Math.max(...policies.map(p => p.id)) + 1,
+        ...formData,
+        createdAt: new Date().toISOString().split('T')[0],
+        updatedAt: new Date().toISOString().split('T')[0],
+        createdBy: user?.name || "관리자",
+      };
+      setPolicies([newPolicy, ...policies]);
+      toast.success("정책이 생성되었습니다");
+    }
+
+    setIsCreating(false);
+    setEditingPolicy(null);
+  };
+
+  const handleDelete = (id: number) => {
+    if (confirm("정말 삭제하시겠습니까?")) {
+      setPolicies(policies.filter(p => p.id !== id));
+      toast.success("정책이 삭제되었습니다");
+    }
+  };
+
+  const filteredPolicies = policies.filter(policy => {
+    const matchesSearch = policy.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = filterCategory === "ALL" || policy.category === filterCategory;
+    const matchesStatus = filterStatus === "ALL" || policy.status === filterStatus;
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  return (
+    <DashboardLayout
+      role="admin"
+      userName={user?.name || "관리자"}
+      navItems={adminNavItems}
+    >
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">운영정책 관리</h1>
+            <p className="text-muted-foreground mt-1">서비스 운영정책 및 약관을 관리합니다</p>
+          </div>
+          {!isCreating && (
+            <Button onClick={handleCreate} className="gap-2">
+              <Plus className="w-4 h-4" />
+              새 정책 작성
+            </Button>
+          )}
+        </div>
+
+        {isCreating ? (
+          /* Create/Edit Form */
+          <Card className="shadow-card border-0">
+            <CardHeader>
+              <CardTitle>{editingPolicy ? "정책 수정" : "새 정책 작성"}</CardTitle>
+              <CardDescription>운영정책 정보를 입력하세요</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">정책 제목 *</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="예: 개인정보 처리방침"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">카테고리 *</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="version">버전</Label>
+                  <Input
+                    id="version"
+                    value={formData.version}
+                    onChange={(e) => setFormData({ ...formData, version: e.target.value })}
+                    placeholder="1.0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">상태</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value: any) => setFormData({ ...formData, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DRAFT">임시저장</SelectItem>
+                      <SelectItem value="ACTIVE">활성</SelectItem>
+                      <SelectItem value="ARCHIVED">보관</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="content">정책 내용 *</Label>
+                <Textarea
+                  id="content"
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  placeholder="정책 내용을 입력하세요..."
+                  rows={15}
+                  className="font-mono text-sm"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button onClick={handleSave} className="flex-1">
+                  {editingPolicy ? "수정 완료" : "저장"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsCreating(false);
+                    setEditingPolicy(null);
+                  }}
+                  className="flex-1"
+                >
+                  취소
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Filters */}
+            <Card className="shadow-card border-0">
+              <CardContent className="p-4">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="정책 제목 검색..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="w-full md:w-48">
+                      <SelectValue placeholder="카테고리" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">전체 카테고리</SelectItem>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-full md:w-40">
+                      <SelectValue placeholder="상태" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">전체 상태</SelectItem>
+                      <SelectItem value="ACTIVE">활성</SelectItem>
+                      <SelectItem value="DRAFT">임시저장</SelectItem>
+                      <SelectItem value="ARCHIVED">보관</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Policies List */}
+            <div className="space-y-4">
+              {filteredPolicies.length === 0 ? (
+                <Card className="shadow-card border-0">
+                  <CardContent className="p-12 text-center">
+                    <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">등록된 정책이 없습니다</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredPolicies.map((policy) => (
+                  <Card key={policy.id} className="shadow-card border-0 hover:shadow-elevated transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-lg font-semibold text-foreground">{policy.title}</h3>
+                            <Badge className={statusConfig[policy.status].color}>
+                              {statusConfig[policy.status].label}
+                            </Badge>
+                            <Badge variant="outline">v{policy.version}</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {policy.content}
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              생성: {policy.createdAt}
+                            </span>
+                            <span>수정: {policy.updatedAt}</span>
+                            <span>작성자: {policy.createdBy}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(policy)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(policy.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default PolicyManagement;
