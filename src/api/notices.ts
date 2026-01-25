@@ -91,15 +91,58 @@ export const deleteNotice = async (id: number): Promise<void> => {
     await apiClient.delete(`/api/admin/notices/${id}`);
 };
 
+/**
+ * 관리자: 공지사항 수정
+ * PUT /api/admin/notices/{id}
+ */
+export const updateNotice = async (id: number, request: NoticeRequest): Promise<void> => {
+    await apiClient.put(`/api/admin/notices/${id}`, request);
+};
+
+/**
+ * 공지사항 필독 확인
+ * POST /api/notices/{id}/confirm
+ */
+export const confirmNotice = async (id: number): Promise<void> => {
+    await apiClient.post(`/api/notices/${id}/confirm`);
+};
+
+/**
+ * 관리자: 공지사항 확인자 목록 조회
+ * GET /api/notices/{id}/confirm-list
+ */
+export interface NoticeConfirmUser {
+    userId: number;
+    name: string;
+    confirmedAt: string;
+}
+
+export const getConfirmList = async (id: number): Promise<NoticeConfirmUser[]> => {
+    const response = await apiClient.get<NoticeConfirmUser[]>(`/api/notices/${id}/confirm-list`);
+    return response.data;
+};
+
+/**
+ * 관리자: 공지사항 복구
+ * POST /api/admin/notices/{id}/restore
+ */
+export const restoreNotice = async (id: number): Promise<void> => {
+    await apiClient.post(`/api/admin/notices/${id}/restore`);
+};
+
 export default {
     getNotices,
     getPopups,
     getNoticeDetail,
     markAsRead,
+    confirmNotice,
     // Admin APIs
     getAdminNotices,
     createNotice,
     getAdminNoticeDetail,
     deleteNotice,
+    updateNotice,
+    getConfirmList,
+    restoreNotice,
 };
 

@@ -401,9 +401,28 @@ const MemberManagement = () => {
                             {counselor.createdAt?.split('T')[0]}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCounselorClick(counselor); }}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  상세보기
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  수정
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  삭제
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))
@@ -423,6 +442,7 @@ const MemberManagement = () => {
                     <TableRow>
                       <TableHead>보호자</TableHead>
                       <TableHead>연락처</TableHead>
+                      <TableHead>담당 어르신</TableHead>
                       <TableHead>등록일</TableHead>
                       <TableHead className="text-right">관리</TableHead>
                     </TableRow>
@@ -430,7 +450,7 @@ const MemberManagement = () => {
                   <TableBody>
                     {filteredGuardians.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                           {searchQuery ? '검색 결과가 없습니다.' : '등록된 보호자가 없습니다.'}
                         </TableCell>
                       </TableRow>
@@ -455,13 +475,35 @@ const MemberManagement = () => {
                             </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground">{guardian.phone}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{guardian.elderlyCount || 0}명</Badge>
+                          </TableCell>
                           <TableCell className="text-muted-foreground">
-                            {guardian.createdAt?.split('T')[0]}
+                            {guardian.createdAt?.split('T')[0] || '-'}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleGuardianClick(guardian); }}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  상세보기
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  수정
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  삭제
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))
@@ -527,9 +569,28 @@ const MemberManagement = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleElderlyClick(elderlyMember); }}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  상세보기
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  수정
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  삭제
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))

@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavItem {
   title: string;
@@ -53,6 +54,7 @@ const DashboardLayout = ({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const roleConfig = {
     guardian: {
@@ -72,7 +74,8 @@ const DashboardLayout = ({
     },
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     navigate("/");
   };
 

@@ -3,8 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ForgotId from "./pages/auth/ForgotId";
 import GuardianDashboard from "./pages/guardian/GuardianDashboard";
 import GuardianCalls from "./pages/guardian/GuardianCalls";
 import GuardianCallDetail from "./pages/guardian/GuardianCallDetail";
@@ -13,6 +16,7 @@ import GuardianWelfare from "./pages/guardian/GuardianWelfare";
 import GuardianInquiry from "./pages/guardian/GuardianInquiry";
 import GuardianComplaint from "./pages/guardian/GuardianComplaint";
 import GuardianNotices from "./pages/guardian/GuardianNotices";
+import GuardianProfile from "./pages/guardian/GuardianProfile";
 import CounselorDashboard from "./pages/counselor/CounselorDashboard";
 import SeniorList from "./pages/counselor/SeniorList";
 import SeniorDetail from "./pages/counselor/SeniorDetail";
@@ -23,6 +27,7 @@ import CounselorInquiries from "./pages/counselor/CounselorInquiries";
 import CounselorCalls from "./pages/counselor/CounselorCalls";
 import CounselorCallDetail from "./pages/counselor/CounselorCallDetail";
 import CounselorSensitiveInfo from "./pages/counselor/CounselorSensitiveInfo";
+import CounselorProfile from "./pages/counselor/CounselorProfile";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import MemberManagement from "./pages/admin/MemberManagement";
 import AssignmentManagement from "./pages/admin/AssignmentManagement";
@@ -32,6 +37,7 @@ import SystemSettings from "./pages/admin/SystemSettings";
 import NoticeManagement from "./pages/admin/NoticeManagement";
 import SensitiveInfoManagement from "./pages/admin/SensitiveInfoManagement";
 import MemberRegistration from "./pages/admin/MemberRegistration";
+import AdminProfile from "./pages/admin/AdminProfile";
 import FAQPage from "./pages/faq/FAQPage";
 import SeniorDashboard from "./pages/senior/SeniorDashboard";
 import SeniorLogin from "./pages/senior/SeniorLogin";
@@ -46,57 +52,64 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          {/* Guardian Routes */}
-          <Route path="/guardian" element={<GuardianDashboard />} />
-          <Route path="/guardian/calls" element={<GuardianCalls />} />
-          <Route path="/guardian/calls/:id" element={<GuardianCallDetail />} />
-          <Route path="/guardian/stats" element={<GuardianStats />} />
-          <Route path="/guardian/welfare" element={<GuardianWelfare />} />
-          <Route path="/guardian/inquiry" element={<GuardianInquiry />} />
-          <Route path="/guardian/complaint" element={<GuardianComplaint />} />
-          <Route path="/guardian/notices" element={<GuardianNotices />} />
-          <Route path="/guardian/faq" element={<FAQPage />} />
-          {/* Counselor Routes */}
-          <Route path="/counselor" element={<CounselorDashboard />} />
-          <Route path="/counselor/seniors" element={<SeniorList />} />
-          <Route path="/counselor/seniors/:id" element={<SeniorDetail />} />
-          <Route path="/counselor/calls" element={<CounselorCalls />} />
-          <Route path="/counselor/calls/:id" element={<CounselorCallDetail />} />
-          <Route path="/counselor/records" element={<CounselorRecords />} />
-          <Route path="/counselor/inquiries" element={<CounselorInquiries />} />
-          <Route path="/counselor/alerts" element={<CounselorAlerts />} />
-          <Route path="/counselor/notices" element={<CounselorNotices />} />
-          <Route path="/counselor/sensitive-info" element={<CounselorSensitiveInfo />} />
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/members" element={<MemberManagement />} />
-          <Route path="/admin/assignments" element={<AssignmentManagement />} />
-          <Route path="/admin/ai-stats" element={<AIStats />} />
-          <Route path="/admin/complaints" element={<ComplaintManagement />} />
-          <Route path="/admin/sensitive-info" element={<SensitiveInfoManagement />} />
-          <Route path="/admin/notices" element={<NoticeManagement />} />
-          <Route path="/admin/settings" element={<SystemSettings />} />
-          <Route path="/admin/register" element={<MemberRegistration />} />
-          {/* Senior Routes */}
-          <Route path="/senior" element={<SeniorDashboard />} />
-          <Route path="/senior/login" element={<SeniorLogin />} />
-          <Route path="/senior/ocr" element={<SeniorOCR />} />
-          <Route path="/senior/health" element={<SeniorHealth />} />
-          <Route path="/senior/medication" element={<SeniorMedication />} />
-          <Route path="/senior/notices" element={<SeniorNotices />} />
-          <Route path="/senior/faq" element={<SeniorFAQ />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/forgot-id" element={<ForgotId />} />
+            {/* Guardian Routes */}
+            <Route path="/guardian" element={<GuardianDashboard />} />
+            <Route path="/guardian/calls" element={<GuardianCalls />} />
+            <Route path="/guardian/calls/:id" element={<GuardianCallDetail />} />
+            <Route path="/guardian/stats" element={<GuardianStats />} />
+            <Route path="/guardian/welfare" element={<GuardianWelfare />} />
+            <Route path="/guardian/inquiry" element={<GuardianInquiry />} />
+            <Route path="/guardian/complaint" element={<GuardianComplaint />} />
+            <Route path="/guardian/notices" element={<GuardianNotices />} />
+            <Route path="/guardian/profile" element={<GuardianProfile />} />
+            <Route path="/guardian/faq" element={<FAQPage />} />
+            {/* Counselor Routes */}
+            <Route path="/counselor" element={<CounselorDashboard />} />
+            <Route path="/counselor/seniors" element={<SeniorList />} />
+            <Route path="/counselor/seniors/:id" element={<SeniorDetail />} />
+            <Route path="/counselor/calls" element={<CounselorCalls />} />
+            <Route path="/counselor/calls/:id" element={<CounselorCallDetail />} />
+            <Route path="/counselor/records" element={<CounselorRecords />} />
+            <Route path="/counselor/inquiries" element={<CounselorInquiries />} />
+            <Route path="/counselor/alerts" element={<CounselorAlerts />} />
+            <Route path="/counselor/notices" element={<CounselorNotices />} />
+            <Route path="/counselor/sensitive-info" element={<CounselorSensitiveInfo />} />
+            <Route path="/counselor/profile" element={<CounselorProfile />} />
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/members" element={<MemberManagement />} />
+            <Route path="/admin/assignments" element={<AssignmentManagement />} />
+            <Route path="/admin/ai-stats" element={<AIStats />} />
+            <Route path="/admin/complaints" element={<ComplaintManagement />} />
+            <Route path="/admin/sensitive-info" element={<SensitiveInfoManagement />} />
+            <Route path="/admin/notices" element={<NoticeManagement />} />
+            <Route path="/admin/settings" element={<SystemSettings />} />
+            <Route path="/admin/register" element={<MemberRegistration />} />
+            <Route path="/admin/profile" element={<AdminProfile />} />
+            {/* Senior Routes */}
+            <Route path="/senior" element={<SeniorDashboard />} />
+            <Route path="/senior/login" element={<SeniorLogin />} />
+            <Route path="/senior/ocr" element={<SeniorOCR />} />
+            <Route path="/senior/health" element={<SeniorHealth />} />
+            <Route path="/senior/medication" element={<SeniorMedication />} />
+            <Route path="/senior/notices" element={<SeniorNotices />} />
+            <Route path="/senior/faq" element={<SeniorFAQ />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
