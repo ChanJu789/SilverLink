@@ -52,9 +52,46 @@ export const isAuthenticated = (): boolean => {
     return getAccessToken() !== null;
 };
 
+/**
+ * 비밀번호 재설정 API
+ * POST /api/auth/reset-password
+ */
+export const resetPassword = async (
+    loginId: string,
+    proofToken: string,
+    newPassword: string
+): Promise<void> => {
+    await apiClient.post('/api/auth/reset-password', {
+        loginId,
+        proofToken,
+        newPassword,
+    });
+};
+
+/**
+ * 아이디 찾기 API
+ * POST /api/auth/find-id
+ */
+export interface FindIdResponse {
+    maskedLoginId: string;
+}
+
+export const findId = async (
+    name: string,
+    proofToken: string
+): Promise<FindIdResponse> => {
+    const response = await apiClient.post<FindIdResponse>('/api/auth/find-id', {
+        name,
+        proofToken,
+    });
+    return response.data;
+};
+
 export default {
     login,
     refresh,
     logout,
     isAuthenticated,
+    resetPassword,
+    findId,
 };

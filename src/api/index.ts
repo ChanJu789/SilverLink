@@ -61,6 +61,12 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // 중복 로그인 에러 처리 - 이미 다른 곳에서 로그인됨
+    if (errorCode === 'ALREADY_LOGGED_IN') {
+      alert('이미 다른 기기에서 로그인되어 있습니다. 기존 세션을 종료하고 다시 로그인해주세요.');
+      return Promise.reject(error);
+    }
+
     // 401 에러이고 재시도하지 않았다면 토큰 갱신 시도
     if (status === 401 && originalRequest && !(originalRequest as any)._retry) {
       (originalRequest as any)._retry = true;

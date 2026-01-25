@@ -107,6 +107,16 @@ export interface CounselorResponse {
     status: string;
     assignedElderlyCount: number;
     createdAt: string;
+    // 근무 정보
+    department?: string;
+    employeeNo?: string;
+    officePhone?: string;
+    // 행정구역 정보
+    admCode?: number;
+    sidoName?: string;
+    sigunguName?: string;
+    dongName?: string;
+    fullAddress?: string;
 }
 
 export interface CounselorRequest {
@@ -158,6 +168,7 @@ export interface GuardianResponse {
     name: string;
     phone: string;
     createdAt: string;
+    elderlyCount: number;
 }
 
 export interface GuardianRequest {

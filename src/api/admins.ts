@@ -97,6 +97,15 @@ export const registerGuardian = async (data: any): Promise<number> => {
     return response.data;
 };
 
+/**
+ * 내 정보 조회 (관리자)
+ * GET /api/admins/me
+ */
+export const getMyInfo = async (): Promise<AdminResponse> => {
+    const response = await apiClient.get<AdminResponse>('/api/admins/me');
+    return response.data;
+};
+
 export default {
     createAdmin,
     getAdmin,
@@ -108,4 +117,6 @@ export default {
     deleteAdmin,
     registerElderly,
     registerGuardian,
+    getMyInfo,
 };
+

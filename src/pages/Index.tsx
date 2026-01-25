@@ -11,6 +11,7 @@ import {
   ArrowRight,
   CheckCircle2
 } from "lucide-react";
+import { useAuth, getRoleHomePath } from "@/contexts/AuthContext";
 
 const features = [
   {
@@ -46,22 +47,30 @@ const benefits = [
 
 const Index = () => {
   const navigate = useNavigate();
-
-  // 로그인 상태 확인
-  const accessToken = localStorage.getItem('accessToken');
-  const userRole = localStorage.getItem('userRole');
-  const isLoggedIn = !!accessToken && !!userRole;
+  const { isLoggedIn, role, isLoading } = useAuth();
 
   // 역할에 따른 대시보드 경로
-  const getDashboardPath = () => {
-    switch (userRole?.toUpperCase()) {
-      case 'ADMIN': return '/admin';
-      case 'COUNSELOR': return '/counselor';
-      case 'GUARDIAN': return '/guardian';
-      case 'ELDERLY': return '/senior';
-      default: return '/';
-    }
-  };
+  const dashboardPath = getRoleHomePath(role);
+
+  // 로딩 중일 때는 기본 헤더 표시
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-hero">
+        <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center">
+                  <Heart className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <span className="text-xl font-bold text-foreground">마음돌봄</span>
+              </div>
+            </div>
+          </div>
+        </nav>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-hero">
@@ -78,10 +87,10 @@ const Index = () => {
             <div className="flex items-center gap-3">
               {isLoggedIn ? (
                 <>
-                  <Button variant="ghost" onClick={() => navigate(getDashboardPath())}>
+                  <Button variant="ghost" onClick={() => navigate(dashboardPath)}>
                     대시보드
                   </Button>
-                  <Button variant="hero" onClick={() => navigate(getDashboardPath())}>
+                  <Button variant="hero" onClick={() => navigate(dashboardPath)}>
                     내 페이지로 이동
                   </Button>
                 </>
