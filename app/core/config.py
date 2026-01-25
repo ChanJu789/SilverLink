@@ -63,6 +63,25 @@ class Configs(BaseSettings):
     # PAGE = 1
     # PAGE_SIZE = 20
     # ORDERING = "-id"
+    
+    # server_url
+    CALL_CONTROLL_URL:str = os.getenv("CALL_CONTROLL_URL")
+    
+    # llm
+    INFERENCE_MODEL:str = "gpt-4o-mini"
+    
+    # api_key
+    OPENAI_API_KEY:str = os.getenv("OPENAI_API_KEY")
+    LUXIA_API_KEY :str= os.getenv("LUXIA_API_KEY")
+    # CLOVA_STT_URL:str = os.getenv("CLOVA_STT_URL")
+    # CLOVA_SECRET_KEY:str = os.getenv("CLOVA_SECRET_KEY")
+    
+    TWILIO_SID:str = os.getenv("TWILIO_SID")
+    TWILIO_TOKEN:str = os.getenv("TWILIO_TOKEN")
+    
+    # number
+    SILVERLINK_NUMBER:str = os.getenv("SILVERLINK_NUMBER")
+    NUMBER:str = ''
 
     class Config:
         case_sensitive = True
