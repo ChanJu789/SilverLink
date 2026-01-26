@@ -1,18 +1,21 @@
 """Vector search integration tests"""
 import pytest
 import asyncio
-from app.chatbot.repository.chatbot_repository import VectorStoreService
-from app.chatbot.services.embedding_service import EmbeddingService
+import os
+
 
 
 @pytest.mark.database
 @pytest.mark.integration
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Env vars missing")
 class TestVectorSearch:
     """Test vector search functionality and accuracy"""
     
     @pytest.fixture(autouse=True)
     def setup(self):
         """Setup for each test"""
+        from app.chatbot.repository.chatbot_repository import VectorStoreService
+        from app.chatbot.services.embedding_service import EmbeddingService
         self.embedding_service = EmbeddingService()
         self.vector_store = VectorStoreService()
     

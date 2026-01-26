@@ -1,16 +1,18 @@
 """Database connectivity integration tests"""
 import pytest
-from pymilvus import connections, utility
-from app.core.config import configs
+import os
+
 
 
 @pytest.mark.database
 @pytest.mark.integration
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Env vars missing")
 class TestDatabaseConnectivity:
     """Test database connectivity and collection management"""
     
     def test_milvus_connection(self, milvus_connection):
         """Test Milvus/Zilliz connection is successful"""
+        from pymilvus import connections, utility
         # Check if connection exists
         assert connections.has_connection("default")
         
@@ -21,6 +23,8 @@ class TestDatabaseConnectivity:
     
     def test_faq_collection_exists(self, vector_store_service):
         """Test FAQ collection exists and has correct schema"""
+        from app.core.config import configs
+        from pymilvus import utility
         collection_name = configs.FAQ_COLLECTION_NAME
         
         # Check collection exists
@@ -42,6 +46,8 @@ class TestDatabaseConnectivity:
     
     def test_inquiry_collection_exists(self, vector_store_service):
         """Test Inquiry collection exists and has correct schema"""
+        from app.core.config import configs
+        from pymilvus import utility
         collection_name = configs.INQUIRY_COLLECTION_NAME
         
         # Check collection exists

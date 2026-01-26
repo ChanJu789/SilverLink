@@ -1,16 +1,19 @@
 """Chatbot service integration tests"""
 import pytest
-from app.chatbot.services.chatbot_service import ChatbotService
-from app.chatbot.services.embedding_service import EmbeddingService
+import os
+
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Env vars missing")
 class TestChatbotService:
     """Test chatbot service core logic"""
     
     @pytest.fixture(autouse=True)
     def setup(self):
         """Setup for each test"""
+        from app.chatbot.services.chatbot_service import ChatbotService
+        from app.chatbot.services.embedding_service import EmbeddingService
         self.chatbot_service = ChatbotService()
         self.embedding_service = EmbeddingService()
     
