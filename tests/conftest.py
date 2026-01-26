@@ -132,9 +132,9 @@ def sample_chat_request():
     }
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="function")
 def cleanup_test_collections(milvus_connection):
-    """Cleanup test collections after each test"""
+    """Cleanup test collections after each test - use explicitly when needed"""
     yield
     # Cleanup logic can be added here if needed
     # For now, we'll keep collections for inspection

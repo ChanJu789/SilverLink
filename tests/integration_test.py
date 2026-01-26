@@ -5,6 +5,8 @@ Tests both Python AI service and Spring Boot backend integration
 import requests
 import json
 import time
+import os
+import pytest
 from typing import Dict, Any
 
 PYTHON_URL = "http://localhost:5000"
@@ -35,6 +37,7 @@ def print_section(title: str):
     print(f"{title}")
     print(f"{'='*60}{Colors.RESET}\n")
 
+@pytest.mark.skip(reason="Requires running servers - manual integration test")
 def test_python_health():
     """Test Python AI service health check"""
     print_section("[1] Testing Python AI Service Health")
@@ -54,6 +57,7 @@ def test_python_health():
         print_error(f"Connection Error: {e}")
         return False
 
+@pytest.mark.skip(reason="Requires running servers - manual integration test")
 def test_sync_faqs():
     """Test FAQ synchronization"""
     print_section("[2] Testing FAQ Sync")
@@ -76,6 +80,7 @@ def test_sync_faqs():
         print_error(f"Connection Error: {e}")
         return False
 
+@pytest.mark.skip(reason="Requires running servers - manual integration test")
 def test_chat_direct(message: str, thread_id: str = "test_thread_1") -> Dict[str, Any]:
     """Test direct chat to Python AI service"""
     print_section(f"[3] Testing Direct Chat: '{message}'")
@@ -109,6 +114,7 @@ def test_chat_direct(message: str, thread_id: str = "test_thread_1") -> Dict[str
         print_error(f"Connection Error: {e}")
         return None
 
+@pytest.mark.skip(reason="Requires running servers - manual integration test")
 def test_chat_proxy():
     """Test chat through Spring Boot proxy"""
     print_section("[4] Testing Chat Proxy (Spring Boot → Python)")
@@ -151,6 +157,7 @@ def test_chat_proxy():
         print_error(f"Connection Error to Spring Boot: {e}")
         return False
 
+@pytest.mark.skip(reason="Requires running servers - manual integration test")
 def test_continuous_conversation():
     """Test continuous conversation with context"""
     print_section("[5] Testing Continuous Conversation")
@@ -177,6 +184,7 @@ def test_continuous_conversation():
     print_success("Continuous conversation test completed")
     return True
 
+@pytest.mark.skip(reason="Requires running servers - manual integration test")
 def test_error_cases():
     """Test error handling"""
     print_section("[6] Testing Error Cases")

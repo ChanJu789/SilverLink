@@ -1,10 +1,12 @@
 """Authentication and authorization integration tests"""
 import pytest
+import os
 import requests
 from tests.utils.mock_data import GUARDIAN_ELDERLY_RELATIONS
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Env vars missing")
 class TestAuthentication:
     """Test authentication and authorization"""
     
