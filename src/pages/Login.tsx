@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { DuplicateLoginDialog } from "@/components/auth/DuplicateLoginDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,7 @@ import {
   Lock
 } from "lucide-react";
 import { toast } from "sonner";
-import { login } from "@/api/auth";
+import { checkLogin, forceLogin } from "@/api/auth";
 import { getMyProfile } from "@/api/users";
 
 type UserRole = "guardian" | "counselor" | "admin" | "senior";
@@ -68,6 +69,8 @@ const Login = () => {
   const [selectedRole, setSelectedRole] = useState<UserRole>("guardian");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [loginToken, setLoginToken] = useState<string>("");
   const [formData, setFormData] = useState({
     loginId: "",
     password: "",
@@ -79,14 +82,49 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // 실제 API 로그인 호출
-      const response = await login({
+      // 1단계: 로그인 확인 (기존 세션 체크)
+      const checkResponse = await checkLogin({
         loginId: formData.loginId,
         password: formData.password,
       });
 
-      // 서버에서 받은 실제 role로만 네비게이션 (보안 강화)
-      const serverRole = response.role;
+      if (checkResponse.needsConfirmation && checkResponse.loginToken) {
+        // 기존 세션 있음 → 확인 모달 표시
+        setLoginToken(checkResponse.loginToken);
+        setShowDuplicateDialog(true);
+        setIsLoading(false);
+      } else if (checkResponse.tokenResponse) {
+        // 기존 세션 없음 → 바로 로그인 성공
+        await handleLoginSuccess(checkResponse.tokenResponse);
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "로그인에 실패했습니다.";
+      toast.error("로그인 실패", {
+        description: errorMessage,
+      });
+      setIsLoading(false);
+    }
+  };
+
+  const handleForceLogin = async () => {
+    setIsLoading(true);
+    try {
+      // 2단계: 강제 로그인 (기존 세션 종료)
+      const response = await forceLogin(loginToken);
+      await handleLoginSuccess(response);
+      setShowDuplicateDialog(false);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "로그인에 실패했습니다.";
+      toast.error("로그인 실패", {
+        description: errorMessage,
+      });
+      setIsLoading(false);
+    }
+  };
+
+  const handleLoginSuccess = async (tokenResponse: any) => {
+    try {
+      const serverRole = tokenResponse.role;
 
       if (!serverRole) {
         toast.error("로그인 실패", {
@@ -99,7 +137,7 @@ const Login = () => {
       const userProfile = await getMyProfile();
 
       // AuthContext에 로그인 상태 저장
-      authLogin(response.accessToken, {
+      authLogin(tokenResponse.accessToken, {
         id: userProfile.id,
         role: serverRole,
         name: userProfile.name,
@@ -133,11 +171,10 @@ const Login = () => {
         });
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || "로그인에 실패했습니다.";
+      const errorMessage = error.response?.data?.message || "로그인 처리 중 오류가 발생했습니다.";
       toast.error("로그인 실패", {
         description: errorMessage,
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -338,6 +375,17 @@ const Login = () => {
           </p>
         </div>
       </main>
+
+      {/* 중복 로그인 확인 모달 */}
+      <DuplicateLoginDialog
+        open={showDuplicateDialog}
+        onConfirm={handleForceLogin}
+        onCancel={() => {
+          setShowDuplicateDialog(false);
+          setIsLoading(false);
+        }}
+        isLoading={isLoading}
+      />
     </div>
   );
 };

@@ -20,6 +20,40 @@ export const login = async (credentials: LoginRequest): Promise<TokenResponse> =
 };
 
 /**
+ * 로그인 확인 API (기존 세션 체크)
+ * POST /api/auth/login/check
+ */
+export interface LoginCheckResponse {
+    needsConfirmation: boolean;
+    loginToken?: string;
+    tokenResponse?: TokenResponse;
+}
+
+export const checkLogin = async (credentials: LoginRequest): Promise<LoginCheckResponse> => {
+    const response = await apiClient.post<LoginCheckResponse>('/api/auth/login/check', credentials);
+    
+    // 바로 로그인된 경우 토큰 저장
+    if (!response.data.needsConfirmation && response.data.tokenResponse) {
+        setAccessToken(response.data.tokenResponse.accessToken);
+    }
+    
+    return response.data;
+};
+
+/**
+ * 강제 로그인 API (기존 세션 종료 후 로그인)
+ * POST /api/auth/login/force
+ */
+export const forceLogin = async (loginToken: string): Promise<TokenResponse> => {
+    const response = await apiClient.post<TokenResponse>('/api/auth/login/force', { loginToken });
+    
+    // 토큰 저장
+    setAccessToken(response.data.accessToken);
+    
+    return response.data;
+};
+
+/**
  * 토큰 갱신 API
  * POST /api/auth/refresh
  */
@@ -87,6 +121,23 @@ export const findId = async (
     return response.data;
 };
 
+/**
+ * 세션 정보 조회 API
+ * GET /api/auth/session/info
+ */
+export interface SessionInfoResponse {
+    sid: string;
+    lastSeen: number;
+    expiresAt: number;
+    remainingSeconds: number;
+    idleTtl: number;
+}
+
+export const getSessionInfo = async (): Promise<SessionInfoResponse> => {
+    const response = await apiClient.get<SessionInfoResponse>('/api/auth/session/info');
+    return response.data;
+};
+
 export default {
     login,
     refresh,
@@ -94,4 +145,5 @@ export default {
     isAuthenticated,
     resetPassword,
     findId,
+    getSessionInfo,
 };
