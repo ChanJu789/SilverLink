@@ -1,5 +1,6 @@
 """Test helper utilities for integration tests"""
 import time
+from faker import Faker
 from functools import wraps
 from typing import Dict, Any, List
 import logging
@@ -53,7 +54,6 @@ def assert_chat_response_valid(response: Dict[str, Any]):
 
 def create_test_faq_data(count: int = 5) -> List[Dict[str, Any]]:
     """Create test FAQ data"""
-    from faker import Faker
     fake = Faker(['ko_KR'])
     
     categories = ["노인장기요양보험", "복지서비스", "건강관리", "생활지원"]
@@ -72,7 +72,6 @@ def create_test_faq_data(count: int = 5) -> List[Dict[str, Any]]:
 
 def create_test_inquiry_data(guardian_id: int, elderly_id: int, count: int = 3) -> List[Dict[str, Any]]:
     """Create test inquiry data"""
-    from faker import Faker
     fake = Faker(['ko_KR'])
     
     inquiries = []

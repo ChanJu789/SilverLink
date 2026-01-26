@@ -7,8 +7,8 @@ import json
 import time
 from typing import Dict, Any
 
-PYTHON_URL = "http://localhost:8000"
-SPRING_URL = "http://localhost:8080"
+PYTHON_URL = "http://localhost:5000"
+SPRING_URL = "http://localhost:5080"
 
 class Colors:
     """ANSI color codes for terminal output"""

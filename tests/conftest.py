@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from app.main import app
 from app.core.config import configs
-from app.chatbot.repository.chatbot_repository import VectorStoreService
+from app.chatbot.repository.chatbot_repository import ChatbotRepository
 
 
 @pytest.fixture(scope="session")
@@ -54,7 +54,7 @@ def milvus_connection():
 @pytest.fixture(scope="function")
 def vector_store_service(milvus_connection):
     """Vector store service fixture"""
-    return VectorStoreService()
+    return ChatbotRepository()
 
 
 @pytest.fixture(scope="function")

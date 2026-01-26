@@ -41,7 +41,6 @@ class Configs(BaseSettings):
 
     # --- Chatbot Configs ---
     # OpenAI
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4-turbo-preview")
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
