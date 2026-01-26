@@ -57,6 +57,8 @@ const SeniorHealth = lazy(() => import("./pages/senior/SeniorHealth"));
 const SeniorMedication = lazy(() => import("./pages/senior/SeniorMedication"));
 const SeniorNotices = lazy(() => import("./pages/senior/SeniorNotices"));
 const SeniorFAQ = lazy(() => import("./pages/senior/SeniorFAQ"));
+const SeniorProfile = lazy(() => import("./pages/senior/SeniorProfile"));
+const SeniorBiometric = lazy(() => import("./pages/senior/SeniorBiometric"));
 
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -118,6 +120,8 @@ const App = () => (
             <Route path="/senior/medication" element={<SeniorMedication />} />
             <Route path="/senior/notices" element={<SeniorNotices />} />
             <Route path="/senior/faq" element={<SeniorFAQ />} />
+            <Route path="/senior/profile" element={<SeniorProfile />} />
+            <Route path="/senior/biometric" element={<SeniorBiometric />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
