@@ -2,7 +2,7 @@ import pytest
 import asyncio
 from httpx import AsyncClient
 from fastapi.testclient import TestClient
-from pymilvus import connections, utility, Collection
+from pymilvus import connections
 from typing import Generator, AsyncGenerator
 import sys
 import os
@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from app.main import app
 from app.core.config import configs
-from app.chatbot.repository.vector_store import VectorStoreService
+from app.chatbot.repository.chatbot_repository import VectorStoreService
 
 
 @pytest.fixture(scope="session")

@@ -5,7 +5,7 @@ Tests both Python AI service and Spring Boot backend integration
 import requests
 import json
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 PYTHON_URL = "http://localhost:8000"
 SPRING_URL = "http://localhost:8080"
@@ -134,7 +134,7 @@ def test_chat_proxy():
         try:
             data = response.json()
             print_info(f"Response: {json.dumps(data, indent=2, ensure_ascii=False)[:300]}...")
-        except:
+        except Exception:
             print_info(f"Response Text: {response.text[:200]}")
 
         if response.status_code == 200:

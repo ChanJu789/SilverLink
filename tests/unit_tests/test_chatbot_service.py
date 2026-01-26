@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from app.chatbot.services.chatbot_service import ChatbotService
-from app.chatbot.schema.chat_schema import ChatResponse
 
 @pytest.fixture
 def mock_embedding_service():
@@ -31,7 +30,6 @@ def mock_llm():
 @pytest.fixture
 def chatbot_service(mock_embedding_service, mock_vector_store, mock_llm):
     # MemorySaver는 실제 인스턴스 사용 (Validation 통과 위해)
-    from langgraph.checkpoint.memory import MemorySaver
     
     with patch("src.app.chatbot.services.chatbot_service.EmbeddingService", return_value=mock_embedding_service), \
          patch("src.app.chatbot.services.chatbot_service.VectorStoreService", return_value=mock_vector_store), \

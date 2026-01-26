@@ -3,6 +3,7 @@ import time
 from functools import wraps
 from typing import Dict, Any, List
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -99,4 +100,3 @@ def cleanup_test_data(vector_store, collection_name: str):
         logger.warning(f"Failed to cleanup collection {collection_name}: {e}")
 
 
-import asyncio

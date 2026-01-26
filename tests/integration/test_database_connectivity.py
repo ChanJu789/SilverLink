@@ -1,8 +1,7 @@
 """Database connectivity integration tests"""
 import pytest
-from pymilvus import connections, utility, Collection
+from pymilvus import connections, utility
 from app.core.config import configs
-from app.chatbot.repository.vector_store import VectorStoreService
 
 
 @pytest.mark.database

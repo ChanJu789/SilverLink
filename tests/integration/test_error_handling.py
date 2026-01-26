@@ -1,6 +1,5 @@
 """Error handling integration tests"""
 import pytest
-import asyncio
 from fastapi.testclient import TestClient
 from app.main import app
 from app.chatbot.services.chatbot_service import ChatbotService

@@ -1,9 +1,7 @@
 """Chatbot service integration tests"""
 import pytest
-import asyncio
 from app.chatbot.services.chatbot_service import ChatbotService
 from app.chatbot.services.embedding_service import EmbeddingService
-from tests.utils.mock_data import SAMPLE_CHAT_REQUESTS
 
 
 @pytest.mark.integration
@@ -41,7 +39,7 @@ class TestChatbotService:
         assert isinstance(result["sources"], list)
         assert isinstance(result["confidence"], (int, float))
         
-        print(f"✅ Chat processed successfully")
+        print("✅ Chat processed successfully")
         print(f"   Answer: {result['answer'][:100]}...")
         print(f"   Sources: {result['sources']}")
         print(f"   Confidence: {result['confidence']:.4f}")
@@ -75,7 +73,7 @@ class TestChatbotService:
         assert result2 is not None
         assert "answer" in result2
         
-        print(f"✅ Thread context maintained across messages")
+        print("✅ Thread context maintained across messages")
     
     @pytest.mark.asyncio
     async def test_conversation_memory(self):

@@ -1,9 +1,8 @@
 """Vector search integration tests"""
 import pytest
 import asyncio
-from app.chatbot.repository.vector_store import VectorStoreService
+from app.chatbot.repository.chatbot_repository import VectorStoreService
 from app.chatbot.services.embedding_service import EmbeddingService
-from tests.utils.mock_data import SAMPLE_FAQS, SAMPLE_INQUIRIES
 
 
 @pytest.mark.database
@@ -121,7 +120,7 @@ class TestVectorSearch:
         assert faq_results is not None
         assert inquiry_results is not None
         
-        print(f"✅ Parallel search completed successfully")
+        print("✅ Parallel search completed successfully")
     
     def test_empty_search_results(self):
         """Test handling of queries with no relevant results"""

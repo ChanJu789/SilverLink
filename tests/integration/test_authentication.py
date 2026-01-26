@@ -67,7 +67,7 @@ class TestAuthentication:
             assert response.status_code == 403, \
                 f"Expected 403, got {response.status_code}"
             
-            print(f"✅ Invalid elderly_id properly rejected")
+            print("✅ Invalid elderly_id properly rejected")
         except requests.exceptions.ConnectionError:
             pytest.skip("Spring Boot server not running")
     
@@ -88,7 +88,7 @@ class TestAuthentication:
             assert response.status_code in [401, 403], \
                 f"Expected 401/403, got {response.status_code}"
             
-            print(f"✅ Unauthorized access properly rejected")
+            print("✅ Unauthorized access properly rejected")
         except requests.exceptions.ConnectionError:
             pytest.skip("Spring Boot server not running")
     
@@ -115,7 +115,7 @@ class TestAuthentication:
             except requests.exceptions.ConnectionError:
                 pytest.skip("Spring Boot server not running")
         
-        print(f"✅ Guardian-Elderly mismatch properly rejected")
+        print("✅ Guardian-Elderly mismatch properly rejected")
     
     def test_guardian_elderly_relation_data_integrity(self):
         """Test Guardian-Elderly relation data integrity"""

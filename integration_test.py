@@ -1,5 +1,4 @@
 import requests
-import json
 import sys
 
 # Configurations
@@ -31,7 +30,7 @@ def test_python_health():
 
 def test_data_sync_faqs():
     """FAQ 데이터 동기화 테스트"""
-    print(f"\nTesting FAQ Sync...")
+    print("\nTesting FAQ Sync...")
     try:
         res = requests.post(f"{PYTHON_CHATBOT_URL}/sync/faqs")
         if res.status_code == 200:
@@ -44,7 +43,7 @@ def test_data_sync_faqs():
 
 def test_data_sync_inquiries():
     """Inquiry 데이터 동기화 테스트"""
-    print(f"\nTesting Inquiry Sync...")
+    print("\nTesting Inquiry Sync...")
     try:
         res = requests.post(f"{PYTHON_CHATBOT_URL}/sync/inquiries")
         if res.status_code == 200:
@@ -57,7 +56,7 @@ def test_data_sync_inquiries():
 
 def test_direct_python_chat():
     """Python 챗봇 직접 호출 테스트"""
-    print(f"\nTesting Direct Python Chat Endpoint...")
+    print("\nTesting Direct Python Chat Endpoint...")
     payload = {
         "message": "안녕하세요, 약 먹는 시간 알려주세요.",
         "thread_id": "test_integration_thread",
@@ -96,7 +95,7 @@ def main():
 
 def test_spring_boot_proxy_chat():
     """Spring Boot를 통한 챗봇 호출 테스트 (E2E)"""
-    print(f"\nTesting Spring Boot Proxy Chat (Full E2E)...")
+    print("\nTesting Spring Boot Proxy Chat (Full E2E)...")
     
     # Note: 실제 인증 토큰이 필요한 경우 여기에 추가
     payload = {
