@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { adminNavItems } from "@/config/adminNavItems";
@@ -9,9 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, Edit, Trash2, Eye, Search, Calendar } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Eye, Search, Calendar, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { createPolicy, getAllPolicies, PolicyRequest, PolicyType, PolicyResponse } from "@/api/policies";
 
 interface Policy {
   id: number;
@@ -25,40 +27,42 @@ interface Policy {
   createdBy: string;
 }
 
-const mockPolicies: Policy[] = [
-  {
-    id: 1,
-    title: "개인정보 처리방침",
-    category: "PRIVACY",
-    content: "본 개인정보 처리방침은...",
-    status: "ACTIVE",
-    version: "1.2",
-    createdAt: "2024-01-15",
-    updatedAt: "2024-03-20",
-    createdBy: "관리자",
-  },
-  {
-    id: 2,
-    title: "서비스 이용약관",
-    category: "TERMS",
-    content: "제1조 (목적) 본 약관은...",
-    status: "ACTIVE",
-    version: "2.0",
-    createdAt: "2024-01-10",
-    updatedAt: "2024-02-15",
-    createdBy: "관리자",
-  },
-];
+// Helper function to convert API response to local Policy format
+const mapApiToPolicy = (apiPolicy: PolicyResponse): Policy => ({
+  id: apiPolicy.id,
+  title: apiPolicy.description || apiPolicy.policyName,
+  category: apiPolicy.policyType,
+  content: apiPolicy.content,
+  status: apiPolicy.isMandatory ? "ACTIVE" : "DRAFT",
+  version: apiPolicy.version,
+  createdAt: apiPolicy.createdAt?.split('T')[0] || '',
+  updatedAt: apiPolicy.updatedAt?.split('T')[0] || '',
+  createdBy: "관리자",
+});
 
 const PolicyManagement = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [policies, setPolicies] = useState<Policy[]>(mockPolicies);
+  const [policies, setPolicies] = useState<Policy[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+
+  // Fetch policies from API
+  const { data: apiPolicies, isLoading, refetch } = useQuery({
+    queryKey: ['policies'],
+    queryFn: getAllPolicies,
+  });
+
+  // Update local state when API data changes
+  useEffect(() => {
+    if (apiPolicies) {
+      setPolicies(apiPolicies.map(mapApiToPolicy));
+    }
+  }, [apiPolicies]);
+
 
   const [formData, setFormData] = useState<{
     title: string;
@@ -68,18 +72,19 @@ const PolicyManagement = () => {
     version: string;
   }>({
     title: "",
-    category: "PRIVACY",
+    category: "PRIVACY_POLICY",
     content: "",
     status: "DRAFT",
     version: "1.0",
   });
 
   const categories = [
-    { value: "PRIVACY", label: "개인정보 처리방침" },
-    { value: "TERMS", label: "서비스 이용약관" },
-    { value: "OPERATION", label: "운영정책" },
-    { value: "SECURITY", label: "보안정책" },
-    { value: "OTHER", label: "기타" },
+    { value: "PRIVACY_POLICY", label: "개인정보 처리방침", policyType: "PRIVACY_POLICY" as PolicyType },
+    { value: "TERMS_OF_SERVICE", label: "서비스 이용약관", policyType: "TERMS_OF_SERVICE" as PolicyType },
+    { value: "SENSITIVE_INFO_CONSENT", label: "민감정보 처리 동의", policyType: "SENSITIVE_INFO_CONSENT" as PolicyType },
+    { value: "THIRD_PARTY_PROVISION_CONSENT", label: "개인정보 제3자 제공 동의", policyType: "THIRD_PARTY_PROVISION_CONSENT" as PolicyType },
+    { value: "LOCATION_BASED_SERVICE", label: "위치기반 서비스 이용약관", policyType: "LOCATION_BASED_SERVICE" as PolicyType },
+    { value: "WELFARE_BENEFITS_NOTIFICATION", label: "복지 정보 및 혜택 수신 동의", policyType: "WELFARE_BENEFITS_NOTIFICATION" as PolicyType },
   ];
 
   const statusConfig = {
@@ -88,12 +93,39 @@ const PolicyManagement = () => {
     ARCHIVED: { label: "보관", color: "bg-muted text-muted-foreground" },
   };
 
+  // API Mutation for creating policy
+  const createPolicyMutation = useMutation({
+    mutationFn: (request: PolicyRequest) => createPolicy(request),
+    onSuccess: (response) => {
+      // Add new policy to local state
+      const newPolicy: Policy = {
+        id: response.id,
+        title: response.policyName,
+        category: response.policyType,
+        content: response.content,
+        status: "ACTIVE",
+        version: response.version,
+        createdAt: response.createdAt,
+        updatedAt: response.updatedAt,
+        createdBy: user?.name || "관리자",
+      };
+      setPolicies([newPolicy, ...policies]);
+      toast.success("정책이 생성되었습니다");
+      setIsCreating(false);
+      setEditingPolicy(null);
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.message || error.message || "정책 생성에 실패했습니다";
+      toast.error(errorMessage);
+    },
+  });
+
   const handleCreate = () => {
     setIsCreating(true);
     setEditingPolicy(null);
     setFormData({
       title: "",
-      category: "PRIVACY",
+      category: "PRIVACY_POLICY",
       content: "",
       status: "DRAFT",
       version: "1.0",
@@ -119,26 +151,33 @@ const PolicyManagement = () => {
     }
 
     if (editingPolicy) {
-      setPolicies(policies.map(p => 
-        p.id === editingPolicy.id 
+      // For now, editing still uses local state (backend doesn't have update endpoint yet)
+      setPolicies(policies.map(p =>
+        p.id === editingPolicy.id
           ? { ...p, ...formData, updatedAt: new Date().toISOString().split('T')[0] }
           : p
       ));
       toast.success("정책이 수정되었습니다");
+      setIsCreating(false);
+      setEditingPolicy(null);
     } else {
-      const newPolicy: Policy = {
-        id: Math.max(...policies.map(p => p.id)) + 1,
-        ...formData,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0],
-        createdBy: user?.name || "관리자",
-      };
-      setPolicies([newPolicy, ...policies]);
-      toast.success("정책이 생성되었습니다");
-    }
+      // Create new policy via API
+      const selectedCategory = categories.find(cat => cat.value === formData.category);
+      if (!selectedCategory) {
+        toast.error("유효한 카테고리를 선택해주세요");
+        return;
+      }
 
-    setIsCreating(false);
-    setEditingPolicy(null);
+      const request: PolicyRequest = {
+        policyType: selectedCategory.policyType,
+        version: formData.version,
+        content: formData.content,
+        isMandatory: formData.status === "ACTIVE", // ACTIVE means mandatory
+        description: formData.title, // Use title as description
+      };
+
+      createPolicyMutation.mutate(request);
+    }
   };
 
   const handleDelete = (id: number) => {

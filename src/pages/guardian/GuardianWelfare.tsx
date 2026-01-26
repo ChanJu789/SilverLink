@@ -2,20 +2,13 @@ import { useState, useEffect } from "react";
 import {
   Heart,
   Search,
-  Filter,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
   Users,
-  Wallet,
-  Building2,
-  Stethoscope,
-  Car,
-  UtensilsCrossed,
-  GraduationCap,
   Loader2,
   RefreshCw,
   MapPin,
-  Calendar,
   CheckCircle2,
   Info
 } from "lucide-react";
@@ -25,7 +18,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -48,21 +40,30 @@ import usersApi from "@/api/users";
 import guardiansApi from "@/api/guardians";
 import { WelfareListResponse, WelfareDetailResponse, MyProfileResponse } from "@/types/api";
 
-// 복지 서비스 카테고리
-const categories = [
-  { id: "all", name: "전체", icon: <Heart className="w-4 h-4" /> },
-  { id: "생활지원", name: "생활지원", icon: <Wallet className="w-4 h-4" /> },
-  { id: "건강의료", name: "건강/의료", icon: <Stethoscope className="w-4 h-4" /> },
-  { id: "주거지원", name: "주거지원", icon: <Building2 className="w-4 h-4" /> },
-  { id: "돌봄서비스", name: "돌봄서비스", icon: <Users className="w-4 h-4" /> },
-  { id: "이동지원", name: "이동지원", icon: <Car className="w-4 h-4" /> },
-  { id: "식사지원", name: "식사지원", icon: <UtensilsCrossed className="w-4 h-4" /> },
-  { id: "교육문화", name: "교육/문화", icon: <GraduationCap className="w-4 h-4" /> },
+// 중앙부처 키워드 목록
+const CENTRAL_DEPARTMENTS = [
+  '보건복지부', '고용노동부', '국토교통부', '과학기술정보통신부',
+  '교육부', '문화체육관광부', '농림축산식품부', '산업통상자원부',
+  '환경부', '국방부', '법무부', '행정안전부', '외교부', '통일부',
+  '기획재정부', '여성가족부', '국가보훈처', '해양수산부', '중소벤처기업부'
 ];
+
+// 소관기관명을 기준으로 중앙부처 여부 판별
+const isCentralDepartment = (jurMnofNm: string | undefined): boolean => {
+  if (!jurMnofNm) return false;
+  return CENTRAL_DEPARTMENTS.some(dept => jurMnofNm.includes(dept));
+};
+
+// 서비스 출처 라벨 반환 (source 필드 + jurMnofNm 검사)
+const getSourceLabel = (service: WelfareListResponse): string => {
+  if (service.source === 'CENTRAL' || isCentralDepartment(service.jurMnofNm)) {
+    return '중앙부처';
+  }
+  return '지자체';
+};
 
 const GuardianWelfare = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -70,6 +71,12 @@ const GuardianWelfare = () => {
   const [selectedService, setSelectedService] = useState<WelfareDetailResponse | null>(null);
   const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
   const [parentName, setParentName] = useState("어르신");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const pageSize = 10;
 
   useEffect(() => {
     fetchData();
@@ -102,15 +109,20 @@ const GuardianWelfare = () => {
     }
   };
 
-  const fetchWelfareServices = async () => {
+  const fetchWelfareServices = async (page: number = currentPage) => {
     try {
-      const params: { keyword?: string; category?: string; region?: string } = {};
+      const params: { keyword?: string; region?: string; page?: number; size?: number } = {
+        page,
+        size: pageSize,
+      };
       if (searchQuery) params.keyword = searchQuery;
-      if (selectedCategory !== 'all') params.category = selectedCategory;
       if (selectedRegion !== 'all') params.region = selectedRegion;
 
-      const response = await welfareApi.searchWelfare({ ...params, size: 50 });
+      const response = await welfareApi.searchWelfare(params);
       setServices(response.content || []);
+      setTotalPages(response.totalPages || 0);
+      setTotalElements(response.totalElements || 0);
+      setCurrentPage(page);
     } catch (error) {
       console.error('Failed to fetch welfare services:', error);
       setServices([]);
@@ -118,7 +130,14 @@ const GuardianWelfare = () => {
   };
 
   const handleSearch = async () => {
-    await fetchWelfareServices();
+    setCurrentPage(0);
+    await fetchWelfareServices(0);
+  };
+
+  const handlePageChange = async (page: number) => {
+    if (page >= 0 && page < totalPages) {
+      await fetchWelfareServices(page);
+    }
   };
 
   const handleRefresh = async () => {
@@ -135,22 +154,6 @@ const GuardianWelfare = () => {
       console.error('Failed to fetch service detail:', error);
     }
   };
-
-  const getCategoryIcon = (categoryName: string) => {
-    const category = categories.find(c => c.id === categoryName || c.name === categoryName);
-    return category?.icon || <Heart className="w-4 h-4" />;
-  };
-
-  // 필터링된 서비스 목록
-  const filteredServices = services.filter((service) => {
-    const matchesCategory = selectedCategory === "all" ||
-      service.category?.includes(selectedCategory);
-    // region 대신 jurMnofNm(소관기관) 사용
-    const matchesRegion = selectedRegion === "all" ||
-      service.jurMnofNm?.includes("전국") ||
-      service.jurMnofNm?.includes(selectedRegion);
-    return matchesCategory && matchesRegion;
-  });
 
   if (isLoading) {
     return (
@@ -188,7 +191,7 @@ const GuardianWelfare = () => {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
@@ -197,7 +200,7 @@ const GuardianWelfare = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">전체 서비스</p>
-                  <p className="text-2xl font-bold text-foreground">{services.length}개</p>
+                  <p className="text-2xl font-bold text-foreground">{totalElements}개</p>
                 </div>
               </div>
             </CardContent>
@@ -209,21 +212,8 @@ const GuardianWelfare = () => {
                   <CheckCircle2 className="w-6 h-6 text-success" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">검색 결과</p>
-                  <p className="text-2xl font-bold text-foreground">{filteredServices.length}개</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-info/20 bg-info/5">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
-                  <Info className="w-6 h-6 text-info" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">카테고리</p>
-                  <p className="text-2xl font-bold text-foreground">{categories.length - 1}개</p>
+                  <p className="text-sm text-muted-foreground">현재 페이지</p>
+                  <p className="text-2xl font-bold text-foreground">{currentPage + 1} / {totalPages}페이지</p>
                 </div>
               </div>
             </CardContent>
@@ -267,35 +257,21 @@ const GuardianWelfare = () => {
           </CardContent>
         </Card>
 
-        {/* 카테고리 탭 */}
-        <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-          <TabsList className="flex flex-wrap h-auto gap-2 bg-transparent p-0">
-            {categories.map((category) => (
-              <TabsTrigger
-                key={category.id}
-                value={category.id}
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-4 py-2 rounded-full border border-border data-[state=active]:border-primary"
-              >
-                <span className="mr-2">{category.icon}</span>
-                {category.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value={selectedCategory} className="mt-6">
-            {/* 서비스 목록 */}
-            {filteredServices.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Heart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    {services.length === 0 ? '복지 서비스 정보를 불러오는 중입니다...' : '검색 조건에 맞는 서비스가 없습니다'}
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
+        {/* 서비스 목록 */}
+        <div className="space-y-4">
+          {services.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Heart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  검색 조건에 맞는 서비스가 없습니다
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {filteredServices.map((service) => (
+                {services.map((service) => (
                   <Dialog key={service.id}>
                     <DialogTrigger asChild>
                       <Card
@@ -307,9 +283,9 @@ const GuardianWelfare = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-2">
                                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                  {getCategoryIcon(service.category)}
+                                  <Heart className="w-4 h-4 text-primary" />
                                 </div>
-                                <Badge variant="outline">{service.category}</Badge>
+                                <Badge variant="outline">{getSourceLabel(service)}</Badge>
                               </div>
                               <h3 className="font-semibold text-foreground mb-1">{service.servNm}</h3>
                               <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
@@ -318,7 +294,7 @@ const GuardianWelfare = () => {
                               <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <Users className="w-3 h-3" />
-                                  {service.source === 'CENTRAL' ? '중앙정부' : '지자체'}
+                                  {getSourceLabel(service)}
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <MapPin className="w-3 h-3" />
@@ -335,11 +311,11 @@ const GuardianWelfare = () => {
                       <DialogHeader>
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                            {getCategoryIcon(service.category)}
+                            <Heart className="w-5 h-5 text-primary" />
                           </div>
                           <div>
                             <DialogTitle className="text-xl">{service.servNm}</DialogTitle>
-                            <DialogDescription>{service.category}</DialogDescription>
+                            <DialogDescription>{getSourceLabel(service)} 서비스</DialogDescription>
                           </div>
                         </div>
                       </DialogHeader>
@@ -395,9 +371,60 @@ const GuardianWelfare = () => {
                   </Dialog>
                 ))}
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+
+              {/* 페이지네이션 UI */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 0}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    이전
+                  </Button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i;
+                      } else if (currentPage < 3) {
+                        pageNum = i;
+                      } else if (currentPage > totalPages - 4) {
+                        pageNum = totalPages - 5 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(pageNum)}
+                          className="w-10"
+                        >
+                          {pageNum + 1}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= totalPages - 1}
+                  >
+                    다음
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         {/* 안내 메시지 */}
         <Card className="border-info/20 bg-info/5">

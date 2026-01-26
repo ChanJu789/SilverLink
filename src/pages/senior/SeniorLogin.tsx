@@ -23,6 +23,12 @@ import { requestVerificationCode, verifyCode } from "@/api/phoneVerification";
 import { setAccessToken } from "@/api/index";
 import apiClient from "@/api/index";
 import { getErrorMessage } from "@/utils/errorUtils";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+} from "@/components/ui/input-otp";
 
 const SeniorLogin = () => {
   const navigate = useNavigate();
@@ -69,11 +75,8 @@ const SeniorLogin = () => {
       const timer = setInterval(() => setExpiresIn(e => e - 1), 1000);
       return () => clearInterval(timer);
     } else if (expiresIn === 0 && isCodeSent && verificationId) {
-      // 인증 만료
-      toast.error("인증 시간이 만료되었어요", {
-        description: "다시 인증번호를 받아주세요.",
-      });
-      resetVerification();
+      // 인증 만료 (상태 초기화 하지 않음)
+      // 사용자가 재발송 버튼을 누르도록 유도
     }
   }, [expiresIn, isCodeSent, verificationId]);
 
@@ -314,31 +317,50 @@ const SeniorLogin = () => {
 
                 {/* 인증번호 입력 (발송 후 표시) */}
                 {isCodeSent && (
-                  <div className="space-y-3 animate-fade-in">
+                  <div className="space-y-4 animate-fade-in pt-4 border-t border-border">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="code" className="text-base sm:text-lg font-medium">인증번호</Label>
-                      {expiresIn > 0 && (
-                        <span className="text-sm text-destructive font-medium">
-                          남은 시간: {formatTime(expiresIn)}
+                      <Label className="text-lg font-bold">인증번호 입력</Label>
+                      {expiresIn > 0 ? (
+                        <span className="text-base text-primary font-bold bg-primary/10 px-3 py-1 rounded-full">
+                          남은 시간 {formatTime(expiresIn)}
+                        </span>
+                      ) : (
+                        <span className="text-base text-destructive font-bold bg-destructive/10 px-3 py-1 rounded-full">
+                          시간 만료
                         </span>
                       )}
                     </div>
-                    <Input
-                      id="code"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={6}
-                      placeholder="6자리 숫자"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      className="h-16 text-2xl text-center tracking-[0.5em] font-bold"
-                      autoFocus
-                    />
+
+                    <div className="flex justify-center py-2">
+                      <InputOTP
+                        maxLength={6}
+                        value={verificationCode}
+                        onChange={(value) => setVerificationCode(value)}
+                        disabled={false} // 만료되어도 입력은 가능하게 하거나, 재발송 유도 위해 막을 수도 있음. 여기선 입력 가능하게 둠.
+                      >
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} className="w-12 h-14 sm:w-14 sm:h-16 text-2xl sm:text-3xl border-2" />
+                          <InputOTPSlot index={1} className="w-12 h-14 sm:w-14 sm:h-16 text-2xl sm:text-3xl border-2" />
+                          <InputOTPSlot index={2} className="w-12 h-14 sm:w-14 sm:h-16 text-2xl sm:text-3xl border-2" />
+                        </InputOTPGroup>
+                        <InputOTPSeparator />
+                        <InputOTPGroup>
+                          <InputOTPSlot index={3} className="w-12 h-14 sm:w-14 sm:h-16 text-2xl sm:text-3xl border-2" />
+                          <InputOTPSlot index={4} className="w-12 h-14 sm:w-14 sm:h-16 text-2xl sm:text-3xl border-2" />
+                          <InputOTPSlot index={5} className="w-12 h-14 sm:w-14 sm:h-16 text-2xl sm:text-3xl border-2" />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+
+                    {expiresIn === 0 && (
+                      <p className="text-center text-destructive font-medium">
+                        인증 시간이 지났어요. 위쪽의 <span className="font-bold">'재발송'</span> 버튼을 눌러주세요.
+                      </p>
+                    )}
 
                     <Button
                       onClick={handleVerifyAndLogin}
-                      className="w-full h-16 text-xl font-bold rounded-xl"
+                      className="w-full h-16 text-xl font-bold rounded-xl mt-4"
                       size="lg"
                       disabled={isVerifying || verificationCode.length !== 6 || expiresIn === 0}
                     >
@@ -350,7 +372,7 @@ const SeniorLogin = () => {
                       ) : (
                         <>
                           <CheckCircle2 className="w-6 h-6 mr-3" />
-                          로그인
+                          로그인 하기
                         </>
                       )}
                     </Button>
