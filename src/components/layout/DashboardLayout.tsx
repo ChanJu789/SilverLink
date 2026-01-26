@@ -29,6 +29,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRoleHomePath } from "@/contexts/AuthContext";
+import { SessionTimer } from "@/components/auth/SessionTimer";
+import { toast } from "sonner";
 
 interface NavItem {
   title: string;
@@ -89,6 +91,14 @@ const DashboardLayout = ({
   const handleLogout = async () => {
     await logout();
     navigate("/");
+  };
+
+  const handleSessionExpired = async () => {
+    toast.error('세션 만료', {
+      description: '다시 로그인해주세요.',
+    });
+    await logout();
+    navigate('/login');
   };
 
   return (
@@ -204,6 +214,9 @@ const DashboardLayout = ({
             <div className="flex-1 lg:flex-none" />
 
             <div className="flex items-center gap-2">
+              {/* 세션 타이머 */}
+              <SessionTimer onSessionExpired={handleSessionExpired} />
+
               {/* Notifications */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

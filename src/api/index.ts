@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { showGlobalDuplicateLoginDialog } from '@/contexts/DuplicateLoginContext';
 
 // API 기본 URL 설정
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -63,7 +64,7 @@ apiClient.interceptors.response.use(
 
     // 중복 로그인 에러 처리 - 이미 다른 곳에서 로그인됨
     if (errorCode === 'ALREADY_LOGGED_IN') {
-      alert('이미 다른 기기에서 로그인되어 있습니다. 기존 세션을 종료하고 다시 로그인해주세요.');
+      showGlobalDuplicateLoginDialog();
       return Promise.reject(error);
     }
 
