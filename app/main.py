@@ -35,13 +35,11 @@ class AppCreator:
                 allow_headers=["*"],
             )
 
-        # set routes
         @self.app.get("/")
         def root():
             return "service is working" 
-
+        
         self.app.include_router(routers, prefix=configs.API_STR)
-        # self.app.include_router(v2_routers, prefix=configs.API_V2_STR)
 
 app_creator = AppCreator()
 app = app_creator.app
@@ -60,7 +58,7 @@ try:
 except Exception as e:
     print(f"⚠️ Prefetch failed: {e}")
 
-print('Documents: http://localhost:8000/docs')
+print(f'Documents: http://localhost:{configs.PORT}/docs')
 
 if __name__ == '__main__':
-    uvicorn.run("app.main:app", host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=configs.PORT, reload=True)

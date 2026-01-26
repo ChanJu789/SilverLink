@@ -18,7 +18,14 @@ dependencies = [
     "loguru (>=0.7.3,<0.8.0)",
     "twilio (>=9.9.1,<10.0.0)",
     "python-multipart (>=0.0.21,<0.0.22)",
-    "openai (>=2.15.0,<3.0.0)"
+    "openai (>=2.15.0,<3.0.0)",
+    "psutil (>=7.2.1,<8.0.0)",
+    "pymilvus (>=2.6.6,<3.0.0)",
+    "langchain-core (>=1.2.7,<2.0.0)",
+    "langchain-openai (>=1.1.7,<2.0.0)",
+    "langgraph (>=1.0.7,<2.0.0)",
+    "python-dotenv (>=1.2.1,<2.0.0)",
+    "faker (>=40.1.2,<41.0.0)"
 ]
 
 

@@ -5,7 +5,8 @@ from app.callbot.repository import CallbotRepository
 from app.chatbot.repository import ChatbotRepository
 from app.ocr.repository import OcrRepository
 from app.callbot.services import CallbotService
-from app.chatbot.services import ChatbotService
+from app.chatbot.services.chatbot_service import ChatbotService
+from app.chatbot.services.data_sync_service import DataSyncService
 from app.ocr.services import OcrService
 from app.core.config import configs
 from app.integration.llm.openai_client import LLM
@@ -33,5 +34,6 @@ class Container(containers.DeclarativeContainer):
     ocr_repository = providers.Factory(OcrRepository)
 
     callbot_service = providers.Factory(CallbotService, callbot_repository=callbot_repository, llm=llm, call=call, tts=tts)
+    datasync_service = providers.Factory(DataSyncService, callbot_repository=callbot_repository)
     chatbot_service = providers.Factory(ChatbotService, chatbot_repository=chatbot_repository)
     ocr_service = providers.Factory(OcrService, ocr_repository=ocr_repository)

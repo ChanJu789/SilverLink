@@ -28,6 +28,7 @@ class Configs(BaseSettings):
     # }
 
     PROJECT_ROOT: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    PORT: int = 5000
 
     # date
     DATETIME_FORMAT: str = "%Y-%m-%dT%H:%M:%S"
@@ -35,10 +36,22 @@ class Configs(BaseSettings):
 
     # auth
     # SECRET_KEY: str = os.getenv("SECRET_KEY", "")
-    # ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30  # 60 minutes * 24 hours * 30 days = 30 days
-
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["*"]
+
+    # --- Chatbot Configs ---
+    # OpenAI
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4-turbo-preview")
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+
+    # Milvus / Zilliz
+    MILVUS_URI: str = os.getenv("MILVUS_URI", "")
+    MILVUS_TOKEN: str = os.getenv("MILVUS_TOKEN", "")
+    FAQ_COLLECTION_NAME: str = os.getenv("FAQ_COLLECTION_NAME", "faq_collection")
+    INQUIRY_COLLECTION_NAME: str = os.getenv("INQUIRY_COLLECTION_NAME", "inquiry_collection")
+
+    # Spring Boot backend
+    SPRING_BOOT_URL: str = os.getenv("SPRING_BOOT_URL", "http://localhost:8080")
 
     # database
     # DB: str = os.getenv("DB", "postgresql")
