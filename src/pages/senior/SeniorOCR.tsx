@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import imageCompression from "browser-image-compression";
 import {
   Heart,
   ArrowLeft,
@@ -46,16 +47,40 @@ const SeniorOCR = () => {
   const [selectedTimes, setSelectedTimes] = useState<Set<string>>(new Set(["morning", "evening"]));
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
+    if (!file) return;
+
+    try {
+      toast.info("이미지 최적화 중...");
+
+      // 압축 옵션 설정
+      const options = {
+        maxSizeMB: 1,          // 1MB 이하로 압축 (WAF/Spring 제한 통과)
+        maxWidthOrHeight: 1920, // FHD 수준 리사이징 (OCR 인식률 최적)
+        useWebWorker: true,     // 메인 스레드 멈춤 방지
+        fileType: 'image/jpeg'  // 호환성 좋은 포맷으로 변환
+      };
+
+      // 라이브러리가 압축 및 EXIF 회전 보정을 자동 수행
+      const compressedFile = await imageCompression(file, options);
+      
+      console.log(`📸 압축 완료: ${(file.size/1024/1024).toFixed(2)}MB -> ${(compressedFile.size/1024/1024).toFixed(2)}MB`);
+
+      setSelectedFile(compressedFile);
+      
+      // 압축된 파일로 미리보기 생성
       const reader = new FileReader();
       reader.onloadend = () => {
         setImage(reader.result as string);
       };
-      reader.readAsDataURL(file);
-      processImage(file);
+      reader.readAsDataURL(compressedFile);
+      
+      // 압축된 파일로 OCR 처리
+      processImage(compressedFile);
+    } catch (error) {
+      console.error("이미지 압축 실패:", error);
+      toast.error("사진을 처리하는 데 실패했습니다. 다시 시도해주세요.");
     }
   };
 
@@ -73,6 +98,7 @@ const SeniorOCR = () => {
       const result = await ocrApi.analyzeDocument(file);
 
       if (result.text) {
+        // 원본 텍스트 그대로 표시
         setExtractedText(result.text);
         toast.success("문서를 읽었어요!");
 
@@ -85,18 +111,85 @@ const SeniorOCR = () => {
         setExtractedText("문서에서 텍스트를 찾을 수 없었어요.");
         toast.warning("문서 인식이 어려워요. 다시 찍어보세요.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("OCR 처리 실패:", error);
-      toast.error(getErrorMessage(error, "문서를 읽는데 실패했어요."));
+      
+      // 타임아웃 에러 처리
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        toast.error("처리 시간이 너무 오래 걸려요. 더 밝은 곳에서 다시 찍어보세요.");
+      } else {
+        toast.error(getErrorMessage(error, "문서를 읽는데 실패했어요."));
+      }
       setExtractedText("");
     } finally {
       setIsProcessing(false);
     }
   };
 
+  // OCR 텍스트 정제 함수
+  const cleanOCRText = (text: string): string => {
+    if (!text) return "";
+
+    const lines = text.split('\n');
+    const cleanedLines: string[] = [];
+
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
+      
+      // 마크다운 리스트 기호 제거
+      line = line.replace(/^[-*+]\s+/, '');
+      
+      // 불필요한 메타데이터 라인 필터링
+      const skipPatterns = [
+        /^환자정보/i,
+        /^교부번호/i,
+        /^병원정보/i,
+        /^조제\s*약사/i,
+        /^처방\s*의사/i,
+        /^처방\s*일자/i,
+        /^조제\s*일자/i,
+        /^약국\s*명/i,
+        /^약국\s*주소/i,
+        /^약국\s*전화/i,
+        /^약품사진/i,
+        /^약품명/i,
+        /^복약안내/i,
+        /^주의사항/i,
+        /^투약량/i,
+        /^투여수/i,
+        /^투여시간/i,
+        /^\d{4}-\d{2}-\d{2}$/,
+        /^만\d+세/,
+        /^\(.*\)$/,
+      ];
+      
+      if (skipPatterns.some(pattern => pattern.test(line))) {
+        continue;
+      }
+      
+      // 콜론이 포함된 라벨 라인 건너뛰기
+      if (/^[가-힣\s]+:\s*$/.test(line) || /^[가-힣\s]+:$/.test(line)) {
+        continue;
+      }
+      
+      // 너무 짧은 라인 건너뛰기
+      if (line.length < 2) {
+        continue;
+      }
+      
+      cleanedLines.push(line);
+    }
+
+    return cleanedLines.join('\n');
+  };
+
   // 약 이름 추출 (간단한 패턴 매칭)
   const extractMedicationNames = (text: string): string[] => {
     const medications: string[] = [];
+    
+    // 먼저 텍스트 정제
+    const cleanedText = cleanOCRText(text);
 
     // 일반적인 약 이름 패턴 (한글, 영문+숫자)
     const patterns = [
@@ -106,7 +199,7 @@ const SeniorOCR = () => {
     ];
 
     patterns.forEach(pattern => {
-      const matches = text.match(pattern);
+      const matches = cleanedText.match(pattern);
       if (matches) {
         matches.forEach(m => {
           const cleaned = m.trim();
@@ -143,9 +236,12 @@ const SeniorOCR = () => {
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(extractedText);
+    // 텍스트 정제 후 읽기
+    const textToSpeak = cleanOCRText(extractedText) || extractedText;
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
     utterance.lang = "ko-KR";
     utterance.rate = 0.8;
+    utterance.pitch = 1.0;
     utterance.onend = () => setIsSpeaking(false);
 
     window.speechSynthesis.speak(utterance);
@@ -208,6 +304,7 @@ const SeniorOCR = () => {
           reminder: true,
         };
 
+        console.log("복약 등록 요청:", request);
         await medicationsApi.createMedication(request);
         successCount++;
       }
@@ -215,9 +312,15 @@ const SeniorOCR = () => {
       toast.success(`${successCount}개 약이 등록되었어요!`);
       setShowMedicationDialog(false);
       navigate("/senior/medication");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to register medications:", error);
-      toast.error("약 등록에 실패했어요. 다시 시도해주세요.");
+      console.error("에러 응답:", error.response?.data);
+      
+      const errorMessage = error.response?.data?.message 
+        || error.response?.data?.error 
+        || "약 등록에 실패했어요. 다시 시도해주세요.";
+      
+      toast.error(errorMessage);
     } finally {
       setIsRegistering(false);
     }
