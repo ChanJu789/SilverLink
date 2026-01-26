@@ -1,6 +1,6 @@
 import pytest
+import os
 from unittest.mock import Mock, patch, AsyncMock
-from app.chatbot.services.chatbot_service import ChatbotService
 
 @pytest.fixture
 def mock_embedding_service():
@@ -30,6 +30,7 @@ def mock_llm():
 @pytest.fixture
 def chatbot_service(mock_embedding_service, mock_vector_store, mock_llm):
     # MemorySaver는 실제 인스턴스 사용 (Validation 통과 위해)
+    from app.chatbot.services.chatbot_service import ChatbotService
     
     with patch("src.app.chatbot.services.chatbot_service.EmbeddingService", return_value=mock_embedding_service), \
          patch("src.app.chatbot.services.chatbot_service.VectorStoreService", return_value=mock_vector_store), \
@@ -45,6 +46,7 @@ def chatbot_service(mock_embedding_service, mock_vector_store, mock_llm):
         
         return service
 
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Env vars missing")
 @pytest.mark.asyncio
 async def test_process_chat(chatbot_service):
     """ChatbotService.process_chat 단위 테스트"""

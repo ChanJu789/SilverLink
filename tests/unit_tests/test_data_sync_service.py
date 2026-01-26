@@ -1,6 +1,6 @@
 import pytest
+import os
 from unittest.mock import Mock, patch
-from app.chatbot.services.data_sync_service import DataSyncService
 
 @pytest.fixture
 def mock_response():
@@ -11,6 +11,7 @@ def mock_response():
     resp.raise_for_status = Mock()
     return resp
 
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Env vars missing")
 def test_sync_all_faqs(mock_response):
     """DataSyncService.sync_all_faqs 단위 테스트"""
     
@@ -25,6 +26,7 @@ def test_sync_all_faqs(mock_response):
         mock_store_instance = MockStore.return_value
         
         # Execute
+        from app.chatbot.services.data_sync_service import DataSyncService
         service = DataSyncService()
         service.sync_all_faqs()
         
