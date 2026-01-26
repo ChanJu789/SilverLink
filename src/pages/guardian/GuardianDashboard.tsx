@@ -64,10 +64,10 @@ const GuardianDashboard = () => {
         const elderlyResponse = await guardiansApi.getMyElderly();
         setElderlyData(elderlyResponse);
 
-        // 첫 번째 어르신의 통화 기록 조회
-        if (elderlyResponse.elderlyList?.length > 0) {
-          const firstElderly = elderlyResponse.elderlyList[0];
-          const callsResponse = await callReviewsApi.getCallReviewsForGuardian(firstElderly.elderlyId);
+        // 첫 번째 어르신의 통화 기록 조회 (현재 1:1 관계이므로 바로 조회)
+        if (elderlyResponse) {
+          const elderlyId = elderlyResponse.elderlyId;
+          const callsResponse = await callReviewsApi.getCallReviewsForGuardian(elderlyId);
           setRecentCalls(callsResponse.content.slice(0, 3)); // 최근 3건
 
           // 감정 통계 계산
@@ -105,12 +105,11 @@ const GuardianDashboard = () => {
     );
   }
 
-  // 어르신 정보
-  const firstElderly = elderlyData?.elderlyList?.[0];
+  // 어르신 정보 (단일 객체)
   const parentStatus = {
-    name: firstElderly?.name || "정보 없음",
-    age: firstElderly?.age || 0,
-    relationType: firstElderly?.relationType || "",
+    name: elderlyData?.elderlyName || "정보 없음",
+    age: 0, // 나이는 현재 API 응답에 없음 (추후 추가 필요)
+    relationType: elderlyData?.relationType || "",
   };
 
   return (
@@ -122,7 +121,7 @@ const GuardianDashboard = () => {
       <div className="space-y-6">
         {/* Page Header */}
         <div>
-          <h1 className="text-2xl font-bold text-foreground">안녕하세요, 홍길동님</h1>
+          <h1 className="text-2xl font-bold text-foreground">안녕하세요, {userProfile?.name}님</h1>
           <p className="text-muted-foreground mt-1">부모님의 오늘 상태를 확인하세요</p>
         </div>
 
@@ -272,15 +271,15 @@ const GuardianDashboard = () => {
                 <CardTitle className="text-lg">빠른 메뉴</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/guardian/inquiry')}>
                   <MessageSquare className="w-4 h-4 mr-3" />
                   상담사에게 문의하기
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/guardian/welfare')}>
                   <FileText className="w-4 h-4 mr-3" />
                   복지 서비스 확인
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/guardian/faq')}>
                   <HelpCircle className="w-4 h-4 mr-3" />
                   자주 묻는 질문
                 </Button>

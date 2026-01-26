@@ -22,7 +22,9 @@ import usersApi from "@/api/users";
 import adminsApi from "@/api/admins";
 import counselorsApi from "@/api/counselors";
 import guardiansApi from "@/api/guardians";
-import { MyProfileResponse, AdminResponse, CounselorResponse, GuardianResponse } from "@/types/api";
+import { MyProfileResponse, AdminResponse, CounselorResponse, GuardianResponse, AuditLogResponse } from "@/types/api";
+import { formatDistanceToNow } from "date-fns";
+import { ko } from "date-fns/locale";
 
 const stats = {
   totalUsers: 1250,
@@ -34,13 +36,7 @@ const stats = {
   aiAccuracy: 94.5,
 };
 
-const recentActivities = [
-  { id: 1, type: "user", message: "새로운 보호자 가입: 김철수", time: "5분 전" },
-  { id: 2, type: "complaint", message: "불편사항 접수: 상담사 응대 불만", time: "15분 전" },
-  { id: 3, type: "alert", message: "긴급 알림: 박영희 어르신 위험 감지", time: "30분 전" },
-  { id: 4, type: "assignment", message: "배정 변경: 이상담 → 김복지", time: "1시간 전" },
-  { id: 5, type: "ai", message: "AI 모델 성능 분석 완료", time: "2시간 전" },
-];
+
 
 const aiMetrics = [
   { name: "STT 정확도", value: 96.2, change: 1.5 },
@@ -61,6 +57,7 @@ const AdminDashboard = () => {
     pendingComplaints: 0,
     aiAccuracy: 94.5,
   });
+  const [auditLogs, setAuditLogs] = useState<AuditLogResponse[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,6 +84,10 @@ const AdminDashboard = () => {
           pendingComplaints: 0, // API 추가 필요
           aiAccuracy: 94.5, // 고정값
         });
+
+        // 감사 로그 조회
+        const logsResponse = await adminsApi.getAuditLogs({ size: 5 });
+        setAuditLogs(logsResponse.content);
       } catch (error) {
         console.error('Failed to fetch admin dashboard data:', error);
       } finally {
@@ -264,29 +265,80 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {recentActivities.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.type === 'user' ? 'bg-primary/10' :
-                    activity.type === 'complaint' ? 'bg-warning/10' :
-                      activity.type === 'alert' ? 'bg-destructive/10' :
-                        activity.type === 'assignment' ? 'bg-accent/10' :
-                          'bg-info/10'
-                    }`}>
-                    {activity.type === 'user' && <Users className="w-5 h-5 text-primary" />}
-                    {activity.type === 'complaint' && <MessageSquare className="w-5 h-5 text-warning" />}
-                    {activity.type === 'alert' && <AlertTriangle className="w-5 h-5 text-destructive" />}
-                    {activity.type === 'assignment' && <UserCog className="w-5 h-5 text-accent" />}
-                    {activity.type === 'ai' && <Brain className="w-5 h-5 text-info" />}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">{activity.message}</p>
-                  </div>
-                  <span className="text-sm text-muted-foreground">{activity.time}</span>
+              {auditLogs.length > 0 ? (
+                auditLogs.map((log) => {
+                  let type = 'info';
+                  let Icon = Activity;
+                  let bgClass = 'bg-info/10';
+                  let iconClass = 'text-info';
+
+                  // 활동 타입에 따른 아이콘/색상 결정 (키워드 매칭)
+                  const action = log.action.toUpperCase();
+                  if (action.includes('USER') || action.includes('MEMBER') || action.includes('SIGNUP')) {
+                    type = 'user';
+                    Icon = Users;
+                    bgClass = 'bg-primary/10';
+                    iconClass = 'text-primary';
+                  } else if (action.includes('COMPLAINT') || action.includes('ERROR')) {
+                    type = 'complaint';
+                    Icon = MessageSquare;
+                    bgClass = 'bg-warning/10';
+                    iconClass = 'text-warning';
+                  } else if (action.includes('ALERT') || action.includes('EMERGENCY') || action.includes('DELETE')) {
+                    type = 'alert';
+                    Icon = AlertTriangle;
+                    bgClass = 'bg-destructive/10';
+                    iconClass = 'text-destructive';
+                  } else if (action.includes('ASSIGNMENT') || action.includes('UPDATE')) {
+                    type = 'assignment';
+                    Icon = UserCog;
+                    bgClass = 'bg-accent/10';
+                    iconClass = 'text-accent';
+                  }
+
+                  // 활동 메시지 포맷팅 함수
+                  const formatActivityMessage = (action: string) => {
+                    const upperAction = action.toUpperCase();
+                    switch (upperAction) {
+                      case 'CREATE_POLICY':
+                        return '새로운 운영 정책을 생성했습니다.';
+                      case 'ASSIGN_ELDERLY':
+                        return '어르신 담당 상담사를 배정했습니다.';
+                      case 'UNASSIGN_ELDERLY':
+                        return '어르신 담당 상담사 배정을 해제했습니다.';
+                      case 'LOGIN':
+                      case 'LOGIN_PHONE':
+                        return '통합 대시보드에 로그인했습니다.';
+                      default:
+                        return action; // 정의되지 않은 코드는 그대로 출력
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={log.id}
+                      className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${bgClass}`}>
+                        <Icon className={`w-5 h-5 ${iconClass}`} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-foreground">
+                          <span className="font-bold mr-1">{log.actorName}:</span>
+                          {formatActivityMessage(log.action)}
+                        </p>
+                      </div>
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">
+                        {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true, locale: ko })}
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  최근 활동 내역이 없습니다.
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>

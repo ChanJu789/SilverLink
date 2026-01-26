@@ -1,5 +1,5 @@
 import apiClient from './index';
-import { AdminResponse, AdminCreateRequest, AdminUpdateRequest } from '@/types/api';
+import { AdminResponse, AdminCreateRequest, AdminUpdateRequest, AuditLogResponse } from '@/types/api';
 
 /**
  * 관리자 생성
@@ -106,6 +106,19 @@ export const getMyInfo = async (): Promise<AdminResponse> => {
     return response.data;
 };
 
+/**
+ * 감사 로그 조회 (관리자)
+ * GET /api/admin/audit-logs
+ */
+export const getAuditLogs = async (params?: {
+    action?: string;
+    actorId?: number;
+    size?: number;
+}): Promise<{ content: AuditLogResponse[] }> => {
+    const response = await apiClient.get<{ content: AuditLogResponse[] }>('/api/admin/audit-logs', { params });
+    return response.data;
+};
+
 export default {
     createAdmin,
     getAdmin,
@@ -118,5 +131,6 @@ export default {
     registerElderly,
     registerGuardian,
     getMyInfo,
+    getAuditLogs,
 };
 

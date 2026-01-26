@@ -179,13 +179,15 @@ export interface GuardianRequest {
 }
 
 export interface GuardianElderlyResponse {
+    id: number;
     guardianId: number;
-    elderlyList: {
-        elderlyId: number;
-        name: string;
-        relationType: string;
-        age: number;
-    }[];
+    guardianName: string;
+    guardianPhone: string;
+    elderlyId: number;
+    elderlyName: string;
+    elderlyPhone: string;
+    relationType: string;
+    connectedAt: string;
 }
 
 // =====================
@@ -227,6 +229,20 @@ export interface InquiryResponse {
     answeredAt?: string;
     createdAt: string;
     userName: string;
+}
+
+// =====================
+// 감사 로그 타입
+// =====================
+export interface AuditLogResponse {
+    id: number;
+    action: string;
+    targetEntity: string;
+    targetId: number;
+    actorId: number | null;
+    actorName: string;
+    clientIp: string;
+    timestamp: string;
 }
 
 export interface InquiryRequest {
