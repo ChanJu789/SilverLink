@@ -2,7 +2,6 @@ from typing import List, AsyncGenerator
 import urllib.parse
 import wave
 import io
-import audioop
 
 from app.callbot.repository.callbot_repository import CallbotRepository
 from app.callbot.services.base_service import BaseService
