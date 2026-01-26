@@ -5,7 +5,6 @@ Tests both Python AI service and Spring Boot backend integration
 import requests
 import json
 import time
-import os
 import pytest
 from typing import Dict, Any
 
