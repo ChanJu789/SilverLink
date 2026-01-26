@@ -1,13 +1,14 @@
-"""End-to-end integration tests"""
 import pytest
 import requests
 import asyncio
+import os
 from fastapi.testclient import TestClient
-from app.main import app
+
 
 
 @pytest.mark.e2e
 @pytest.mark.integration
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Env vars missing")
 class TestEndToEnd:
     """End-to-end integration flow tests"""
     
@@ -16,6 +17,7 @@ class TestEndToEnd:
         """Setup for each test"""
         self.python_url = python_ai_url
         self.spring_url = spring_boot_url
+        from app.main import app
         self.client = TestClient(app)
     
     @pytest.mark.skip(reason="Requires FAQ data in database")

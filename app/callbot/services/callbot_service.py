@@ -45,6 +45,12 @@ class CallbotService(BaseService):
     def wav_to_ulaw(self, wav_bytes: bytes) -> bytes:
         """Converts WAV bytes to raw Mu-law audio (8kHz, Mono) without headers"""
         try:
+            import audioop
+        except ImportError:
+            print("Audioop module is not available (removed in Python 3.13). Audio conversion disabled.")
+            return b""
+
+        try:
             with wave.open(io.BytesIO(wav_bytes), 'rb') as wav:
                 # Resample and Convert
                 n_channels = wav.getnchannels()

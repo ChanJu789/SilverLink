@@ -10,9 +10,7 @@ import os
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from app.main import app
-from app.core.config import configs
-from app.chatbot.repository.chatbot_repository import ChatbotRepository
+
 
 
 @pytest.fixture(scope="session")
@@ -26,6 +24,7 @@ def event_loop():
 @pytest.fixture(scope="module")
 def test_client() -> Generator:
     """FastAPI test client fixture"""
+    from app.main import app
     with TestClient(app) as client:
         yield client
 
@@ -33,6 +32,7 @@ def test_client() -> Generator:
 @pytest.fixture(scope="module")
 async def async_test_client() -> AsyncGenerator:
     """Async FastAPI test client fixture"""
+    from app.main import app
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
 
@@ -40,6 +40,7 @@ async def async_test_client() -> AsyncGenerator:
 @pytest.fixture(scope="session")
 def milvus_connection():
     """Milvus connection fixture"""
+    from app.core.config import configs
     try:
         connections.connect(
             alias="default",
@@ -54,6 +55,7 @@ def milvus_connection():
 @pytest.fixture(scope="function")
 def vector_store_service(milvus_connection):
     """Vector store service fixture"""
+    from app.chatbot.repository.chatbot_repository import ChatbotRepository
     return ChatbotRepository()
 
 

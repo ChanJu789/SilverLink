@@ -1,17 +1,21 @@
 """Error handling integration tests"""
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
-from app.chatbot.services.chatbot_service import ChatbotService
+
+import os
+
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Env vars missing")
 class TestErrorHandling:
     """Test error handling and exception scenarios"""
     
     @pytest.fixture(autouse=True)
     def setup(self):
         """Setup for each test"""
+        from app.main import app
+        from app.chatbot.services.chatbot_service import ChatbotService
         self.client = TestClient(app)
         self.chatbot_service = ChatbotService()
     

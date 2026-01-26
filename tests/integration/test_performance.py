@@ -6,17 +6,19 @@ import psutil
 import os
 from statistics import mean
 from fastapi.testclient import TestClient
-from app.main import app
+
 
 
 @pytest.mark.performance
 @pytest.mark.slow
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="Env vars missing")
 class TestPerformance:
     """Performance and load tests"""
     
     @pytest.fixture(autouse=True)
     def setup(self):
         """Setup for each test"""
+        from app.main import app
         self.client = TestClient(app)
         self.response_times = []
     
