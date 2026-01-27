@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Info
 } from "lucide-react";
+import { toast } from "sonner";
 import { guardianNavItems } from "@/config/guardianNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -92,12 +93,12 @@ const GuardianWelfare = () => {
 
       // 어르신 정보 조회
       try {
-        const elderlyResponse = await guardiansApi.getMyElderly();
-        if (elderlyResponse.elderlyList?.length > 0) {
-          setParentName(elderlyResponse.elderlyList[0].name);
+        const elderlyList = await guardiansApi.getMyElderly();
+        if (elderlyList && elderlyList.length > 0) {
+          setParentName(elderlyList[0].elderlyName);
         }
       } catch (e) {
-        console.log('Could not fetch elderly info');
+        // Fail silently or handle error appropriately
       }
 
       // 복지 서비스 목록 조회
@@ -125,6 +126,9 @@ const GuardianWelfare = () => {
       setCurrentPage(page);
     } catch (error) {
       console.error('Failed to fetch welfare services:', error);
+      toast.error("서비스 목록을 불러오지 못했습니다.", {
+        description: "잠시 후 다시 시도해주세요."
+      });
       setServices([]);
     }
   };
@@ -152,6 +156,7 @@ const GuardianWelfare = () => {
       setSelectedService(detail);
     } catch (error) {
       console.error('Failed to fetch service detail:', error);
+      toast.error("서비스 상세 정보를 불러오지 못했습니다.");
     }
   };
 

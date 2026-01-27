@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { logout as apiLogout } from '@/api/auth';
+import { logout as apiLogout, refresh } from '@/api/auth';
+import { getMyProfile } from '@/api/users';
+import { setAccessToken } from '@/api/index';
 
 type UserRole = 'ADMIN' | 'COUNSELOR' | 'GUARDIAN' | 'ELDERLY';
 
@@ -30,31 +32,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // 초기화: localStorage에서 상태 복원
+    // 초기화: 쿠키를 통한 세션 자동 복원 (새로고침 시)
     useEffect(() => {
-        const token = localStorage.getItem('accessToken');
-        const userStr = localStorage.getItem('user');
-
-        if (token && userStr) {
+        const initSession = async () => {
             try {
-                const userData = JSON.parse(userStr) as User;
-                setUser(userData);
+                // 1. Refresh Token으로 Access Token 재발급 시도 (쿠키 사용)
+                await refresh();
+
+                // 2. 사용자 프로필 정보 가져오기
+                const userProfile = await getMyProfile();
+
+                // 3. 상태 업데이트
+                setUser(userProfile);
                 setIsLoggedIn(true);
-            } catch {
-                // 파싱 오류 시 정리
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('user');
-                localStorage.removeItem('userRole');
+            } catch (error) {
+                // 세션 복원 실패 (로그아웃 상태로 시작)
+                // Session restoration failed (user not logged in)
+                setUser(null);
+                setIsLoggedIn(false);
+            } finally {
+                setIsLoading(false);
             }
-        }
-        setIsLoading(false);
+        };
+
+        initSession();
     }, []);
 
-    // 로그인 처리
+    // 로그인 처리 (메모리에만 저장)
     const login = useCallback((accessToken: string, userData: User) => {
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('userRole', userData.role);
+        setAccessToken(accessToken); // API Client 헤더 설정
+        // localStorage.setItem... 삭제 (보안 강화)
         setUser(userData);
         setIsLoggedIn(true);
     }, []);
@@ -62,19 +69,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // 로그아웃 처리
     const logout = useCallback(async () => {
         try {
-            // 서버에 로그아웃 요청
             await apiLogout();
         } catch (error) {
             console.error('Logout API error:', error);
-            // 서버 에러가 나도 클라이언트 상태는 정리
         } finally {
-            // 로컬 상태 정리
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('user');
-            localStorage.removeItem('userRole');
+            setAccessToken(null); // 메모리 토큰 삭제
             setUser(null);
             setIsLoggedIn(false);
+            // localStorage 정리 (이전 버전 잔재가 있다면 삭제)
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('user');
+            localStorage.removeItem('userRole');
         }
     }, []);
 

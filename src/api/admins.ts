@@ -1,5 +1,12 @@
 import apiClient from './index';
-import { AdminResponse, AdminCreateRequest, AdminUpdateRequest, AuditLogResponse } from '@/types/api';
+import {
+    AdminResponse,
+    AdminCreateRequest,
+    AdminUpdateRequest,
+    AuditLogResponse,
+    RegisterElderlyRequest,
+    RegisterGuardianRequest
+} from '@/types/api';
 
 /**
  * 관리자 생성
@@ -7,6 +14,26 @@ import { AdminResponse, AdminCreateRequest, AdminUpdateRequest, AuditLogResponse
  */
 export const createAdmin = async (data: AdminCreateRequest): Promise<AdminResponse> => {
     const response = await apiClient.post<AdminResponse>('/api/admins', data);
+    return response.data;
+};
+
+// ... (omitted unchanged parts)
+
+/**
+ * 어르신 오프라인 등록
+ * POST /api/admin/members/elderly
+ */
+export const registerElderly = async (data: RegisterElderlyRequest): Promise<number> => {
+    const response = await apiClient.post<number>('/api/admin/members/elderly', data);
+    return response.data;
+};
+
+/**
+ * 보호자 오프라인 등록
+ * POST /api/admin/members/guardian
+ */
+export const registerGuardian = async (data: RegisterGuardianRequest): Promise<number> => {
+    const response = await apiClient.post<number>('/api/admin/members/guardian', data);
     return response.data;
 };
 
@@ -80,22 +107,7 @@ export const deleteAdmin = async (userId: number): Promise<void> => {
 };
 
 /**
- * 어르신 오프라인 등록
- * POST /api/admin/members/elderly
- */
-export const registerElderly = async (data: any): Promise<number> => {
-    const response = await apiClient.post<number>('/api/admin/members/elderly', data);
-    return response.data;
-};
-
-/**
- * 보호자 오프라인 등록
- * POST /api/admin/members/guardian
- */
-export const registerGuardian = async (data: any): Promise<number> => {
-    const response = await apiClient.post<number>('/api/admin/members/guardian', data);
-    return response.data;
-};
+// (Moved to top with proper types)
 
 /**
  * 내 정보 조회 (관리자)

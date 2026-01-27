@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DuplicateLoginProvider } from "@/contexts/DuplicateLoginContext";
-import { lazy, Suspense } from "react"; 
+import { lazy, Suspense } from "react";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 
 const queryClient = new QueryClient();
@@ -69,64 +70,71 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-          <Suspense fallback={<div>Loading...</div>}>
-            <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/forgot-id" element={<ForgotId />} />
-            {/* Guardian Routes */}
-            <Route path="/guardian" element={<GuardianDashboard />} />
-            <Route path="/guardian/calls" element={<GuardianCalls />} />
-            <Route path="/guardian/calls/:id" element={<GuardianCallDetail />} />
-            <Route path="/guardian/stats" element={<GuardianStats />} />
-            <Route path="/guardian/welfare" element={<GuardianWelfare />} />
-            <Route path="/guardian/inquiry" element={<GuardianInquiry />} />
-            <Route path="/guardian/complaint" element={<GuardianComplaint />} />
-            <Route path="/guardian/notices" element={<GuardianNotices />} />
-            <Route path="/guardian/profile" element={<GuardianProfile />} />
-            <Route path="/guardian/faq" element={<FAQPage />} />
-            {/* Counselor Routes */}
-            <Route path="/counselor" element={<CounselorDashboard />} />
-            <Route path="/counselor/seniors" element={<SeniorList />} />
-            <Route path="/counselor/seniors/:id" element={<SeniorDetail />} />
-            <Route path="/counselor/calls" element={<CounselorCalls />} />
-            <Route path="/counselor/calls/:id" element={<CounselorCallDetail />} />
-            <Route path="/counselor/records" element={<CounselorRecords />} />
-            <Route path="/counselor/inquiries" element={<CounselorInquiries />} />
-            <Route path="/counselor/alerts" element={<CounselorAlerts />} />
-            <Route path="/counselor/notices" element={<CounselorNotices />} />
-            <Route path="/counselor/sensitive-info" element={<CounselorSensitiveInfo />} />
-            <Route path="/counselor/profile" element={<CounselorProfile />} />
-            {/* Admin Routes */}
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/members" element={<MemberManagement />} />
-            <Route path="/admin/assignments" element={<AssignmentManagement />} />
-            <Route path="/admin/ai-stats" element={<AIStats />} />
-            <Route path="/admin/complaints" element={<ComplaintManagement />} />
-            <Route path="/admin/sensitive-info" element={<SensitiveInfoManagement />} />
-            <Route path="/admin/notices" element={<NoticeManagement />} />
-            <Route path="/admin/policies" element={<PolicyManagement />} />
-            <Route path="/admin/settings" element={<SystemSettings />} />
-            <Route path="/admin/register" element={<MemberRegistration />} />
-            <Route path="/admin/profile" element={<AdminProfile />} />
-            {/* Senior Routes */}
-            <Route path="/senior" element={<SeniorDashboard />} />
-            <Route path="/senior/login" element={<SeniorLogin />} />
-            <Route path="/senior/ocr" element={<SeniorOCR />} />
-            <Route path="/senior/health" element={<SeniorHealth />} />
-            <Route path="/senior/medication" element={<SeniorMedication />} />
-            <Route path="/senior/notices" element={<SeniorNotices />} />
-            <Route path="/senior/faq" element={<SeniorFAQ />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </TooltipProvider>
-    </DuplicateLoginProvider>
+            <Suspense fallback={<div>Loading...</div>}>
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/forgot-id" element={<ForgotId />} />
+
+                {/* Guardian Routes - GUARDIAN role only */}
+                <Route path="/guardian" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianDashboard /></ProtectedRoute>} />
+                <Route path="/guardian/calls" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianCalls /></ProtectedRoute>} />
+                <Route path="/guardian/calls/:id" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianCallDetail /></ProtectedRoute>} />
+                <Route path="/guardian/stats" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianStats /></ProtectedRoute>} />
+                <Route path="/guardian/welfare" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianWelfare /></ProtectedRoute>} />
+                <Route path="/guardian/inquiry" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianInquiry /></ProtectedRoute>} />
+                <Route path="/guardian/complaint" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianComplaint /></ProtectedRoute>} />
+                <Route path="/guardian/notices" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianNotices /></ProtectedRoute>} />
+                <Route path="/guardian/profile" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianProfile /></ProtectedRoute>} />
+                <Route path="/guardian/faq" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><FAQPage /></ProtectedRoute>} />
+
+                {/* Counselor Routes - COUNSELOR role only */}
+                <Route path="/counselor" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorDashboard /></ProtectedRoute>} />
+                <Route path="/counselor/seniors" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><SeniorList /></ProtectedRoute>} />
+                <Route path="/counselor/seniors/:id" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><SeniorDetail /></ProtectedRoute>} />
+                <Route path="/counselor/calls" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorCalls /></ProtectedRoute>} />
+                <Route path="/counselor/calls/:id" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorCallDetail /></ProtectedRoute>} />
+                <Route path="/counselor/records" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorRecords /></ProtectedRoute>} />
+                <Route path="/counselor/inquiries" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorInquiries /></ProtectedRoute>} />
+                <Route path="/counselor/alerts" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorAlerts /></ProtectedRoute>} />
+                <Route path="/counselor/notices" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorNotices /></ProtectedRoute>} />
+                <Route path="/counselor/sensitive-info" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorSensitiveInfo /></ProtectedRoute>} />
+                <Route path="/counselor/profile" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorProfile /></ProtectedRoute>} />
+
+                {/* Admin Routes - ADMIN role only */}
+                <Route path="/admin" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/admin/members" element={<ProtectedRoute allowedRoles={["ADMIN"]}><MemberManagement /></ProtectedRoute>} />
+                <Route path="/admin/assignments" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AssignmentManagement /></ProtectedRoute>} />
+                <Route path="/admin/ai-stats" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AIStats /></ProtectedRoute>} />
+                <Route path="/admin/complaints" element={<ProtectedRoute allowedRoles={["ADMIN"]}><ComplaintManagement /></ProtectedRoute>} />
+                <Route path="/admin/sensitive-info" element={<ProtectedRoute allowedRoles={["ADMIN"]}><SensitiveInfoManagement /></ProtectedRoute>} />
+                <Route path="/admin/notices" element={<ProtectedRoute allowedRoles={["ADMIN"]}><NoticeManagement /></ProtectedRoute>} />
+                <Route path="/admin/policies" element={<ProtectedRoute allowedRoles={["ADMIN"]}><PolicyManagement /></ProtectedRoute>} />
+                <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={["ADMIN"]}><SystemSettings /></ProtectedRoute>} />
+                <Route path="/admin/register" element={<ProtectedRoute allowedRoles={["ADMIN"]}><MemberRegistration /></ProtectedRoute>} />
+                <Route path="/admin/profile" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AdminProfile /></ProtectedRoute>} />
+
+                {/* Senior Routes - ELDERLY role only */}
+                <Route path="/senior/login" element={<SeniorLogin />} />
+                <Route path="/senior" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorDashboard /></ProtectedRoute>} />
+                <Route path="/senior/ocr" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorOCR /></ProtectedRoute>} />
+                <Route path="/senior/health" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorHealth /></ProtectedRoute>} />
+                <Route path="/senior/medication" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorMedication /></ProtectedRoute>} />
+                <Route path="/senior/notices" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorNotices /></ProtectedRoute>} />
+                <Route path="/senior/faq" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorFAQ /></ProtectedRoute>} />
+
+                {/* Catch-all for 404 */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </TooltipProvider>
+      </DuplicateLoginProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
 
 export default App;
+
