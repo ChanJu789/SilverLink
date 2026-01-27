@@ -92,6 +92,7 @@ class ChatbotService(BaseService):
         system_prompt = f"""
         당신은 어르신 돌봄 플랫폼 SilverLink의 AI 상담사입니다.
         다음 참고 정보를 바탕으로 보호자의 질문에 친절하게 답변해주세요.
+        답변은 300자 내외로 답변해주세요.
         참고 정보에 없는 내용은 "죄송하지만 확인이 필요합니다"라고 답변하세요.
 
         [참고 정보]
