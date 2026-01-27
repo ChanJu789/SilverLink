@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from langgraph.graph import StateGraph, MessagesState
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import SystemMessage, HumanMessage, trim_messages
@@ -110,16 +111,32 @@ class ChatbotService(BaseService):
         return {"messages": [response]}
 
     async def process_chat(self, message: str, thread_id: str, guardian_id: int, elderly_id: int):
-        embedding = self.embedding_service.create_embedding(message)
+        total_start = time.time()
         
+        # 1. 임베딩 생성
+        embed_start = time.time()
+        embedding = self.embedding_service.create_embedding(message)
+        embed_time = time.time() - embed_start
+        logger.info(f"⏱️ [1/4] 임베딩 생성: {embed_time:.2f}초")
+        
+        # 2. FAQ/Inquiry 병렬 검색
+        search_start = time.time()
         faq_task = asyncio.create_task(self._search_faq_async(self.chatbot_repository, embedding))
         inquiry_task = asyncio.create_task(self._search_inquiry_async(self.chatbot_repository, embedding, guardian_id, elderly_id))
         
         faq_results, inquiry_results = await asyncio.gather(faq_task, inquiry_task)
+        search_time = time.time() - search_start
+        logger.info(f"⏱️ [2/4] 벡터 검색 (FAQ+Inquiry): {search_time:.2f}초")
         
+        # 3. 결과 병합
+        merge_start = time.time()
         all_results = self._merge_and_rank_results(faq_results, inquiry_results)
         context = self._build_context_string(all_results)
+        merge_time = time.time() - merge_start
+        logger.info(f"⏱️ [3/4] 결과 병합: {merge_time:.2f}초")
         
+        # 4. LLM 응답 생성
+        llm_start = time.time()
         config = {"configurable": {"thread_id": thread_id}}
         input_state = {
             "messages": [HumanMessage(content=message)],
@@ -128,6 +145,12 @@ class ChatbotService(BaseService):
         
         result = await self.app.ainvoke(input_state, config)
         last_message = result["messages"][-1]
+        llm_time = time.time() - llm_start
+        logger.info(f"⏱️ [4/4] LLM 응답 생성: {llm_time:.2f}초")
+        
+        # 총 소요 시간
+        total_time = time.time() - total_start
+        logger.info(f"✅ 총 소요 시간: {total_time:.2f}초 (임베딩:{embed_time:.2f}s + 검색:{search_time:.2f}s + 병합:{merge_time:.2f}s + LLM:{llm_time:.2f}s)")
         
         return {
             "answer": last_message.content,

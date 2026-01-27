@@ -1,7 +1,13 @@
 import uvicorn
+import logging
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 # from app.api.v1.routes import routers as v1_routers
 # from app.api.v2.routes import routers as v2_routers
 from app.api.routes import routers
