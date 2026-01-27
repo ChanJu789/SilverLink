@@ -69,7 +69,13 @@ apiClient.interceptors.response.use(
     }
 
     // 401 에러이고 재시도하지 않았다면 토큰 갱신 시도
-    if (status === 401 && originalRequest && !(originalRequest as any)._retry) {
+    // 단, 로그인 관련 API는 제외 (로그인 실패는 그냥 실패로 처리해야 함)
+    const isLoginRequest = originalRequest && (
+      originalRequest.url?.includes('/api/auth/login') ||
+      originalRequest.url?.includes('/login')
+    );
+
+    if (status === 401 && !isLoginRequest && originalRequest && !(originalRequest as any)._retry) {
       (originalRequest as any)._retry = true;
 
       try {

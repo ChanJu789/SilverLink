@@ -65,7 +65,7 @@ const getSourceLabel = (service: WelfareListResponse): string => {
 
 const GuardianWelfare = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRegion, setSelectedRegion] = useState("all");
+
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [services, setServices] = useState<WelfareListResponse[]>([]);
@@ -93,9 +93,9 @@ const GuardianWelfare = () => {
 
       // 어르신 정보 조회
       try {
-        const elderlyList = await guardiansApi.getMyElderly();
-        if (elderlyList && elderlyList.length > 0) {
-          setParentName(elderlyList[0].elderlyName);
+        const elderly = await guardiansApi.getMyElderly();
+        if (elderly && elderly.elderlyName) {
+          setParentName(elderly.elderlyName);
         }
       } catch (e) {
         // Fail silently or handle error appropriately
@@ -117,7 +117,7 @@ const GuardianWelfare = () => {
         size: pageSize,
       };
       if (searchQuery) params.keyword = searchQuery;
-      if (selectedRegion !== 'all') params.region = selectedRegion;
+
 
       const response = await welfareApi.searchWelfare(params);
       setServices(response.content || []);
@@ -240,19 +240,7 @@ const GuardianWelfare = () => {
                 />
               </div>
               <div className="flex flex-wrap gap-2">
-                <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                  <SelectTrigger className="w-[140px]">
-                    <MapPin className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="지역" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">전체 지역</SelectItem>
-                    <SelectItem value="서울">서울시</SelectItem>
-                    <SelectItem value="경기">경기도</SelectItem>
-                    <SelectItem value="인천">인천시</SelectItem>
-                    <SelectItem value="부산">부산시</SelectItem>
-                  </SelectContent>
-                </Select>
+
                 <Button onClick={handleSearch}>
                   <Search className="w-4 h-4 mr-2" />
                   검색

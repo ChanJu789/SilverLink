@@ -223,9 +223,9 @@ export interface FaqResponse {
 export interface InquiryResponse {
     id: number;
     title: string;
-    content: string;
+    questionText: string;
     status: 'PENDING' | 'ANSWERED';
-    answer?: string;
+    answerText?: string;
     answeredAt?: string;
     createdAt: string;
     userName: string;
@@ -247,7 +247,7 @@ export interface AuditLogResponse {
 
 export interface InquiryRequest {
     title?: string;
-    content: string;
+    questionText: string;
 }
 
 // =====================
