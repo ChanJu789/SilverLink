@@ -112,8 +112,8 @@ class ChatbotService(BaseService):
     async def process_chat(self, message: str, thread_id: str, guardian_id: int, elderly_id: int):
         embedding = self.embedding_service.create_embedding(message)
         
-        faq_task = asyncio.create_task(self._search_faq_async(embedding))
-        inquiry_task = asyncio.create_task(self._search_inquiry_async(embedding, guardian_id, elderly_id))
+        faq_task = asyncio.create_task(self._search_faq_async(self.chatbot_repository, embedding))
+        inquiry_task = asyncio.create_task(self._search_inquiry_async(self.chatbot_repository, embedding, guardian_id, elderly_id))
         
         faq_results, inquiry_results = await asyncio.gather(faq_task, inquiry_task)
         
