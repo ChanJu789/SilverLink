@@ -150,7 +150,7 @@ export default function SeniorDetail() {
   const [isEditing, setIsEditing] = useState(false);
 
   const handleSaveRecord = () => {
-    console.log("Saving record:", newRecord);
+    // Saving record...
     setNewRecord({ type: "정기 상담", content: "", followUp: "" });
     setIsEditing(false);
   };
@@ -488,8 +488,8 @@ export default function SeniorDetail() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" />
                       <YAxis domain={[0, 100]} className="text-xs" />
-                      <Tooltip 
-                        contentStyle={{ 
+                      <Tooltip
+                        contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px'
@@ -568,7 +568,7 @@ export default function SeniorDetail() {
                   <div className="space-y-2">
                     {seniorData.aiAnalysis.concerns.map((concern, index) => (
                       <div key={index} className="flex items-start gap-2 p-2 rounded-lg bg-muted/50">
-                        <Badge 
+                        <Badge
                           variant={concern.type === "경미" ? "secondary" : "outline"}
                           className="shrink-0"
                         >

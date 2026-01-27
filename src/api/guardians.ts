@@ -23,8 +23,8 @@ export const getMyInfo = async (): Promise<GuardianResponse> => {
  * 내 어르신 목록 조회 (보호자)
  * GET /api/guardians/me/elderly
  */
-export const getMyElderly = async (): Promise<GuardianElderlyResponse> => {
-    const response = await apiClient.get<GuardianElderlyResponse>('/api/guardians/me/elderly');
+export const getMyElderly = async (): Promise<GuardianElderlyResponse[]> => {
+    const response = await apiClient.get<GuardianElderlyResponse[]>('/api/guardians/me/elderly');
     return response.data;
 };
 

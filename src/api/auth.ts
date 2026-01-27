@@ -1,11 +1,11 @@
 import apiClient, { setAccessToken, getAccessToken } from './index';
-import { LoginRequest, TokenResponse, RefreshResponse } from '@/types/api';
+import { LoginRequest, TokenResponse, RefreshResponse, SignupRequest } from '@/types/api';
 
 /**
  * 로그인 API
  * POST /api/auth/login
  */
-export const signup = async (data: any): Promise<number> => {
+export const signup = async (data: SignupRequest): Promise<number> => {
     const response = await apiClient.post<number>('/api/auth/signup', data);
     return response.data;
 };
@@ -31,12 +31,12 @@ export interface LoginCheckResponse {
 
 export const checkLogin = async (credentials: LoginRequest): Promise<LoginCheckResponse> => {
     const response = await apiClient.post<LoginCheckResponse>('/api/auth/login/check', credentials);
-    
+
     // 바로 로그인된 경우 토큰 저장
     if (!response.data.needsConfirmation && response.data.tokenResponse) {
         setAccessToken(response.data.tokenResponse.accessToken);
     }
-    
+
     return response.data;
 };
 
@@ -46,10 +46,10 @@ export const checkLogin = async (credentials: LoginRequest): Promise<LoginCheckR
  */
 export const forceLogin = async (loginToken: string): Promise<TokenResponse> => {
     const response = await apiClient.post<TokenResponse>('/api/auth/login/force', { loginToken });
-    
+
     // 토큰 저장
     setAccessToken(response.data.accessToken);
-    
+
     return response.data;
 };
 
