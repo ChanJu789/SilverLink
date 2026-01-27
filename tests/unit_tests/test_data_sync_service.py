@@ -15,9 +15,9 @@ def mock_response():
 def test_sync_all_faqs(mock_response):
     """DataSyncService.sync_all_faqs 단위 테스트"""
     
-    with patch("src.app.chatbot.services.data_sync_service.requests.get", return_value=mock_response), \
-         patch("src.app.chatbot.services.data_sync_service.EmbeddingService") as MockEmbed, \
-         patch("src.app.chatbot.services.data_sync_service.VectorStoreService") as MockStore:
+    with patch("app.chatbot.services.data_sync_service.requests.get", return_value=mock_response), \
+         patch("app.chatbot.services.data_sync_service.EmbeddingService") as MockEmbed, \
+         patch("app.chatbot.services.data_sync_service.VectorStoreService") as MockStore:
         
         # Setup mocks
         mock_embed_instance = MockEmbed.return_value

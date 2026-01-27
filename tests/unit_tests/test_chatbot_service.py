@@ -32,9 +32,9 @@ def chatbot_service(mock_embedding_service, mock_vector_store, mock_llm):
     # MemorySaver는 실제 인스턴스 사용 (Validation 통과 위해)
     from app.chatbot.services.chatbot_service import ChatbotService
     
-    with patch("src.app.chatbot.services.chatbot_service.EmbeddingService", return_value=mock_embedding_service), \
-         patch("src.app.chatbot.services.chatbot_service.VectorStoreService", return_value=mock_vector_store), \
-         patch("src.app.chatbot.services.chatbot_service.ChatOpenAI", return_value=mock_llm):
+    with patch("app.chatbot.services.chatbot_service.EmbeddingService", return_value=mock_embedding_service), \
+         patch("app.chatbot.services.chatbot_service.VectorStoreService", return_value=mock_vector_store), \
+         patch("app.chatbot.services.chatbot_service.ChatOpenAI", return_value=mock_llm):
             # MemorySaver patch 제거
         
         service = ChatbotService()

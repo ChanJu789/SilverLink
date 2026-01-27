@@ -5,6 +5,7 @@ class ChatRequest(BaseModel):
     message: str
     thread_id: str
     guardian_id: int
+    elderly_id: int
     model_config = {
         "json_schema_extra": {
             "example": {

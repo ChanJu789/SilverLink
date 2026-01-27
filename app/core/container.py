@@ -34,6 +34,6 @@ class Container(containers.DeclarativeContainer):
     ocr_repository = providers.Factory(OcrRepository)
 
     callbot_service = providers.Factory(CallbotService, callbot_repository=callbot_repository, llm=llm, call=call, tts=tts)
-    datasync_service = providers.Factory(DataSyncService, callbot_repository=callbot_repository)
+    datasync_service = providers.Factory(DataSyncService, chatbot_repository=chatbot_repository)
     chatbot_service = providers.Factory(ChatbotService, chatbot_repository=chatbot_repository)
     ocr_service = providers.Factory(OcrService, ocr_repository=ocr_repository)

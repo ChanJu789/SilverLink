@@ -23,14 +23,14 @@ def get_post_list(
 
 
 # set routes
-@inject_callbot
 @router.get(
     "/chat/status",
     #tags=["Chatbot"],
     summary="챗봇 기능 상태 확인",
     description="챗봇 서비스의 핵심 기능(Milvus 연결, 설정 로드)이 정상적인지 확인합니다."
 )
-def chat_status(self, service: ChatbotService = Depends(Provide[Container.chatbot_service])):
+@inject_callbot
+def chat_status(service: ChatbotService = Depends(Provide[Container.chatbot_service])):
     """챗봇 기능 상태 점검"""
     status = {
         "service": "SilverLink-Chatbot",
@@ -39,7 +39,7 @@ def chat_status(self, service: ChatbotService = Depends(Provide[Container.chatbo
     }
     
     # 1. 챗봇 서비스 로드 확인
-    if hasattr(self, 'chatbot_service') and service:
+    if service:
         status["chatbot_service"] = "loaded"
     
     # 2. Milvus 데이터베이스 연결 확인
@@ -58,7 +58,6 @@ def chat_status(self, service: ChatbotService = Depends(Provide[Container.chatbo
 
 #self.data_sync_service = DataSyncService()
 
-@inject_callbot
 @router.post(
     "/chat",
     response_model=ChatResponse,
@@ -80,6 +79,7 @@ def chat_status(self, service: ChatbotService = Depends(Provide[Container.chatbo
     - elderly_id: 어르신 ID
     """
 )
+@inject_callbot
 async def chat_endpoint(request: ChatRequest, service: ChatbotService = Depends(Provide[Container.chatbot_service])):
     """챗봇 질문 처리"""
     result = await service.process_chat(
@@ -94,7 +94,6 @@ async def chat_endpoint(request: ChatRequest, service: ChatbotService = Depends(
         sources=result["sources"],
         confidence=result["confidence"]
     )
-@inject_callbot
 @router.post(
     "/sync/faqs",
     #tags=["Data Sync"],
@@ -112,14 +111,14 @@ async def chat_endpoint(request: ChatRequest, service: ChatbotService = Depends(
     - 초기 데이터 셋업 시
     """
 )
-def sync_faqs(self, datasync_service: DataSyncService = Depends(Provide[Container.datasync_service])):
+@inject_callbot
+def sync_faqs(datasync_service: DataSyncService = Depends(Provide[Container.datasync_service])):
     """FAQ 데이터 동기화"""
     try:
         datasync_service.sync_all_faqs()
         return {"status": "success", "message": "FAQs synced successfully"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
-@inject_callbot
 @router.post(
     "/sync/inquiries",
     #tags=["Data Sync"],
@@ -137,7 +136,8 @@ def sync_faqs(self, datasync_service: DataSyncService = Depends(Provide[Containe
     - 초기 데이터 셋업 시
     """
 )
-def sync_inquiries(self, datasync_service: DataSyncService = Depends(Provide[Container.datasync_service])):
+@inject_callbot
+def sync_inquiries(datasync_service: DataSyncService = Depends(Provide[Container.datasync_service])):
     """Inquiry 데이터 동기화"""
     try:
         datasync_service.sync_all_inquiries()
