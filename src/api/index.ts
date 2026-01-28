@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { showGlobalDuplicateLoginDialog } from '@/contexts/DuplicateLoginContext';
+import { showGlobalSessionExpiredDialog } from '@/contexts/SessionExpiredContext';
 
 // API 기본 URL 설정
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -17,10 +18,15 @@ export const apiClient = axios.create({
 // 토큰 저장소
 let accessToken: string | null = null;
 
+// 리다이렉트 중복 방지 플래그
+let isRedirectingToLogin = false;
+
 export const setAccessToken = (token: string | null) => {
   accessToken = token;
   if (token) {
     localStorage.setItem('accessToken', token);
+    // 새 토큰이 설정되면 리다이렉트 플래그 리셋 (다음 세션 만료 시 모달 표시 가능)
+    isRedirectingToLogin = false;
   } else {
     localStorage.removeItem('accessToken');
   }
@@ -54,11 +60,23 @@ apiClient.interceptors.response.use(
     const errorData = error.response?.data as { error?: string; message?: string } | undefined;
     const errorCode = errorData?.error;
 
-    // 세션 관련 오류 → 로그인 페이지로 리다이렉트
+    // 세션 관련 오류 → 세션 만료 모달 표시
     const sessionErrors = ['SESSION_EXPIRED', 'REFRESH_REUSED', 'INVALID_TOKEN', 'TOKEN_EXPIRED'];
     if (sessionErrors.includes(errorCode || '')) {
       setAccessToken(null);
-      window.location.href = '/login';
+
+      // 이미 로그인 페이지에 있으면 무시
+      const currentPath = window.location.pathname;
+      if (currentPath === '/login' || currentPath.startsWith('/login')) {
+        return Promise.reject(error);
+      }
+
+      // 중복 모달 표시 방지
+      if (!isRedirectingToLogin) {
+        isRedirectingToLogin = true;
+        // 모달 표시 (모달에서 확인 버튼 클릭 시 로그인 페이지로 이동)
+        showGlobalSessionExpiredDialog();
+      }
       return Promise.reject(error);
     }
 
@@ -93,7 +111,13 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         // 갱신 실패 시 로그아웃
         setAccessToken(null);
-        window.location.href = '/login';
+
+        // 중복 모달 표시 방지
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/login' && !currentPath.startsWith('/login') && !isRedirectingToLogin) {
+          isRedirectingToLogin = true;
+          showGlobalSessionExpiredDialog();
+        }
         return Promise.reject(refreshError);
       }
     }
