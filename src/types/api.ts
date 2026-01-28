@@ -213,8 +213,8 @@ export interface FaqResponse {
     id: number;
     category: string;
     question: string;
-    answer: string;
-    orderIndex: number;
+    answerText: string;
+    displayOrder: number;
 }
 
 // =====================

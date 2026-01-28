@@ -3,6 +3,7 @@ import {
   HelpCircle,
   Search,
   ChevronRight,
+  ChevronLeft,
   Book,
   Loader2
 } from "lucide-react";
@@ -11,6 +12,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Accordion,
   AccordionContent,
@@ -33,11 +35,14 @@ const getCategoryName = (categoryId: string): string => {
   return category?.name || categoryId;
 };
 
+const PAGE_SIZE = 10;
+
 const FAQPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [faqs, setFaqs] = useState<FaqResponse[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
     const fetchFaqs = async () => {
@@ -55,15 +60,31 @@ const FAQPage = () => {
     fetchFaqs();
   }, []);
 
+  // 필터된 FAQ 리스트
   const filteredFAQ = faqs.filter(item => {
-    const matchesSearch = item.question?.includes(searchQuery) || item.answer?.includes(searchQuery);
+    const matchesSearch = item.question?.includes(searchQuery) || item.answerText?.includes(searchQuery);
     const matchesCategory = selectedCategory === "all" || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(filteredFAQ.length / PAGE_SIZE);
+  const paginatedFAQ = filteredFAQ.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
   // 카테고리별 개수 계산
   const getCategoryCount = (categoryId: string): number => {
     return faqs.filter(faq => faq.category === categoryId).length;
+  };
+
+  // 카테고리나 검색어 변경 시 페이지 초기화
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchQuery, selectedCategory]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 0 && page < totalPages) {
+      setCurrentPage(page);
+    }
   };
 
   if (isLoading) {
@@ -128,8 +149,15 @@ const FAQPage = () => {
         {/* FAQ List */}
         <Card className="shadow-card border-0">
           <CardContent className="p-6">
+            {/* 현재 페이지 정보 */}
+            {filteredFAQ.length > 0 && (
+              <div className="text-sm text-muted-foreground mb-4">
+                총 {filteredFAQ.length}개 중 {currentPage * PAGE_SIZE + 1}-{Math.min((currentPage + 1) * PAGE_SIZE, filteredFAQ.length)}개 표시
+              </div>
+            )}
+
             <Accordion type="single" collapsible className="space-y-2">
-              {filteredFAQ.map((item) => (
+              {paginatedFAQ.map((item) => (
                 <AccordionItem key={item.id} value={item.id.toString()} className="border rounded-xl px-4">
                   <AccordionTrigger className="hover:no-underline py-4">
                     <div className="flex items-center gap-3 text-left">
@@ -140,7 +168,7 @@ const FAQPage = () => {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="pb-4 pl-11">
-                    <p className="text-muted-foreground leading-relaxed">{item.answer}</p>
+                    <p className="text-muted-foreground leading-relaxed">{item.answerText}</p>
                     <div className="flex items-center gap-4 mt-4 pt-4 border-t text-sm text-muted-foreground">
                       <Badge variant="outline">
                         {getCategoryName(item.category)}
@@ -155,6 +183,57 @@ const FAQPage = () => {
               <div className="text-center py-12">
                 <Book className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">검색 결과가 없습니다</p>
+              </div>
+            )}
+
+            {/* 페이지네이션 UI */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 0}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  이전
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i;
+                    } else if (currentPage < 3) {
+                      pageNum = i;
+                    } else if (currentPage > totalPages - 4) {
+                      pageNum = totalPages - 5 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNum)}
+                        className="w-10"
+                      >
+                        {pageNum + 1}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage >= totalPages - 1}
+                >
+                  다음
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
               </div>
             )}
           </CardContent>
