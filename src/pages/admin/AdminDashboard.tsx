@@ -25,24 +25,17 @@ import guardiansApi from "@/api/guardians";
 import { MyProfileResponse, AdminResponse, CounselorResponse, GuardianResponse, AuditLogResponse } from "@/types/api";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const stats = {
-  totalUsers: 1250,
-  counselors: 45,
-  guardians: 380,
-  seniors: 825,
-  todayCalls: 652,
-  pendingComplaints: 8,
-  aiAccuracy: 94.5,
-};
-
-
-
-const aiMetrics = [
-  { name: "STT 정확도", value: 96.2, change: 1.5 },
-  { name: "TTS 품질", value: 94.8, change: 0.8 },
-  { name: "감정 분석", value: 92.1, change: -0.3 },
-  { name: "응답 시간", value: 98.5, change: 2.1 },
+const dailyCallData = [
+  { hour: "06시", calls: 12 },
+  { hour: "08시", calls: 45 },
+  { hour: "10시", calls: 128 },
+  { hour: "12시", calls: 85 },
+  { hour: "14시", calls: 142 },
+  { hour: "16시", calls: 156 },
+  { hour: "18시", calls: 98 },
+  { hour: "20시", calls: 42 },
 ];
 
 const AdminDashboard = () => {
@@ -191,34 +184,31 @@ const AdminDashboard = () => {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* AI Performance Metrics */}
+          {/* Daily Call Distribution */}
           <div className="lg:col-span-2">
             <Card className="shadow-card border-0">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">AI 성능 지표</CardTitle>
-                  <CardDescription>실시간 AI 모델 성능 현황</CardDescription>
-                </div>
-                <Button variant="ghost" size="sm" className="text-primary">
-                  상세보기 <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
+              <CardHeader>
+                <CardTitle className="text-lg">시간대별 통화량</CardTitle>
+                <CardDescription>오늘의 시간대별 AI 통화 분포</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {aiMetrics.map((metric) => (
-                  <div key={metric.name} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{metric.name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold">{metric.value}%</span>
-                        <span className={`text-xs flex items-center gap-0.5 ${metric.change >= 0 ? 'text-success' : 'text-destructive'}`}>
-                          {metric.change >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                          {Math.abs(metric.change)}%
-                        </span>
-                      </div>
-                    </div>
-                    <Progress value={metric.value} className="h-2" />
-                  </div>
-                ))}
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dailyCallData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="hour" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }} 
+                      />
+                      <Bar dataKey="calls" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="통화 수" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </CardContent>
             </Card>
           </div>

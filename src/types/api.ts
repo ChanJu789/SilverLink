@@ -203,6 +203,7 @@ export interface NoticeResponse {
     isPopup: boolean;
     targetRoles: string[];
     createdAt: string;
+    updatedAt?: string;
     viewCount: number;
     isRead: boolean;
 }

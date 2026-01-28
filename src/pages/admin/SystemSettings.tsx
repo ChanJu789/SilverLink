@@ -22,10 +22,12 @@ import {
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import { BarChart3 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SystemSettings = () => {
+  const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // 일반 설정
   const [generalSettings, setGeneralSettings] = useState({
     siteName: "마음돌봄",
@@ -76,7 +78,7 @@ const SystemSettings = () => {
   return (
     <DashboardLayout
       role="admin"
-      userName="관리자"
+      userName={user?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">
