@@ -1,11 +1,18 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Phone, Clock, Navigation } from "lucide-react";
+import { MapPin, Phone, Clock, Navigation, List, Map } from "lucide-react";
 import { mapApi } from "@/api/map";
 import { WelfareFacilityResponse } from "@/types/api";
+
+// Kakao Maps 타입 선언
+declare global {
+    interface Window {
+        kakao: any;
+    }
+}
 
 const FACILITY_TYPE_LABELS: Record<string, string> = {
     ELDERLY_WELFARE_CENTER: "노인복지관",
@@ -22,9 +29,42 @@ export default function WelfareFacilityList() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null);
+    const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+    const [selectedFacility, setSelectedFacility] = useState<WelfareFacilityResponse | null>(null);
+    const [mapLoaded, setMapLoaded] = useState(false);
 
+    const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<any>(null);
+    const markersRef = useRef<any[]>([]);
+
+    // Kakao Maps SDK 로딩
     useEffect(() => {
-        // 1. 현재 위치 가져오기
+        const kakaoApiKey = import.meta.env.VITE_KAKAO_MAP_API_KEY;
+        if (!kakaoApiKey) {
+            console.warn("Kakao Map API Key is not set");
+            return;
+        }
+
+        // 이미 로드된 경우 스킵
+        if (window.kakao && window.kakao.maps) {
+            setMapLoaded(true);
+            return;
+        }
+
+        const script = document.createElement("script");
+        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoApiKey}&autoload=false`;
+        script.async = true;
+        script.onload = () => {
+            window.kakao.maps.load(() => {
+                setMapLoaded(true);
+                console.log("Kakao Maps SDK loaded");
+            });
+        };
+        document.head.appendChild(script);
+    }, []);
+
+    // 위치 가져오기 및 시설 조회
+    useEffect(() => {
         if (!navigator.geolocation) {
             setError("이 브라우저에서는 위치 서비스를 지원하지 않습니다.");
             return;
@@ -45,10 +85,85 @@ export default function WelfareFacilityList() {
         );
     }, []);
 
+    // 지도 초기화 및 마커 표시
+    useEffect(() => {
+        if (!mapLoaded || !location || !mapContainerRef.current || viewMode !== 'map') return;
+
+        // 지도 생성
+        const options = {
+            center: new window.kakao.maps.LatLng(location.lat, location.lon),
+            level: 5 // 줌 레벨
+        };
+
+        const map = new window.kakao.maps.Map(mapContainerRef.current, options);
+        mapRef.current = map;
+
+        // 현재 위치 마커 (파란색)
+        const currentPositionMarker = new window.kakao.maps.Marker({
+            position: new window.kakao.maps.LatLng(location.lat, location.lon),
+            map: map
+        });
+
+        // 현재 위치 인포윈도우
+        const currentInfoWindow = new window.kakao.maps.InfoWindow({
+            content: '<div style="padding:5px;font-size:12px;font-weight:bold;">📍 현재 위치</div>'
+        });
+        currentInfoWindow.open(map, currentPositionMarker);
+
+        // 기존 마커 제거
+        markersRef.current.forEach(marker => marker.setMap(null));
+        markersRef.current = [];
+
+        // 시설 마커 추가
+        facilities.forEach((facility) => {
+            const markerPosition = new window.kakao.maps.LatLng(facility.latitude, facility.longitude);
+
+            // 커스텀 마커 이미지 (빨간색 핀)
+            const imageSrc = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png';
+            const imageSize = new window.kakao.maps.Size(24, 35);
+            const markerImage = new window.kakao.maps.MarkerImage(imageSrc, imageSize);
+
+            const marker = new window.kakao.maps.Marker({
+                position: markerPosition,
+                map: map,
+                image: markerImage,
+                title: facility.name
+            });
+
+            // 인포윈도우 생성
+            const infoWindow = new window.kakao.maps.InfoWindow({
+                content: `<div style="padding:8px;font-size:12px;max-width:200px;">
+                    <strong>${facility.name}</strong><br/>
+                    <span style="color:#666;">${FACILITY_TYPE_LABELS[facility.type] || facility.type}</span>
+                </div>`
+            });
+
+            // 마커 클릭 이벤트
+            window.kakao.maps.event.addListener(marker, 'click', () => {
+                setSelectedFacility(facility);
+                infoWindow.open(map, marker);
+            });
+
+            // 마우스 오버 이벤트
+            window.kakao.maps.event.addListener(marker, 'mouseover', () => {
+                infoWindow.open(map, marker);
+            });
+
+            window.kakao.maps.event.addListener(marker, 'mouseout', () => {
+                if (selectedFacility?.id !== facility.id) {
+                    infoWindow.close();
+                }
+            });
+
+            markersRef.current.push(marker);
+        });
+
+    }, [mapLoaded, location, facilities, viewMode]);
+
     const fetchFacilities = async (lat: number, lon: number) => {
         try {
-            // 반경 1km 내 검색
-            const data = await mapApi.getNearbyFacilities(lat, lon, 1);
+            // 반경 3km 내 검색 (지도 표시를 위해 범위 확대)
+            const data = await mapApi.getNearbyFacilities(lat, lon, 3);
             setFacilities(data);
         } catch (err) {
             console.error(err);
@@ -59,18 +174,44 @@ export default function WelfareFacilityList() {
     };
 
     const openExternalMap = (facility: WelfareFacilityResponse) => {
-        // 카카오맵 URL 스킴 (웹)
-        // https://map.kakao.com/link/to/장소명,위도,경도
         const url = `https://map.kakao.com/link/to/${facility.name},${facility.latitude},${facility.longitude}`;
         window.open(url, '_blank');
     };
 
+    const handleFacilityClick = (facility: WelfareFacilityResponse) => {
+        setSelectedFacility(facility);
+        if (mapRef.current && viewMode === 'map') {
+            const moveLatLon = new window.kakao.maps.LatLng(facility.latitude, facility.longitude);
+            mapRef.current.panTo(moveLatLon);
+        }
+    };
+
     return (
-        <div className="container mx-auto p-4 max-w-md">
-            <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                <MapPin className="w-6 h-6 text-primary" />
-                내 주변 복지 시설
-            </h1>
+        <div className="container mx-auto p-4 max-w-2xl">
+            <div className="flex justify-between items-center mb-4">
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                    <MapPin className="w-6 h-6 text-primary" />
+                    내 주변 복지 시설
+                </h1>
+                <div className="flex gap-1">
+                    <Button
+                        variant={viewMode === 'map' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewMode('map')}
+                    >
+                        <Map className="w-4 h-4 mr-1" />
+                        지도
+                    </Button>
+                    <Button
+                        variant={viewMode === 'list' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewMode('list')}
+                    >
+                        <List className="w-4 h-4 mr-1" />
+                        목록
+                    </Button>
+                </div>
+            </div>
 
             {loading && <div className="text-center py-8">위치 확인 및 데이터 조회 중...</div>}
 
@@ -80,54 +221,137 @@ export default function WelfareFacilityList() {
                 </div>
             )}
 
-            {!loading && !error && facilities.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                    반경 1km 이내에 조회된 시설이 없습니다.
-                </div>
+            {!loading && !error && (
+                <>
+                    {/* 지도 뷰 */}
+                    {viewMode === 'map' && (
+                        <div className="space-y-4">
+                            <div
+                                ref={mapContainerRef}
+                                className="w-full h-80 rounded-lg border shadow-sm"
+                                style={{ minHeight: '320px' }}
+                            />
+                            <div className="text-sm text-gray-500 text-center">
+                                📍 현재 위치 기준 반경 3km 내 시설 {facilities.length}개
+                            </div>
+
+                            {/* 선택된 시설 상세 정보 */}
+                            {selectedFacility && (
+                                <Card className="border-2 border-primary shadow-md">
+                                    <CardHeader className="pb-2">
+                                        <div className="flex justify-between items-start">
+                                            <Badge variant="secondary">
+                                                {selectedFacility.typeDescription || FACILITY_TYPE_LABELS[selectedFacility.type] || selectedFacility.type}
+                                            </Badge>
+                                        </div>
+                                        <CardTitle className="text-lg">{selectedFacility.name}</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2 text-sm">
+                                        <div className="flex items-start gap-2 text-gray-600">
+                                            <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+                                            <span>{selectedFacility.address}</span>
+                                        </div>
+                                        {selectedFacility.phone && (
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                <Phone className="w-4 h-4 shrink-0" />
+                                                <a href={`tel:${selectedFacility.phone}`} className="hover:underline">
+                                                    {selectedFacility.phone}
+                                                </a>
+                                            </div>
+                                        )}
+                                        {selectedFacility.operatingHours && (
+                                            <div className="flex items-start gap-2 text-gray-600">
+                                                <Clock className="w-4 h-4 mt-0.5 shrink-0" />
+                                                <span>{selectedFacility.operatingHours}</span>
+                                            </div>
+                                        )}
+                                        <Button
+                                            className="w-full mt-4 bg-[#FEE500] text-black hover:bg-[#FEE500]/90"
+                                            onClick={() => openExternalMap(selectedFacility)}
+                                        >
+                                            <Navigation className="w-4 h-4 mr-2" />
+                                            길찾기
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* 시설 리스트 (간략) */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {facilities.map((facility) => (
+                                    <button
+                                        key={facility.id}
+                                        className={`p-3 text-left rounded-lg border transition-all ${selectedFacility?.id === facility.id
+                                                ? 'border-primary bg-primary/5'
+                                                : 'border-gray-200 hover:border-gray-300'
+                                            }`}
+                                        onClick={() => handleFacilityClick(facility)}
+                                    >
+                                        <div className="font-medium text-sm truncate">{facility.name}</div>
+                                        <div className="text-xs text-gray-500 truncate">
+                                            {FACILITY_TYPE_LABELS[facility.type] || facility.type}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 리스트 뷰 */}
+                    {viewMode === 'list' && (
+                        <>
+                            {facilities.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                    반경 3km 이내에 조회된 시설이 없습니다.
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {facilities.map((facility) => (
+                                        <Card key={facility.id} className="shadow-sm">
+                                            <CardHeader className="pb-2">
+                                                <div className="flex justify-between items-start">
+                                                    <Badge variant="secondary" className="mb-2">
+                                                        {facility.typeDescription || FACILITY_TYPE_LABELS[facility.type] || facility.type}
+                                                    </Badge>
+                                                </div>
+                                                <CardTitle className="text-lg">{facility.name}</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="space-y-2 text-sm">
+                                                <div className="flex items-start gap-2 text-gray-600">
+                                                    <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+                                                    <span>{facility.address}</span>
+                                                </div>
+                                                {facility.phone && (
+                                                    <div className="flex items-center gap-2 text-gray-600">
+                                                        <Phone className="w-4 h-4 shrink-0" />
+                                                        <a href={`tel:${facility.phone}`} className="hover:underline">
+                                                            {facility.phone}
+                                                        </a>
+                                                    </div>
+                                                )}
+                                                {facility.operatingHours && (
+                                                    <div className="flex items-start gap-2 text-gray-600">
+                                                        <Clock className="w-4 h-4 mt-0.5 shrink-0" />
+                                                        <span>{facility.operatingHours}</span>
+                                                    </div>
+                                                )}
+
+                                                <Button
+                                                    className="w-full mt-4 bg-[#FEE500] text-black hover:bg-[#FEE500]/90"
+                                                    onClick={() => openExternalMap(facility)}
+                                                >
+                                                    <Navigation className="w-4 h-4 mr-2" />
+                                                    카카오맵으로 보기
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </>
             )}
-
-            <div className="space-y-4">
-                {facilities.map((facility) => (
-                    <Card key={facility.id} className="shadow-sm">
-                        <CardHeader className="pb-2">
-                            <div className="flex justify-between items-start">
-                                <Badge variant="secondary" className="mb-2">
-                                    {facility.typeDescription || FACILITY_TYPE_LABELS[facility.type] || facility.type}
-                                </Badge>
-                            </div>
-                            <CardTitle className="text-lg">{facility.name}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                            <div className="flex items-start gap-2 text-gray-600">
-                                <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
-                                <span>{facility.address}</span>
-                            </div>
-                            {facility.phone && (
-                                <div className="flex items-center gap-2 text-gray-600">
-                                    <Phone className="w-4 h-4 shrink-0" />
-                                    <a href={`tel:${facility.phone}`} className="hover:underline">
-                                        {facility.phone}
-                                    </a>
-                                </div>
-                            )}
-                            {facility.operatingHours && (
-                                <div className="flex items-start gap-2 text-gray-600">
-                                    <Clock className="w-4 h-4 mt-0.5 shrink-0" />
-                                    <span>{facility.operatingHours}</span>
-                                </div>
-                            )}
-
-                            <Button
-                                className="w-full mt-4 bg-[#FEE500] text-black hover:bg-[#FEE500]/90"
-                                onClick={() => openExternalMap(facility)}
-                            >
-                                <Navigation className="w-4 h-4 mr-2" />
-                                카카오맵으로 보기
-                            </Button>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
         </div>
     );
 }
