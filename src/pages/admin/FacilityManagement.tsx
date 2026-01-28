@@ -28,7 +28,15 @@ import {
 } from "@/components/ui/select";
 import { mapApi } from "@/api/map";
 import { WelfareFacilityResponse, WelfareFacilityRequest } from "@/types/api";
-import { Trash2, RefreshCw, Plus, Pencil, MapPin, Search } from "lucide-react";
+import { Trash2, RefreshCw, Plus, Pencil, MapPin, Search, Loader2, CheckCircle } from "lucide-react";
+
+// Kakao Maps 타입 선언
+declare global {
+    interface Window {
+        daum: any;
+        kakao: any;
+    }
+}
 
 export default function FacilityManagement() {
     const [facilities, setFacilities] = useState<WelfareFacilityResponse[]>([]);
@@ -38,6 +46,11 @@ export default function FacilityManagement() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [selectedFacility, setSelectedFacility] = useState<WelfareFacilityResponse | null>(null);
+
+    // Geocoding state
+    const [isGeocodingLoading, setIsGeocodingLoading] = useState(false);
+    const [geocodingSuccess, setGeocodingSuccess] = useState(false);
+    const [geocodingError, setGeocodingError] = useState<string | null>(null);
 
     // Form Data
     const initialFormData: WelfareFacilityRequest = {
@@ -51,15 +64,33 @@ export default function FacilityManagement() {
     };
     const [formData, setFormData] = useState<WelfareFacilityRequest>(initialFormData);
 
-    // Daum Postcode Script Loading
+    // Daum Postcode & Kakao Maps SDK 로딩
     useEffect(() => {
-        const script = document.createElement("script");
-        script.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
-        script.async = true;
-        document.head.appendChild(script);
+        // Daum Postcode Script
+        const postcodeScript = document.createElement("script");
+        postcodeScript.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+        postcodeScript.async = true;
+        document.head.appendChild(postcodeScript);
+
+        // Kakao Maps SDK (with services library for geocoding)
+        const kakaoApiKey = import.meta.env.VITE_KAKAO_MAP_API_KEY;
+        if (kakaoApiKey) {
+            const kakaoScript = document.createElement("script");
+            kakaoScript.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoApiKey}&libraries=services&autoload=false`;
+            kakaoScript.async = true;
+            kakaoScript.onload = () => {
+                // Kakao SDK 로드 완료 후 초기화
+                window.kakao.maps.load(() => {
+                    console.log("Kakao Maps SDK loaded successfully");
+                });
+            };
+            document.head.appendChild(kakaoScript);
+        }
 
         return () => {
-            document.head.removeChild(script);
+            if (postcodeScript.parentNode) {
+                document.head.removeChild(postcodeScript);
+            }
         };
     }, []);
 
@@ -93,13 +124,15 @@ export default function FacilityManagement() {
     };
 
     const handleAddressSearch = () => {
-        // @ts-ignore
         if (!window.daum || !window.daum.Postcode) {
             alert("주소 검색 서비스를 불러오는 중입니다. 잠시만 기다려주세요.");
             return;
         }
 
-        // @ts-ignore
+        // 상태 초기화
+        setGeocodingSuccess(false);
+        setGeocodingError(null);
+
         new window.daum.Postcode({
             oncomplete: function (data: any) {
                 const fullAddress = data.address;
@@ -107,12 +140,42 @@ export default function FacilityManagement() {
                     ...prev,
                     address: fullAddress
                 }));
+
+                // Kakao Geocoding API로 좌표 추출
+                if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
+                    setIsGeocodingLoading(true);
+                    const geocoder = new window.kakao.maps.services.Geocoder();
+
+                    geocoder.addressSearch(fullAddress, (result: any, status: any) => {
+                        setIsGeocodingLoading(false);
+
+                        if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+                            const lat = parseFloat(result[0].y);
+                            const lng = parseFloat(result[0].x);
+
+                            setFormData(prev => ({
+                                ...prev,
+                                latitude: lat,
+                                longitude: lng
+                            }));
+                            setGeocodingSuccess(true);
+                            console.log(`좌표 추출 성공: ${lat}, ${lng}`);
+                        } else {
+                            setGeocodingError("주소에서 좌표를 추출할 수 없습니다. 다른 주소를 선택해주세요.");
+                            console.error("Geocoding failed:", status);
+                        }
+                    });
+                } else {
+                    setGeocodingError("Kakao Maps SDK가 로드되지 않았습니다. 페이지를 새로고침 해주세요.");
+                }
             }
         }).open();
     };
 
     const openCreateModal = () => {
         setFormData(initialFormData);
+        setGeocodingSuccess(false);
+        setGeocodingError(null);
         setIsCreateOpen(true);
     };
 
@@ -127,10 +190,18 @@ export default function FacilityManagement() {
             phone: facility.phone || '',
             operatingHours: facility.operatingHours || ''
         });
+        setGeocodingSuccess(true); // 기존 좌표가 있으므로 성공 상태로
+        setGeocodingError(null);
         setIsEditOpen(true);
     };
 
     const handleCreate = async () => {
+        // 좌표 유효성 검사
+        if (!formData.latitude || !formData.longitude || formData.latitude === 0 || formData.longitude === 0) {
+            alert("주소 검색을 통해 좌표를 설정해주세요.");
+            return;
+        }
+
         try {
             await mapApi.createFacility(formData);
             alert("시설이 등록되었습니다.");
@@ -201,13 +272,33 @@ export default function FacilityManagement() {
                     </Button>
                 </div>
             </div>
+            {/* 좌표 상태 표시 (위도/경도 입력 필드 대신) */}
             <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="latitude" className="text-right">위도</Label>
-                <Input id="latitude" name="latitude" type="number" step="0.000001" value={formData.latitude} onChange={handleInputChange} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="longitude" className="text-right">경도</Label>
-                <Input id="longitude" name="longitude" type="number" step="0.000001" value={formData.longitude} onChange={handleInputChange} className="col-span-3" />
+                <Label className="text-right">좌표 상태</Label>
+                <div className="col-span-3">
+                    {isGeocodingLoading && (
+                        <div className="flex items-center gap-2 text-blue-600">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-sm">좌표 추출 중...</span>
+                        </div>
+                    )}
+                    {geocodingSuccess && !isGeocodingLoading && (
+                        <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-sm">좌표 설정 완료</span>
+                        </div>
+                    )}
+                    {geocodingError && (
+                        <div className="text-sm text-red-600">
+                            {geocodingError}
+                        </div>
+                    )}
+                    {!isGeocodingLoading && !geocodingSuccess && !geocodingError && (
+                        <div className="text-sm text-gray-500">
+                            주소 검색을 통해 좌표가 자동 설정됩니다.
+                        </div>
+                    )}
+                </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="phone" className="text-right">연락처</Label>
