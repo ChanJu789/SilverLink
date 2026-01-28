@@ -49,7 +49,7 @@ const GuardianInquiry = () => {
 
   // 새 문의 폼
   const [newTitle, setNewTitle] = useState("");
-  const [newContent, setNewContent] = useState("");
+  const [newQuestionText, setNewQuestionText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -75,13 +75,13 @@ const GuardianInquiry = () => {
   };
 
   const handleCreateInquiry = async () => {
-    if (!newTitle.trim() || !newContent.trim()) return;
+    if (!newTitle.trim() || !newQuestionText.trim()) return;
 
     try {
       setIsSubmitting(true);
       await inquiriesApi.createInquiry({
         title: newTitle,
-        content: newContent,
+        questionText: newQuestionText,
       });
 
       // 목록 새로고침
@@ -89,7 +89,7 @@ const GuardianInquiry = () => {
 
       // 폼 초기화 및 다이얼로그 닫기
       setNewTitle("");
-      setNewContent("");
+      setNewQuestionText("");
       setIsDialogOpen(false);
     } catch (error) {
       console.error('Failed to create inquiry:', error);
@@ -150,8 +150,8 @@ const GuardianInquiry = () => {
                   <Textarea
                     placeholder="문의 내용을 상세히 작성해 주세요"
                     rows={5}
-                    value={newContent}
-                    onChange={(e) => setNewContent(e.target.value)}
+                    value={newQuestionText}
+                    onChange={(e) => setNewQuestionText(e.target.value)}
                   />
                 </div>
               </div>
@@ -238,7 +238,7 @@ const GuardianInquiry = () => {
                         </div>
                         <h3 className="font-medium line-clamp-1">{inquiry.title}</h3>
                         <p className="text-sm text-muted-foreground line-clamp-1 mt-1">
-                          {inquiry.content}
+                          {inquiry.questionText}
                         </p>
                       </div>
                     ))
@@ -267,7 +267,7 @@ const GuardianInquiry = () => {
                     {/* 문의 내용 */}
                     <div className="flex justify-end">
                       <div className="max-w-[80%] p-4 rounded-2xl bg-primary text-primary-foreground rounded-br-none">
-                        <p className="text-sm">{selectedInquiry.content}</p>
+                        <p className="text-sm">{selectedInquiry.questionText}</p>
                         <p className="text-xs mt-2 text-primary-foreground/70">
                           {selectedInquiry.createdAt?.split('T')[0]}
                         </p>
@@ -275,10 +275,10 @@ const GuardianInquiry = () => {
                     </div>
 
                     {/* 답변 */}
-                    {selectedInquiry.answer && (
+                    {selectedInquiry.answerText && (
                       <div className="flex justify-start">
                         <div className="max-w-[80%] p-4 rounded-2xl bg-secondary rounded-bl-none">
-                          <p className="text-sm">{selectedInquiry.answer}</p>
+                          <p className="text-sm">{selectedInquiry.answerText}</p>
                           <p className="text-xs mt-2 text-muted-foreground">
                             {selectedInquiry.answeredAt?.split('T')[0]}
                           </p>

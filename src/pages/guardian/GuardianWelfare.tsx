@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Info
 } from "lucide-react";
+import { toast } from "sonner";
 import { guardianNavItems } from "@/config/guardianNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,7 +65,7 @@ const getSourceLabel = (service: WelfareListResponse): string => {
 
 const GuardianWelfare = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRegion, setSelectedRegion] = useState("all");
+
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [services, setServices] = useState<WelfareListResponse[]>([]);
@@ -92,12 +93,12 @@ const GuardianWelfare = () => {
 
       // 어르신 정보 조회
       try {
-        const elderlyResponse = await guardiansApi.getMyElderly();
-        if (elderlyResponse.elderlyList?.length > 0) {
-          setParentName(elderlyResponse.elderlyList[0].name);
+        const elderly = await guardiansApi.getMyElderly();
+        if (elderly && elderly.elderlyName) {
+          setParentName(elderly.elderlyName);
         }
       } catch (e) {
-        console.log('Could not fetch elderly info');
+        // Fail silently or handle error appropriately
       }
 
       // 복지 서비스 목록 조회
@@ -116,7 +117,7 @@ const GuardianWelfare = () => {
         size: pageSize,
       };
       if (searchQuery) params.keyword = searchQuery;
-      if (selectedRegion !== 'all') params.region = selectedRegion;
+
 
       const response = await welfareApi.searchWelfare(params);
       setServices(response.content || []);
@@ -125,6 +126,9 @@ const GuardianWelfare = () => {
       setCurrentPage(page);
     } catch (error) {
       console.error('Failed to fetch welfare services:', error);
+      toast.error("서비스 목록을 불러오지 못했습니다.", {
+        description: "잠시 후 다시 시도해주세요."
+      });
       setServices([]);
     }
   };
@@ -152,6 +156,7 @@ const GuardianWelfare = () => {
       setSelectedService(detail);
     } catch (error) {
       console.error('Failed to fetch service detail:', error);
+      toast.error("서비스 상세 정보를 불러오지 못했습니다.");
     }
   };
 
@@ -235,19 +240,7 @@ const GuardianWelfare = () => {
                 />
               </div>
               <div className="flex flex-wrap gap-2">
-                <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                  <SelectTrigger className="w-[140px]">
-                    <MapPin className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="지역" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">전체 지역</SelectItem>
-                    <SelectItem value="서울">서울시</SelectItem>
-                    <SelectItem value="경기">경기도</SelectItem>
-                    <SelectItem value="인천">인천시</SelectItem>
-                    <SelectItem value="부산">부산시</SelectItem>
-                  </SelectContent>
-                </Select>
+
                 <Button onClick={handleSearch}>
                   <Search className="w-4 h-4 mr-2" />
                   검색

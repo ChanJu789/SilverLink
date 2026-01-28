@@ -29,6 +29,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRoleHomePath } from "@/contexts/AuthContext";
+import { SessionTimer } from "@/components/auth/SessionTimer";
+import { toast } from "sonner";
+import ChatbotWidget from "@/components/chatbot/ChatbotWidget";
 
 interface NavItem {
   title: string;
@@ -112,7 +115,7 @@ const DashboardLayout = ({
           {/* Logo */}
           <div className="p-6 border-b border-sidebar-border">
             <div className="flex items-center justify-between">
-              <button 
+              <button
                 onClick={handleLogoClick}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity"
               >
@@ -120,8 +123,8 @@ const DashboardLayout = ({
                   <Heart className="w-5 h-5 text-sidebar-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-sidebar-foreground">마음돌봄</h1>
-                  <p className="text-xs text-sidebar-foreground/60">국가 복지 서비스</p>
+                  <h1 className="text-lg font-bold text-sidebar-foreground">실버링크</h1>
+                  <p className="text-xs text-sidebar-foreground/60 uppercase tracking-wider">SilverLink</p>
                 </div>
               </button>
               <button
@@ -260,6 +263,7 @@ const DashboardLayout = ({
           {children}
         </main>
       </div>
+      <ChatbotWidget />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { DuplicateLoginDialog } from "@/components/auth/DuplicateLoginDialog";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getRoleHomePath } from "@/components/auth/ProtectedRoute";
 import {
   Heart,
   Shield,
@@ -21,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { checkLogin, forceLogin } from "@/api/auth";
 import { getMyProfile } from "@/api/users";
+import { TokenResponse } from "@/types/api";
 
 type UserRole = "guardian" | "counselor" | "admin" | "senior";
 
@@ -65,7 +67,7 @@ const roles: RoleConfig[] = [
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login: authLogin } = useAuth();
+  const { login: authLogin, isLoggedIn, user } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole>("guardian");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,6 +78,14 @@ const Login = () => {
     password: "",
     phone: "",
   });
+
+  // 이미 로그인된 상태라면 해당 대시보드로 리다이렉트
+  useEffect(() => {
+    if (isLoggedIn && user?.role) {
+      const targetPath = getRoleHomePath(user.role);
+      navigate(targetPath, { replace: true });
+    }
+  }, [isLoggedIn, user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +132,7 @@ const Login = () => {
     }
   };
 
-  const handleLoginSuccess = async (tokenResponse: any) => {
+  const handleLoginSuccess = async (tokenResponse: TokenResponse) => {
     try {
       const serverRole = tokenResponse.role;
 

@@ -68,7 +68,7 @@ export default function SeniorList() {
           const counselorInfo = await counselorsApi.getMyInfo();
           setCounselorName(counselorInfo.name);
         } catch (e) {
-          console.log("상담사 정보 조회 실패:", e);
+          // console.error("상담사 정보 조회 실패:", e);
         }
 
         // 배정된 어르신 목록 조회
@@ -87,6 +87,9 @@ export default function SeniorList() {
         setSeniors(seniorList);
       } catch (error) {
         console.error("데이터 로드 실패:", error);
+        toast.error("데이터를 불러오지 못했습니다.", {
+          description: "잠시 후 다시 시도해주세요."
+        });
         // 로그인되지 않은 경우 등 오류 시 빈 목록 표시
         setSeniors([]);
       } finally {

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Heart,
   Fingerprint,
@@ -30,6 +31,14 @@ import {
 
 const SeniorLogin = () => {
   const navigate = useNavigate();
+  const { isLoggedIn, user } = useAuth();
+
+  // 이미 로그인된 상태라면 어르신 대시보드로 리다이렉트
+  useEffect(() => {
+    if (isLoggedIn && user?.role === "ELDERLY") {
+      navigate("/senior", { replace: true });
+    }
+  }, [isLoggedIn, user, navigate]);
 
   // 휴대폰 인증 상태
   const [phoneNumber, setPhoneNumber] = useState("");
