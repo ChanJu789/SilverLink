@@ -41,6 +41,7 @@ import {
 import { Lock } from "lucide-react";
 import { toast } from "sonner";
 import accessRequestsApi, { AccessRequestResponse, AccessRequestStatus } from "@/api/accessRequests";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface RequestDisplay {
   id: number;
@@ -57,6 +58,7 @@ interface RequestDisplay {
 }
 
 const SensitiveInfoManagement = () => {
+  const { user } = useAuth();
   const [requests, setRequests] = useState<RequestDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -209,7 +211,7 @@ const SensitiveInfoManagement = () => {
 
   if (loading) {
     return (
-      <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+      <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -220,7 +222,7 @@ const SensitiveInfoManagement = () => {
   return (
     <DashboardLayout
       role="admin"
-      userName="관리자"
+      userName={user?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">

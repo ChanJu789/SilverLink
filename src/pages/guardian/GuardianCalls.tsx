@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -7,6 +7,7 @@ import {
   Meh,
   Frown,
   ChevronRight,
+  ChevronLeft,
   Search,
   Filter,
   Phone,
@@ -28,33 +29,46 @@ import {
 import callReviewsApi from "@/api/callReviews";
 import guardiansApi from "@/api/guardians";
 import usersApi from "@/api/users";
-import { GuardianCallReviewResponse, MyProfileResponse } from "@/types/api";
+import { GuardianCallReviewResponse, MyProfileResponse, PageResponse } from "@/types/api";
 
-const EmotionIcon = ({ emotion }: { emotion: string }) => {
-  switch (emotion?.toLowerCase()) {
-    case "good":
+// 감정 아이콘 컴포넌트 (React.memo로 최적화)
+const EmotionIcon = memo(({ emotionLevel }: { emotionLevel: string | null }) => {
+  if (!emotionLevel) return <Meh className="w-5 h-5 text-muted-foreground" />;
+  
+  switch (emotionLevel) {
+    case "GOOD":
       return <Smile className="w-5 h-5 text-success" />;
-    case "neutral":
+    case "NORMAL":
       return <Meh className="w-5 h-5 text-warning" />;
-    case "bad":
+    case "BAD":
+    case "DEPRESSED":
       return <Frown className="w-5 h-5 text-destructive" />;
     default:
       return <Meh className="w-5 h-5 text-muted-foreground" />;
   }
-};
+});
 
-const EmotionBadge = ({ emotion }: { emotion: string }) => {
-  switch (emotion?.toLowerCase()) {
-    case "good":
+EmotionIcon.displayName = 'EmotionIcon';
+
+// 감정 배지 컴포넌트 (React.memo로 최적화)
+const EmotionBadge = memo(({ emotionLevel }: { emotionLevel: string | null }) => {
+  if (!emotionLevel) return <Badge variant="outline">-</Badge>;
+  
+  switch (emotionLevel) {
+    case "GOOD":
       return <Badge className="bg-success/10 text-success border-0">좋음</Badge>;
-    case "neutral":
+    case "NORMAL":
       return <Badge className="bg-warning/10 text-warning border-0">보통</Badge>;
-    case "bad":
+    case "BAD":
       return <Badge className="bg-destructive/10 text-destructive border-0">주의</Badge>;
+    case "DEPRESSED":
+      return <Badge className="bg-destructive/10 text-destructive border-0">우울</Badge>;
     default:
       return <Badge variant="outline">-</Badge>;
   }
-};
+});
+
+EmotionBadge.displayName = 'EmotionBadge';
 
 const GuardianCalls = () => {
   const navigate = useNavigate();
@@ -63,43 +77,107 @@ const GuardianCalls = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [callRecords, setCallRecords] = useState<GuardianCallReviewResponse[]>([]);
   const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [elderlyId, setElderlyId] = useState<number | null>(null);
+  
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const pageSize = 5; // 페이지당 5개씩 표시
+
+  // 데이터 로드 함수 (useCallback으로 메모이제이션)
+  const fetchCallRecords = useCallback(async (page: number = 0) => {
+    if (!elderlyId) return;
+    
+    try {
+      setIsLoading(true);
+      const callsResponse = await callReviewsApi.getCallReviewsForGuardian(elderlyId, { page, size: pageSize });
+      
+      if (callsResponse) {
+        const records = callsResponse.content || [];
+        const pages = callsResponse.totalPages || Math.ceil((callsResponse.totalElements || records.length) / pageSize);
+        const elements = callsResponse.totalElements || records.length;
+        
+        setCallRecords(records);
+        setTotalPages(pages);
+        setTotalElements(elements);
+        setCurrentPage(page);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch call records:', error);
+      setError(error.response?.data?.message || '데이터를 불러오는데 실패했습니다');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [elderlyId, pageSize]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       try {
         setIsLoading(true);
+        setError(null);
 
-        // 사용자 프로필 조회
-        const profile = await usersApi.getMyProfile();
+        // 병렬로 데이터 조회 (성능 최적화)
+        const [profile, elderlyResponse] = await Promise.all([
+          usersApi.getMyProfile(),
+          guardiansApi.getMyElderly()
+        ]);
+
         setUserProfile(profile);
 
-        // 내 어르신 목록 조회
-        const elderlyResponse = await guardiansApi.getMyElderly();
-
-        // 첫 번째 어르신의 통화 기록 조회
-        if (elderlyResponse.elderlyList?.length > 0) {
-          const firstElderly = elderlyResponse.elderlyList[0];
-          const callsResponse = await callReviewsApi.getCallReviewsForGuardian(firstElderly.elderlyId);
-          setCallRecords(callsResponse.content);
+        // 어르신 정보가 있으면 통화 기록 조회
+        if (elderlyResponse && elderlyResponse.elderlyId) {
+          setElderlyId(elderlyResponse.elderlyId);
+          const callsResponse = await callReviewsApi.getCallReviewsForGuardian(elderlyResponse.elderlyId, { page: 0, size: pageSize });
+          
+          if (callsResponse) {
+            const records = callsResponse.content || [];
+            const pages = callsResponse.totalPages || Math.ceil((callsResponse.totalElements || records.length) / pageSize);
+            const elements = callsResponse.totalElements || records.length;
+            
+            setCallRecords(records);
+            setTotalPages(pages);
+            setTotalElements(elements);
+            setCurrentPage(0);
+          }
+        } else {
+          setError('연결된 어르신이 없습니다');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to fetch call records:', error);
+        setError(error.response?.data?.message || error.message || '데이터를 불러오는데 실패했습니다');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
+    fetchInitialData();
+  }, [pageSize]);
 
-  // 필터링 로직
-  const filteredRecords = callRecords.filter(record => {
-    const matchesSearch = record.summary?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.callAt?.includes(searchTerm) ||
-      record.elderlyName?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesEmotion = emotionFilter === "all" || record.emotion?.toLowerCase() === emotionFilter;
-    return matchesSearch && matchesEmotion;
-  });
+  // 페이지 변경 핸들러 (useCallback으로 메모이제이션)
+  const handlePageChange = useCallback((newPage: number) => {
+    if (newPage >= 0 && newPage < totalPages && !isLoading) {
+      fetchCallRecords(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [totalPages, isLoading, fetchCallRecords]);
+
+  // 필터링 로직 (useMemo로 메모이제이션)
+  const filteredRecords = useMemo(() => {
+    return callRecords.filter(record => {
+      const matchesSearch = record.summary?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.callAt?.includes(searchTerm) ||
+        record.elderlyName?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesEmotion = emotionFilter === "all" || 
+        (emotionFilter === "good" && record.emotionLevel === "GOOD") ||
+        (emotionFilter === "neutral" && record.emotionLevel === "NORMAL") ||
+        (emotionFilter === "bad" && (record.emotionLevel === "BAD" || record.emotionLevel === "DEPRESSED"));
+      
+      return matchesSearch && matchesEmotion;
+    });
+  }, [callRecords, searchTerm, emotionFilter]);
 
   // 로딩 상태
   if (isLoading) {
@@ -159,18 +237,24 @@ const GuardianCalls = () => {
           {filteredRecords.map((record) => (
             <Card
               key={record.callId}
-              className={`shadow-card border-0 cursor-pointer hover:shadow-elevated transition-all duration-200 ${record.emotion?.toLowerCase() === 'bad' ? 'ring-2 ring-destructive/30' : ''
-                }`}
+              className={`shadow-card border-0 cursor-pointer hover:shadow-elevated transition-all duration-200 ${
+                record.emotionLevel === 'BAD' || record.emotionLevel === 'DEPRESSED' || record.urgent
+                  ? 'ring-2 ring-destructive/30' 
+                  : ''
+              }`}
               onClick={() => navigate(`/guardian/calls/${record.callId}`)}
             >
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   {/* Emotion Icon */}
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${record.emotion?.toLowerCase() === 'good' ? 'bg-success/10' :
-                      record.emotion?.toLowerCase() === 'neutral' ? 'bg-warning/10' :
-                        'bg-destructive/10'
-                    }`}>
-                    <EmotionIcon emotion={record.emotion || 'neutral'} />
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    record.emotionLevel === 'GOOD' 
+                      ? 'bg-success/10' 
+                      : record.emotionLevel === 'NORMAL' 
+                      ? 'bg-warning/10' 
+                      : 'bg-destructive/10'
+                  }`}>
+                    <EmotionIcon emotionLevel={record.emotionLevel} />
                   </div>
 
                   {/* Content */}
@@ -185,10 +269,10 @@ const GuardianCalls = () => {
                         <span>{record.callAt?.split('T')[1]?.substring(0, 5)}</span>
                       </div>
                       <Badge variant="secondary" className="text-xs">
-                        {record.duration}분
+                        {record.duration}
                       </Badge>
-                      <EmotionBadge emotion={record.emotion || 'neutral'} />
-                      {record.emotion?.toLowerCase() === 'bad' && (
+                      <EmotionBadge emotionLevel={record.emotionLevel} />
+                      {(record.emotionLevel === 'BAD' || record.emotionLevel === 'DEPRESSED' || record.urgent) && (
                         <Badge variant="destructive" className="text-xs">
                           주의 필요
                         </Badge>
@@ -216,17 +300,85 @@ const GuardianCalls = () => {
               <CardContent className="p-12 text-center">
                 <Phone className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-foreground mb-2">
-                  {callRecords.length === 0 ? '통화 기록이 없습니다' : '검색 결과가 없습니다'}
+                  {error ? '오류 발생' : callRecords.length === 0 ? '통화 기록이 없습니다' : '검색 결과가 없습니다'}
                 </h3>
-                <p className="text-muted-foreground">
-                  {callRecords.length === 0
+                <p className="text-muted-foreground mb-4">
+                  {error 
+                    ? error
+                    : callRecords.length === 0
                     ? 'AI 안부 통화 후 기록이 표시됩니다'
                     : '다른 검색어나 필터를 사용해보세요'}
                 </p>
+                {error && (
+                  <p className="text-xs text-muted-foreground">
+                    브라우저 개발자 도구(F12)의 콘솔 탭에서 자세한 오류를 확인하세요
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
         </div>
+
+        {/* Pagination */}
+        {!error && totalElements > 0 && (
+          <div className="flex flex-col items-center gap-3 mt-6">
+            {/* 페이지 정보 */}
+            <div className="text-sm text-muted-foreground">
+              전체 {totalElements}건 | {currentPage + 1} / {totalPages} 페이지
+            </div>
+            
+            {/* 페이지네이션 버튼 */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 0 || isLoading}
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                이전
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {totalPages > 0 && Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i;
+                  } else if (currentPage < 3) {
+                    pageNum = i;
+                  } else if (currentPage > totalPages - 4) {
+                    pageNum = totalPages - 5 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(pageNum)}
+                      disabled={isLoading}
+                      className="w-10"
+                    >
+                      {pageNum + 1}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1 || isLoading}
+              >
+                다음
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

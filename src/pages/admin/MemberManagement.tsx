@@ -60,6 +60,38 @@ import assignmentsApi from "@/api/assignments";
 import { MyProfileResponse, CounselorResponse, GuardianResponse, ElderlySummaryResponse, GuardianElderlyResponse } from "@/types/api";
 import { AssignmentResponse } from "@/api/assignments";
 
+// 전화번호 포맷팅 함수
+const formatPhoneNumber = (phone: string | undefined): string => {
+  if (!phone) return '-';
+  
+  // 숫자만 추출
+  const numbers = phone.replace(/[^0-9]/g, '');
+  
+  // 010-xxxx-xxxx 형식으로 변환
+  if (numbers.length === 11 && numbers.startsWith('010')) {
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
+  }
+  
+  // 02-xxx-xxxx 또는 02-xxxx-xxxx 형식 (서울 지역번호)
+  if (numbers.length === 9 && numbers.startsWith('02')) {
+    return `${numbers.slice(0, 2)}-${numbers.slice(2, 5)}-${numbers.slice(5)}`;
+  }
+  if (numbers.length === 10 && numbers.startsWith('02')) {
+    return `${numbers.slice(0, 2)}-${numbers.slice(2, 6)}-${numbers.slice(6)}`;
+  }
+  
+  // 지역번호 3자리 (031, 032 등)
+  if (numbers.length === 10) {
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6)}`;
+  }
+  if (numbers.length === 11) {
+    return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
+  }
+  
+  // 포맷팅 불가능한 경우 원본 반환
+  return phone;
+};
+
 const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
     case "active":
@@ -261,12 +293,12 @@ const MemberManagement = () => {
             <h1 className="text-2xl font-bold text-foreground">회원 관리</h1>
             <p className="text-muted-foreground mt-1">상담사, 보호자, 어르신 계정을 관리합니다</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" className="w-full sm:w-auto">
               <Download className="w-4 h-4 mr-2" />
               내보내기
             </Button>
-            <Button onClick={() => navigate('/admin/members/register')}>
+            <Button onClick={() => navigate('/admin/members/register')} className="w-full sm:w-auto">
               <UserPlus className="w-4 h-4 mr-2" />
               회원 추가
             </Button>
@@ -346,26 +378,27 @@ const MemberManagement = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="counselors" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="counselors">상담사 ({filteredCounselors.length})</TabsTrigger>
-            <TabsTrigger value="guardians">보호자 ({filteredGuardians.length})</TabsTrigger>
-            <TabsTrigger value="seniors">어르신 ({filteredElderly.length})</TabsTrigger>
+          <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex">
+            <TabsTrigger value="counselors" className="text-xs sm:text-sm">상담사 ({filteredCounselors.length})</TabsTrigger>
+            <TabsTrigger value="guardians" className="text-xs sm:text-sm">보호자 ({filteredGuardians.length})</TabsTrigger>
+            <TabsTrigger value="seniors" className="text-xs sm:text-sm">어르신 ({filteredElderly.length})</TabsTrigger>
           </TabsList>
 
           {/* Counselors Tab */}
           <TabsContent value="counselors" className="space-y-4">
             <Card className="shadow-card border-0">
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>상담사</TableHead>
-                      <TableHead>연락처</TableHead>
-                      <TableHead>담당 어르신</TableHead>
-                      <TableHead>등록일</TableHead>
-                      <TableHead className="text-right">관리</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[200px]">상담사</TableHead>
+                        <TableHead className="min-w-[120px]">연락처</TableHead>
+                        <TableHead className="min-w-[100px]">담당 어르신</TableHead>
+                        <TableHead className="min-w-[100px]">등록일</TableHead>
+                        <TableHead className="text-right min-w-[80px]">관리</TableHead>
+                      </TableRow>
+                    </TableHeader>
                   <TableBody>
                     {filteredCounselors.length === 0 ? (
                       <TableRow>
@@ -393,7 +426,7 @@ const MemberManagement = () => {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{counselor.phone}</TableCell>
+                          <TableCell className="text-muted-foreground">{formatPhoneNumber(counselor.phone)}</TableCell>
                           <TableCell>
                             <Badge variant="secondary">{counselor.assignedElderlyCount || 0}명</Badge>
                           </TableCell>
@@ -429,6 +462,7 @@ const MemberManagement = () => {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -437,16 +471,17 @@ const MemberManagement = () => {
           <TabsContent value="guardians" className="space-y-4">
             <Card className="shadow-card border-0">
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>보호자</TableHead>
-                      <TableHead>연락처</TableHead>
-                      <TableHead>담당 어르신</TableHead>
-                      <TableHead>등록일</TableHead>
-                      <TableHead className="text-right">관리</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[200px]">보호자</TableHead>
+                        <TableHead className="min-w-[120px]">연락처</TableHead>
+                        <TableHead className="min-w-[100px]">담당 어르신</TableHead>
+                        <TableHead className="min-w-[100px]">등록일</TableHead>
+                        <TableHead className="text-right min-w-[80px]">관리</TableHead>
+                      </TableRow>
+                    </TableHeader>
                   <TableBody>
                     {filteredGuardians.length === 0 ? (
                       <TableRow>
@@ -474,7 +509,7 @@ const MemberManagement = () => {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{guardian.phone}</TableCell>
+                          <TableCell className="text-muted-foreground">{formatPhoneNumber(guardian.phone)}</TableCell>
                           <TableCell>
                             <Badge variant="secondary">{guardian.elderlyCount || 0}명</Badge>
                           </TableCell>
@@ -510,6 +545,7 @@ const MemberManagement = () => {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -518,17 +554,18 @@ const MemberManagement = () => {
           <TabsContent value="seniors" className="space-y-4">
             <Card className="shadow-card border-0">
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>어르신</TableHead>
-                      <TableHead>연락처</TableHead>
-                      <TableHead>나이</TableHead>
-                      <TableHead>주소</TableHead>
-                      <TableHead>담당 상담사</TableHead>
-                      <TableHead className="text-right">관리</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[150px]">어르신</TableHead>
+                        <TableHead className="min-w-[120px]">연락처</TableHead>
+                        <TableHead className="min-w-[80px]">나이</TableHead>
+                        <TableHead className="min-w-[200px]">주소</TableHead>
+                        <TableHead className="min-w-[100px]">담당 상담사</TableHead>
+                        <TableHead className="text-right min-w-[80px]">관리</TableHead>
+                      </TableRow>
+                    </TableHeader>
                   <TableBody>
                     {filteredElderly.length === 0 ? (
                       <TableRow>
@@ -556,7 +593,7 @@ const MemberManagement = () => {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{elderlyMember.phone}</TableCell>
+                          <TableCell className="text-muted-foreground">{formatPhoneNumber(elderlyMember.phone)}</TableCell>
                           <TableCell className="text-muted-foreground">{elderlyMember.age}세</TableCell>
                           <TableCell className="text-muted-foreground max-w-[200px] truncate">
                             {elderlyMember.fullAddress || elderlyMember.addressLine1}
@@ -597,6 +634,7 @@ const MemberManagement = () => {
                     )}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -627,7 +665,7 @@ const MemberManagement = () => {
                 </div>
                 <div>
                   <p className="text-muted-foreground">연락처</p>
-                  <p className="font-medium">{selectedCounselor?.phone}</p>
+                  <p className="font-medium">{formatPhoneNumber(selectedCounselor?.phone)}</p>
                 </div>
               </div>
               <div>
@@ -688,7 +726,7 @@ const MemberManagement = () => {
                 </div>
                 <div>
                   <p className="text-muted-foreground">연락처</p>
-                  <p className="font-medium">{selectedGuardian?.phone}</p>
+                  <p className="font-medium">{formatPhoneNumber(selectedGuardian?.phone)}</p>
                 </div>
               </div>
               <div>
@@ -748,7 +786,7 @@ const MemberManagement = () => {
               </div>
               <div className="text-sm">
                 <p className="text-muted-foreground">연락처</p>
-                <p className="font-medium">{selectedElderly?.phone || '정보 없음'}</p>
+                <p className="font-medium">{formatPhoneNumber(selectedElderly?.phone)}</p>
               </div>
 
               {isDetailLoading ? (
@@ -789,7 +827,7 @@ const MemberManagement = () => {
                         </Avatar>
                         <div>
                           <p className="font-medium">{elderlyGuardian.name}</p>
-                          <p className="text-xs text-muted-foreground">{elderlyGuardian.phone}</p>
+                          <p className="text-xs text-muted-foreground">{formatPhoneNumber(elderlyGuardian.phone)}</p>
                         </div>
                       </div>
                     ) : (

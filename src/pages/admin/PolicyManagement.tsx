@@ -202,13 +202,13 @@ const PolicyManagement = () => {
     >
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">운영정책 관리</h1>
             <p className="text-muted-foreground mt-1">서비스 운영정책 및 약관을 관리합니다</p>
           </div>
           {!isCreating && (
-            <Button onClick={handleCreate} className="gap-2">
+            <Button onClick={handleCreate} className="gap-2 w-full sm:w-auto">
               <Plus className="w-4 h-4" />
               새 정책 작성
             </Button>
@@ -293,7 +293,7 @@ const PolicyManagement = () => {
                 />
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button onClick={handleSave} className="flex-1">
                   {editingPolicy ? "수정 완료" : "저장"}
                 </Button>
@@ -365,11 +365,11 @@ const PolicyManagement = () => {
               ) : (
                 filteredPolicies.map((policy) => (
                   <Card key={policy.id} className="shadow-card border-0 hover:shadow-elevated transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between gap-4">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div className="flex-1 space-y-3">
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-semibold text-foreground">{policy.title}</h3>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-base sm:text-lg font-semibold text-foreground">{policy.title}</h3>
                             <Badge className={statusConfig[policy.status].color}>
                               {statusConfig[policy.status].label}
                             </Badge>
@@ -378,7 +378,7 @@ const PolicyManagement = () => {
                           <p className="text-sm text-muted-foreground line-clamp-2">
                             {policy.content}
                           </p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
                               생성: {policy.createdAt}
@@ -387,7 +387,7 @@ const PolicyManagement = () => {
                             <span>작성자: {policy.createdBy}</span>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 self-end sm:self-start">
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(policy)}>
                             <Edit className="w-4 h-4" />
                           </Button>

@@ -10,6 +10,7 @@ import {
   Zap
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
+import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -101,10 +102,12 @@ const recentEvaluations = [
 ];
 
 const AIStats = () => {
+  const { user } = useAuth();
+
   return (
     <DashboardLayout
       role="admin"
-      userName="관리자"
+      userName={user?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">

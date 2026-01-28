@@ -36,6 +36,7 @@ import adminsApi from "@/api/admins";
 import elderlyApi from "@/api/elderly";
 import assignmentsApi, { AssignmentResponse } from "@/api/assignments";
 import { CounselorResponse, ElderlySummaryResponse } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CounselorWithAssignment extends CounselorResponse {
   assignedCount: number;
@@ -51,6 +52,7 @@ interface SeniorDisplay {
 }
 
 const AssignmentManagement = () => {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCounselor, setSelectedCounselor] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -198,7 +200,7 @@ const AssignmentManagement = () => {
 
   if (loading) {
     return (
-      <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+      <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -209,7 +211,7 @@ const AssignmentManagement = () => {
   return (
     <DashboardLayout
       role="admin"
-      userName="관리자"
+      userName={user?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">
@@ -221,7 +223,7 @@ const AssignmentManagement = () => {
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 새 배정
               </Button>
@@ -333,18 +335,18 @@ const AssignmentManagement = () => {
                     <CardTitle className="text-lg">배정 현황</CardTitle>
                     <CardDescription>어르신별 담당 상담사 현황 ({filteredAssignments.length}건)</CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <div className="relative">
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:flex-initial">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         placeholder="검색..."
-                        className="pl-10 w-48"
+                        className="pl-10 w-full sm:w-48"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
                     </div>
                     <Select value={selectedCounselor} onValueChange={setSelectedCounselor}>
-                      <SelectTrigger className="w-[140px]">
+                      <SelectTrigger className="w-full sm:w-[140px]">
                         <SelectValue placeholder="상담사" />
                       </SelectTrigger>
                       <SelectContent>
@@ -367,7 +369,7 @@ const AssignmentManagement = () => {
                     {filteredAssignments.map((assignment) => (
                       <div
                         key={assignment.assignmentId}
-                        className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors gap-3"
                       >
                         <div className="flex items-center gap-4">
                           <Avatar className="w-10 h-10">
@@ -382,7 +384,7 @@ const AssignmentManagement = () => {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 self-end sm:self-center">
                           <div className="text-right">
                             <p className="text-sm font-medium">{assignment.counselorName}</p>
                             <Badge variant="outline" className="text-xs">

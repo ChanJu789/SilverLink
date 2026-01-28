@@ -33,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import complaintsApi, { ComplaintResponse } from "@/api/complaints";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ComplaintDisplay {
   id: number;
@@ -61,6 +62,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 const ComplaintManagement = () => {
+  const { user } = useAuth();
   const [complaints, setComplaints] = useState<ComplaintDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -172,7 +174,7 @@ const ComplaintManagement = () => {
 
   if (loading) {
     return (
-      <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+      <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -183,7 +185,7 @@ const ComplaintManagement = () => {
   return (
     <DashboardLayout
       role="admin"
-      userName="관리자"
+      userName={user?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">

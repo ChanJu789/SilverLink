@@ -39,8 +39,10 @@ import { registerElderly, registerGuardian } from "@/api/admins";
 import elderlyApi from "@/api/elderly";
 import AddressSearch, { AddressData } from "@/components/common/AddressSearch";
 import PhoneVerification from "@/components/common/PhoneVerification";
+import { useAuth } from "@/contexts/AuthContext";
 
 const MemberRegistration = () => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("senior");
   const [loading, setLoading] = useState(false);
@@ -305,7 +307,7 @@ const MemberRegistration = () => {
   };
 
   return (
-    <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+    <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link to="/admin/members">

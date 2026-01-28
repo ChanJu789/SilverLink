@@ -33,7 +33,6 @@ interface Notice {
   targetRoles: string[];
   isPinned: boolean;
   isPublished: boolean;
-  viewCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,7 +75,6 @@ const NoticeManagement = () => {
         targetRoles: n.targetRoles || ['전체'],
         isPinned: n.isImportant || false,
         isPublished: true,
-        viewCount: n.viewCount || 0,
         createdAt: n.createdAt ? new Date(n.createdAt).toLocaleDateString() : '',
         updatedAt: n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : '',
       }));
@@ -160,34 +158,40 @@ const NoticeManagement = () => {
     try {
       setSubmitting(true);
 
+      // 한글 카테고리 → 백엔드 enum 매핑
+      const categoryMap: Record<string, 'NOTICE' | 'EVENT' | 'NEWS' | 'SYSTEM'> = {
+        '공지': 'NOTICE',
+        '긴급': 'NOTICE', // 긴급은 NOTICE + isPriority
+        '업데이트': 'SYSTEM',
+        '이벤트': 'EVENT',
+      };
+
+      // 한글 대상 → 백엔드 Role enum 매핑
+      const roleMap: Record<string, 'ADMIN' | 'COUNSELOR' | 'GUARDIAN' | 'ELDERLY'> = {
+        '보호자': 'GUARDIAN',
+        '상담사': 'COUNSELOR',
+        '어르신': 'ELDERLY',
+        '관리자': 'ADMIN',
+      };
+
       const request: NoticeRequest = {
         title: formData.title,
         content: formData.content,
-        category: formData.category,
-        isImportant: formData.isPinned || formData.category === "긴급",
+        category: categoryMap[formData.category] || 'NOTICE',
+        targetMode: formData.target === "전체" ? 'ALL' : 'ROLE_SET',
+        targetRoles: formData.target === "전체" ? undefined : [roleMap[formData.target]].filter(Boolean),
+        isPriority: formData.isPinned || formData.category === "긴급",
         isPopup: false,
-        targetRoles: formData.target === "전체" ? undefined : [formData.target],
+        status: formData.isPublished ? 'PUBLISHED' : 'DRAFT',
       };
 
+
+
       if (isEditMode && selectedNotice) {
-        // 수정은 현재 API에 없으므로 로컬에서 처리
-        setNotices((prev) =>
-          prev.map((n) =>
-            n.id === selectedNotice.id
-              ? {
-                ...n,
-                title: formData.title,
-                content: formData.content,
-                category: formData.category,
-                isPinned: formData.isPinned,
-                isPublished: formData.isPublished,
-                targetRoles: [formData.target],
-                updatedAt: new Date().toLocaleDateString()
-              }
-              : n
-          )
-        );
+        // 수정 API 호출
+        await noticesApi.updateNotice(selectedNotice.id, request);
         toast.success("공지사항이 수정되었습니다.");
+        await fetchNotices(); // 목록 새로고침
       } else {
         await noticesApi.createNotice(request);
         toast.success("새 공지사항이 등록되었습니다.");
@@ -337,66 +341,118 @@ const NoticeManagement = () => {
             <CardTitle>공지사항 목록</CardTitle>
             <CardDescription>총 {filteredNotices.length}건</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0 sm:p-6">
             {filteredNotices.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 공지사항이 없습니다.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12"></TableHead>
-                      <TableHead>제목</TableHead>
-                      <TableHead>분류</TableHead>
-                      <TableHead>대상</TableHead>
-                      <TableHead>조회수</TableHead>
-                      <TableHead>등록일</TableHead>
-                      <TableHead>상태</TableHead>
-                      <TableHead className="text-right">관리</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredNotices.map((notice) => (
-                      <TableRow key={notice.id}>
-                        <TableCell>
-                          {notice.isPinned && <Pin className="w-4 h-4 text-warning" />}
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-medium line-clamp-1">{notice.title}</p>
-                        </TableCell>
-                        <TableCell>{getCategoryBadge(notice.category)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{notice.targetRoles[0] || "전체"}</Badge>
-                        </TableCell>
-                        <TableCell>{notice.viewCount.toLocaleString()}</TableCell>
-                        <TableCell>{notice.createdAt}</TableCell>
-                        <TableCell>
-                          {notice.isPublished ? (
-                            <Badge className="bg-success/10 text-success border-0">게시중</Badge>
-                          ) : (
-                            <Badge className="bg-muted text-muted-foreground border-0">비공개</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => handleView(notice)}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleEdit(notice)}>
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDelete(notice)}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
+              <>
+                {/* 모바일 카드 뷰 */}
+                <div className="block md:hidden space-y-3 p-4">
+                  {filteredNotices.map((notice) => (
+                    <div
+                      key={notice.id}
+                      className="p-4 rounded-lg border bg-card space-y-3"
+                      onClick={() => handleView(notice)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {notice.isPinned && <Pin className="w-4 h-4 text-warning flex-shrink-0" />}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleView(notice); }}
+                            className="font-medium text-left hover:text-primary hover:underline transition-colors truncate"
+                          >
+                            {notice.title}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {getCategoryBadge(notice.category)}
+                        <Badge variant="outline">{notice.targetRoles[0] || "전체"}</Badge>
+                        {notice.isPublished ? (
+                          <Badge className="bg-success/10 text-success border-0">게시중</Badge>
+                        ) : (
+                          <Badge className="bg-muted text-muted-foreground border-0">비공개</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>{notice.createdAt}</span>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleView(notice); }}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleEdit(notice); }}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(notice); }}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 데스크톱 테이블 뷰 */}
+                <div className="hidden md:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12"></TableHead>
+                        <TableHead>제목</TableHead>
+                        <TableHead>분류</TableHead>
+                        <TableHead>대상</TableHead>
+                        <TableHead>등록일</TableHead>
+                        <TableHead>상태</TableHead>
+                        <TableHead className="text-right">관리</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredNotices.map((notice) => (
+                        <TableRow key={notice.id}>
+                          <TableCell>
+                            {notice.isPinned && <Pin className="w-4 h-4 text-warning" />}
+                          </TableCell>
+                          <TableCell>
+                            <button
+                              onClick={() => handleView(notice)}
+                              className="font-medium line-clamp-1 text-left hover:text-primary hover:underline transition-colors"
+                            >
+                              {notice.title}
+                            </button>
+                          </TableCell>
+                          <TableCell>{getCategoryBadge(notice.category)}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{notice.targetRoles[0] || "전체"}</Badge>
+                          </TableCell>
+                          <TableCell>{notice.createdAt}</TableCell>
+                          <TableCell>
+                            {notice.isPublished ? (
+                              <Badge className="bg-success/10 text-success border-0">게시중</Badge>
+                            ) : (
+                              <Badge className="bg-muted text-muted-foreground border-0">비공개</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => handleView(notice)}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(notice)}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDelete(notice)}>
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -502,7 +558,7 @@ const NoticeManagement = () => {
             </div>
             <DialogTitle className="text-xl">{selectedNotice?.title}</DialogTitle>
             <DialogDescription>
-              {selectedNotice?.createdAt} | 조회수 {selectedNotice?.viewCount.toLocaleString()}
+              {selectedNotice?.createdAt}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">

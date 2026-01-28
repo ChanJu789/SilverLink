@@ -7,15 +7,20 @@ interface NoticeListParams {
     size?: number;
 }
 
-// 공지사항 생성/수정 요청 타입
+// 공지사항 생성/수정 요청 타입 (백엔드 NoticeRequest DTO와 일치)
 export interface NoticeRequest {
     title: string;
     content: string;
-    category?: string;
-    isImportant?: boolean;
+    category: 'NOTICE' | 'EVENT' | 'NEWS' | 'SYSTEM';
+    targetMode: 'ALL' | 'ROLE_SET';
+    targetRoles?: ('ADMIN' | 'COUNSELOR' | 'GUARDIAN' | 'ELDERLY')[];
+    isPriority?: boolean;
     isPopup?: boolean;
-    targetRoles?: string[];
+    popupStartAt?: string;
+    popupEndAt?: string;
+    status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED';
 }
+
 
 /**
  * 공지사항 목록 조회
