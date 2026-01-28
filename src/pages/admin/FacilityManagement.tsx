@@ -265,7 +265,7 @@ export default function FacilityManagement() {
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="address" className="text-right">주소</Label>
                 <div className="col-span-3 flex gap-2">
-                    <Input id="address" name="address" value={formData.address} onChange={handleInputChange} className="flex-1" />
+                    <Input id="address" name="address" value={formData.address} readOnly className="flex-1 bg-gray-50" placeholder="주소 검색을 클릭하세요" />
                     <Button type="button" variant="outline" onClick={handleAddressSearch}>
                         <Search className="w-4 h-4 mr-2" />
                         주소 검색
