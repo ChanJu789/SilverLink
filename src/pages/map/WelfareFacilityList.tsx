@@ -6,6 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Phone, Clock, Navigation, List, Map } from "lucide-react";
 import { mapApi } from "@/api/map";
 import { WelfareFacilityResponse } from "@/types/api";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import { useAuth } from "@/contexts/AuthContext";
+import { adminNavItems } from "@/config/adminNavItems";
+import { guardianNavItems } from "@/config/guardianNavItems";
+import { counselorNavItems } from "@/config/counselorNavItems";
 
 // Kakao Maps 타입 선언
 declare global {
@@ -25,6 +30,7 @@ const FACILITY_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function WelfareFacilityList() {
+    const { user } = useAuth();
     const [facilities, setFacilities] = useState<WelfareFacilityResponse[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -36,6 +42,16 @@ export default function WelfareFacilityList() {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
     const markersRef = useRef<any[]>([]);
+
+    // Determine Nav Items based on Role
+    const getNavItems = () => {
+        switch (user?.role) {
+            case 'ADMIN': return adminNavItems;
+            case 'GUARDIAN': return guardianNavItems;
+            case 'COUNSELOR': return counselorNavItems;
+            default: return [];
+        }
+    };
 
     // Kakao Maps SDK 로딩
     useEffect(() => {
@@ -186,7 +202,7 @@ export default function WelfareFacilityList() {
         }
     };
 
-    return (
+    const content = (
         <div className="container mx-auto p-4 max-w-2xl">
             <div className="flex justify-between items-center mb-4">
                 <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -282,8 +298,8 @@ export default function WelfareFacilityList() {
                                     <button
                                         key={facility.id}
                                         className={`p-3 text-left rounded-lg border transition-all ${selectedFacility?.id === facility.id
-                                                ? 'border-primary bg-primary/5'
-                                                : 'border-gray-200 hover:border-gray-300'
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-gray-200 hover:border-gray-300'
                                             }`}
                                         onClick={() => handleFacilityClick(facility)}
                                     >
@@ -354,4 +370,18 @@ export default function WelfareFacilityList() {
             )}
         </div>
     );
+
+    if (user) {
+        return (
+            <DashboardLayout
+                role={user.role.toLowerCase() as "admin" | "guardian" | "counselor"}
+                userName={user.name}
+                navItems={getNavItems()}
+            >
+                {content}
+            </DashboardLayout>
+        );
+    }
+
+    return content;
 }

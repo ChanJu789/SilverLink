@@ -121,10 +121,16 @@ export interface CounselorResponse {
 }
 
 export interface CounselorRequest {
-    email: string;
+    loginId: string;
     password: string;
     name: string;
+    email?: string;
     phone: string;
+    employeeNo?: string;
+    department?: string;
+    officePhone?: string;
+    joinedAt?: string; // YYYY-MM-DD
+    admCode: number;
 }
 
 // =====================
@@ -230,6 +236,20 @@ export interface InquiryResponse {
     answeredAt?: string;
     createdAt: string;
     userName: string;
+}
+
+// =====================
+// 시스템/주소 관련 타입
+// =====================
+export interface AddressResponse {
+    admCode: number;
+    sidoCode?: string;
+    sigunguCode?: string;
+    sidoName: string;
+    sigunguName?: string;
+    dongName?: string;
+    fullAddress: string;
+    level: 'SIDO' | 'SIGUNGU' | 'DONG';
 }
 
 // =====================

@@ -29,6 +29,8 @@ import {
 import { mapApi } from "@/api/map";
 import { WelfareFacilityResponse, WelfareFacilityRequest } from "@/types/api";
 import { Trash2, RefreshCw, Plus, Pencil, MapPin, Search, Loader2, CheckCircle } from "lucide-react";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import { adminNavItems } from "@/config/adminNavItems";
 
 // Kakao Maps 타입 선언
 declare global {
@@ -312,109 +314,111 @@ export default function FacilityManagement() {
     );
 
     return (
-        <div className="container mx-auto p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">사회복지시설 관리</h1>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={loadFacilities} disabled={loading}>
-                        <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                        새로고침
-                    </Button>
+        <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+            <div className="container mx-auto p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-2xl font-bold">사회복지시설 관리</h1>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={loadFacilities} disabled={loading}>
+                            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                            새로고침
+                        </Button>
 
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                        <DialogTrigger asChild>
-                            <Button onClick={openCreateModal}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                시설 등록
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[500px]">
-                            <DialogHeader>
-                                <DialogTitle>새 시설 등록</DialogTitle>
-                            </DialogHeader>
-                            {renderForm()}
-                            <DialogFooter>
-                                <Button type="submit" onClick={handleCreate}>등록</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                            <DialogTrigger asChild>
+                                <Button onClick={openCreateModal}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    시설 등록
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[500px]">
+                                <DialogHeader>
+                                    <DialogTitle>새 시설 등록</DialogTitle>
+                                </DialogHeader>
+                                {renderForm()}
+                                <DialogFooter>
+                                    <Button type="submit" onClick={handleCreate}>등록</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </div>
-            </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>등록된 시설 목록 ({facilities.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>ID</TableHead>
-                                <TableHead>시설명</TableHead>
-                                <TableHead>유형</TableHead>
-                                <TableHead>주소</TableHead>
-                                <TableHead>연락처</TableHead>
-                                <TableHead className="text-right">관리</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {facilities.length === 0 ? (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>등록된 시설 목록 ({facilities.length})</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center h-24">
-                                        데이터가 없습니다.
-                                    </TableCell>
+                                    <TableHead>ID</TableHead>
+                                    <TableHead>시설명</TableHead>
+                                    <TableHead>유형</TableHead>
+                                    <TableHead>주소</TableHead>
+                                    <TableHead>연락처</TableHead>
+                                    <TableHead className="text-right">관리</TableHead>
                                 </TableRow>
-                            ) : (
-                                facilities.map((facility) => (
-                                    <TableRow key={facility.id}>
-                                        <TableCell>{facility.id}</TableCell>
-                                        <TableCell className="font-medium">{facility.name}</TableCell>
-                                        <TableCell>
-                                            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                                                {facility.typeDescription || facility.type}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>{facility.address}</TableCell>
-                                        <TableCell>{facility.phone || '-'}</TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => openEditModal(facility)}
-                                                >
-                                                    <Pencil className="w-4 h-4 text-blue-500" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                    onClick={() => handleDelete(facility.id)}
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </div>
+                            </TableHeader>
+                            <TableBody>
+                                {facilities.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center h-24">
+                                            데이터가 없습니다.
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                                ) : (
+                                    facilities.map((facility) => (
+                                        <TableRow key={facility.id}>
+                                            <TableCell>{facility.id}</TableCell>
+                                            <TableCell className="font-medium">{facility.name}</TableCell>
+                                            <TableCell>
+                                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
+                                                    {facility.typeDescription || facility.type}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>{facility.address}</TableCell>
+                                            <TableCell>{facility.phone || '-'}</TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => openEditModal(facility)}
+                                                    >
+                                                        <Pencil className="w-4 h-4 text-blue-500" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                        onClick={() => handleDelete(facility.id)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
 
-            {/* Edit Modal */}
-            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle>시설 정보 수정</DialogTitle>
-                    </DialogHeader>
-                    {renderForm()}
-                    <DialogFooter>
-                        <Button type="submit" onClick={handleUpdate}>수정 내용 저장</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div>
+                {/* Edit Modal */}
+                <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                    <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                            <DialogTitle>시설 정보 수정</DialogTitle>
+                        </DialogHeader>
+                        {renderForm()}
+                        <DialogFooter>
+                            <Button type="submit" onClick={handleUpdate}>수정 내용 저장</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </div>
+        </DashboardLayout >
     );
 }
