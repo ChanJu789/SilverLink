@@ -2,6 +2,7 @@ import { Home, Users, UserPlus, UserCog, BarChart3, MessageSquare, Shield, Megap
 
 export const adminNavItems = [
   { title: "홈", href: "/admin", icon: <Home className="w-5 h-5" /> },
+  { title: "상담사 등록", href: "/admin/counselors/new", icon: <UserPlus className="w-5 h-5" /> },
   { title: "회원 관리", href: "/admin/members", icon: <Users className="w-5 h-5" /> },
   { title: "회원 등록", href: "/admin/register", icon: <UserPlus className="w-5 h-5" /> },
   { title: "배정 관리", href: "/admin/assignments", icon: <UserCog className="w-5 h-5" /> },

@@ -67,6 +67,7 @@ const SeniorBiometric = lazy(() => import("./pages/senior/SeniorBiometric"));
 const WelfareFacilityList = lazy(() => import("./pages/map/WelfareFacilityList"));
 const FacilityManagement = lazy(() => import("./pages/admin/FacilityManagement"));
 
+const CounselorRegistration = lazy(() => import("./pages/admin/CounselorRegistration"));
 const MyProfile = lazy(() => import("./pages/user/MyProfile"));
 
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -131,6 +132,7 @@ const App = () => (
                   <Route path="/admin/register" element={<ProtectedRoute allowedRoles={["ADMIN"]}><MemberRegistration /></ProtectedRoute>} />
                   <Route path="/admin/profile" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AdminProfile /></ProtectedRoute>} />
                   <Route path="/admin/facilities" element={<ProtectedRoute allowedRoles={["ADMIN"]}><FacilityManagement /></ProtectedRoute>} />
+                  <Route path="/admin/counselors/new" element={<ProtectedRoute allowedRoles={["ADMIN"]}><CounselorRegistration /></ProtectedRoute>} />
 
                   {/* Senior Routes - ELDERLY role only */}
                   <Route path="/senior/login" element={<SeniorLogin />} />
