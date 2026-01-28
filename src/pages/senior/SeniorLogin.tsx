@@ -11,11 +11,9 @@ import {
   Heart,
   Fingerprint,
   Phone,
-  Shield,
   CheckCircle2,
   AlertCircle,
   Loader2,
-  UserPlus,
   ArrowLeft,
   RefreshCw
 } from "lucide-react";
@@ -52,17 +50,12 @@ const SeniorLogin = () => {
   const [cooldown, setCooldown] = useState(0);
   const [expiresIn, setExpiresIn] = useState(0);
 
-  // 지문 인증 상태
-  const [isRegistrationMode, setIsRegistrationMode] = useState(false);
-  const [showRegistrationDialog, setShowRegistrationDialog] = useState(false);
-  const [registrationName, setRegistrationName] = useState("");
+  // 지문 인증 상태 (등록 기능 제거 - 보안상 로그인 후에만 가능)
 
   const {
     isPlatformAvailable,
-    isRegistering,
     isAuthenticating,
     error,
-    register,
     authenticate,
     checkPlatformAuthenticator,
   } = useWebAuthn();
@@ -124,7 +117,10 @@ const SeniorLogin = () => {
 
     setIsSending(true);
     try {
+      console.log("인증번호 발송 요청:", { phone: digits, purpose: "DEVICE_REGISTRATION" });
       const response = await requestVerificationCode(digits, "DEVICE_REGISTRATION");
+      console.log("인증번호 발송 응답:", response);
+      
       setVerificationId(response.verificationId);
       setIsCodeSent(true);
       setCooldown(60); // 60초 재발송 대기
@@ -138,8 +134,17 @@ const SeniorLogin = () => {
       toast.success("인증번호가 발송되었어요!", {
         description: "문자 메시지를 확인해주세요.",
       });
-    } catch (err) {
-      toast.error(getErrorMessage(err, "인증번호 발송에 실패했어요."));
+    } catch (err: any) {
+      console.error("인증번호 발송 실패:", err);
+      console.error("에러 상세:", {
+        message: err?.message,
+        response: err?.response?.data,
+        status: err?.response?.status,
+      });
+      
+      const errorMessage = getErrorMessage(err, "인증번호 발송에 실패했어요.");
+      console.log("표시할 에러 메시지:", errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSending(false);
     }
@@ -206,25 +211,7 @@ const SeniorLogin = () => {
     }
   };
 
-  // 지문 등록
-  const handleBiometricRegistration = async () => {
-    if (!registrationName.trim()) {
-      toast.error("이름을 입력해주세요.");
-      return;
-    }
 
-    const credential = await register(registrationName);
-    if (credential) {
-      toast.success("지문 등록 완료!", {
-        description: "이제 지문으로 로그인할 수 있어요.",
-      });
-      setShowRegistrationDialog(false);
-      setRegistrationName("");
-      setIsRegistrationMode(false);
-    } else if (error) {
-      toast.error(error);
-    }
-  };
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -266,17 +253,15 @@ const SeniorLogin = () => {
           {/* Title */}
           <div className="text-center space-y-1">
             <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-              {isRegistrationMode ? "지문 등록" : "어르신 로그인"}
+              어르신 로그인
             </h2>
             <p className="text-base sm:text-lg text-muted-foreground">
-              {isRegistrationMode
-                ? "지문을 등록하면 더 쉽게 로그인할 수 있어요"
-                : "휴대폰 번호로 간편하게 로그인하세요"}
+              휴대폰 번호로 간편하게 로그인하세요
             </p>
           </div>
 
           {/* Phone Login Card - Main */}
-          {!isRegistrationMode && (
+          {(
             <Card className="shadow-lg border-2 border-primary/30">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
@@ -392,7 +377,7 @@ const SeniorLogin = () => {
           )}
 
           {/* Biometric Options */}
-          {showBiometric && !isRegistrationMode && (
+          {showBiometric && (
             <>
               {/* Divider */}
               <div className="relative">
@@ -408,7 +393,7 @@ const SeniorLogin = () => {
 
               {/* Biometric Login */}
               <Card className="shadow-md">
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="p-4">
                   <Button
                     onClick={handleBiometricLogin}
                     variant="outline"
@@ -428,22 +413,13 @@ const SeniorLogin = () => {
                       </>
                     )}
                   </Button>
-
-                  <Button
-                    variant="ghost"
-                    className="w-full h-12 text-base text-muted-foreground"
-                    onClick={() => setShowRegistrationDialog(true)}
-                  >
-                    <UserPlus className="w-5 h-5 mr-2" />
-                    새 지문 등록하기
-                  </Button>
                 </CardContent>
               </Card>
             </>
           )}
 
           {/* WebAuthn Not Supported - 더 작게 표시 */}
-          {!showBiometric && !isRegistrationMode && (
+          {!showBiometric && (
             <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg">
               <AlertCircle className="w-4 h-4 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
@@ -454,63 +430,10 @@ const SeniorLogin = () => {
         </div>
       </main>
 
-      {/* Registration Dialog */}
-      <Dialog open={showRegistrationDialog} onOpenChange={setShowRegistrationDialog}>
-        <DialogContent className="max-w-sm mx-auto">
-          <DialogHeader className="text-center">
-            <div className="mx-auto w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Fingerprint className="w-10 h-10 text-primary" />
-            </div>
-            <DialogTitle className="text-2xl">지문 등록</DialogTitle>
-            <DialogDescription className="text-lg">
-              이름을 입력하고 지문을 등록하세요
-            </DialogDescription>
-          </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="dialogName" className="text-lg">이름</Label>
-              <Input
-                id="dialogName"
-                placeholder="이름을 입력하세요"
-                value={registrationName}
-                onChange={(e) => setRegistrationName(e.target.value)}
-                className="h-14 text-lg"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex flex-col gap-3 sm:flex-col">
-            <Button
-              onClick={handleBiometricRegistration}
-              className="w-full h-16 text-lg font-bold"
-              disabled={isRegistering || !registrationName.trim()}
-            >
-              {isRegistering ? (
-                <>
-                  <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                  등록 중...
-                </>
-              ) : (
-                <>
-                  <Fingerprint className="w-6 h-6 mr-3" />
-                  지문 등록하기
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setShowRegistrationDialog(false)}
-              className="w-full h-14 text-lg"
-            >
-              취소
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Footer */}
-      {showBiometric && !isRegistrationMode && (
+      {showBiometric && (
         <footer className="p-4 text-center">
           <div className="flex items-center justify-center gap-2 text-success">
             <CheckCircle2 className="w-4 h-4" />

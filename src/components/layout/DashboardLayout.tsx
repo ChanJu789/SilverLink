@@ -94,14 +94,6 @@ const DashboardLayout = ({
     navigate("/");
   };
 
-  const handleSessionExpired = async () => {
-    toast.error('세션 만료', {
-      description: '다시 로그인해주세요.',
-    });
-    await logout();
-    navigate('/login');
-  };
-
   return (
     <div className="min-h-screen bg-background flex">
       {/* Mobile Overlay */}
@@ -215,9 +207,6 @@ const DashboardLayout = ({
             <div className="flex-1 lg:flex-none" />
 
             <div className="flex items-center gap-2">
-              {/* 세션 타이머 */}
-              <SessionTimer onSessionExpired={handleSessionExpired} />
-
               {/* Notifications */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

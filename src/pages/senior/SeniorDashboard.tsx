@@ -19,7 +19,8 @@ import {
   Volume2,
   Plus,
   Minus,
-  Pill
+  Pill,
+  Fingerprint
 } from "lucide-react";
 
 const SeniorDashboard = () => {
@@ -58,6 +59,22 @@ const SeniorDashboard = () => {
   };
 
   const menuItems = [
+    {
+      id: "mypage",
+      title: "내 정보",
+      description: "내 정보를 확인해요",
+      icon: <User className="w-12 h-12" />,
+      color: "bg-blue-500",
+      action: () => navigate("/senior/profile"),
+    },
+    {
+      id: "biometric",
+      title: "지문 등록",
+      description: "지문으로 간편 로그인",
+      icon: <Fingerprint className="w-12 h-12" />,
+      color: "bg-purple-500",
+      action: () => navigate("/senior/biometric"),
+    },
     {
       id: "call",
       title: "전화하기",
@@ -106,14 +123,6 @@ const SeniorDashboard = () => {
       color: "bg-accent",
       action: () => navigate("/senior/faq"),
     },
-    {
-      id: "mypage",
-      title: "내 정보",
-      description: "내 정보를 확인해요",
-      icon: <User className="w-12 h-12" />,
-      color: "bg-muted-foreground",
-      action: () => navigate("/senior/profile"),
-    },
   ];
 
   const hour = currentTime.getHours();
@@ -134,16 +143,16 @@ const SeniorDashboard = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold">마음돌봄</h1>
-              <p className="text-primary-foreground/80 text-sm">국가 복지 서비스</p>
+              <p className="text-primary-foreground/80 text-sm">어르신님</p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="lg"
             onClick={handleLogout}
-            className="text-primary-foreground hover:bg-primary-foreground/20 p-4"
+            className="text-primary-foreground hover:bg-primary-foreground/20 p-3"
           >
-            <LogOut className="w-6 h-6" />
+            <LogOut className="w-8 h-8" />
           </Button>
         </div>
 

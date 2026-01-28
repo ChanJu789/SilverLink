@@ -29,6 +29,7 @@ export const analyzeDocument = async (imageFile: File): Promise<OcrDocumentRespo
         headers: {
             'Content-Type': 'multipart/form-data',
         },
+        timeout: 60000, // OCR은 처리 시간이 오래 걸릴 수 있으므로 60초로 설정
     });
 
     // Luxia AI 응답 파싱

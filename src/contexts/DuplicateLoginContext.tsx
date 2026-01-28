@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { DuplicateLoginDialog } from '@/components/auth/DuplicateLoginDialog';
+import { setAccessToken } from '@/api';
 
 interface DuplicateLoginContextType {
   showDuplicateLoginDialog: () => void;
@@ -10,11 +11,18 @@ const DuplicateLoginContext = createContext<DuplicateLoginContextType | undefine
 export const DuplicateLoginProvider = ({ children }: { children: ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const showDuplicateLoginDialog = () => {
+  const showDuplicateLoginDialog = useCallback(() => {
     setIsOpen(true);
+  }, []);
+
+  const handleConfirm = () => {
+    // API 인터셉터에서 호출된 경우: 로그인 페이지로 이동
+    setIsOpen(false);
+    setAccessToken(null);
+    window.location.href = '/login';
   };
 
-  const handleClose = () => {
+  const handleCancel = () => {
     setIsOpen(false);
   };
 
@@ -22,14 +30,18 @@ export const DuplicateLoginProvider = ({ children }: { children: ReactNode }) =>
   useEffect(() => {
     setGlobalDuplicateLoginHandler(showDuplicateLoginDialog);
     return () => {
-      setGlobalDuplicateLoginHandler(() => {});
+      setGlobalDuplicateLoginHandler(() => { });
     };
-  }, []);
+  }, [showDuplicateLoginDialog]);
 
   return (
     <DuplicateLoginContext.Provider value={{ showDuplicateLoginDialog }}>
       {children}
-      <DuplicateLoginDialog open={isOpen} onClose={handleClose} />
+      <DuplicateLoginDialog
+        open={isOpen}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </DuplicateLoginContext.Provider>
   );
 };
@@ -55,5 +67,6 @@ export const showGlobalDuplicateLoginDialog = () => {
   } else {
     // Fallback to alert if context is not available
     alert('이미 다른 기기에서 로그인되어 있습니다. 기존 세션을 종료하고 다시 로그인해주세요.');
+    window.location.href = '/login';
   }
 };
