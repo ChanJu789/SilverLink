@@ -250,7 +250,7 @@ const DashboardLayout = ({
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>{userName}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/my-profile')} className="cursor-pointer">
                     <User className="w-4 h-4 mr-2" />
                     내 프로필
                   </DropdownMenuItem>

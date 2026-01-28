@@ -54,6 +54,12 @@ apiClient.interceptors.response.use(
     const errorData = error.response?.data as { error?: string; message?: string } | undefined;
     const errorCode = errorData?.error;
 
+    // 글로벌 에러 핸들링 스킵 플래그 확인
+    // @ts-ignore
+    if (error.config?._skipGlobalErrorHandler) {
+      return Promise.reject(error);
+    }
+
     // 세션 관련 오류 → 로그인 페이지로 리다이렉트
     const sessionErrors = ['SESSION_EXPIRED', 'REFRESH_REUSED', 'INVALID_TOKEN', 'TOKEN_EXPIRED'];
     if (sessionErrors.includes(errorCode || '')) {
@@ -72,7 +78,8 @@ apiClient.interceptors.response.use(
     // 단, 로그인 관련 API는 제외 (로그인 실패는 그냥 실패로 처리해야 함)
     const isLoginRequest = originalRequest && (
       originalRequest.url?.includes('/api/auth/login') ||
-      originalRequest.url?.includes('/login')
+      originalRequest.url?.includes('/login') ||
+      originalRequest.url?.includes('/api/auth/refresh')
     );
 
     if (status === 401 && !isLoginRequest && originalRequest && !(originalRequest as any)._retry) {

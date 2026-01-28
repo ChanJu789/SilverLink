@@ -1,12 +1,13 @@
-import { 
-  Home, 
-  Users, 
-  Phone, 
-  FileText, 
-  MessageSquare, 
+import {
+  Home,
+  Users,
+  Phone,
+  FileText,
+  MessageSquare,
   Bell,
   Megaphone,
-  Lock
+  Lock,
+  User
 } from "lucide-react";
 
 export const counselorNavItems = [
@@ -18,4 +19,5 @@ export const counselorNavItems = [
   { title: "긴급 알림", href: "/counselor/alerts", icon: <Bell className="w-5 h-5" />, badge: 2 },
   { title: "공지사항", href: "/counselor/notices", icon: <Megaphone className="w-5 h-5" /> },
   { title: "민감정보 요청", href: "/counselor/sensitive-info", icon: <Lock className="w-5 h-5" /> },
+  { title: "내 프로필", href: "/my-profile", icon: <User className="w-5 h-5" /> },
 ];

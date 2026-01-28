@@ -59,6 +59,13 @@ const SeniorMedication = lazy(() => import("./pages/senior/SeniorMedication"));
 const SeniorNotices = lazy(() => import("./pages/senior/SeniorNotices"));
 const SeniorFAQ = lazy(() => import("./pages/senior/SeniorFAQ"));
 
+
+
+const WelfareFacilityList = lazy(() => import("./pages/map/WelfareFacilityList"));
+const FacilityManagement = lazy(() => import("./pages/admin/FacilityManagement"));
+
+const MyProfile = lazy(() => import("./pages/user/MyProfile"));
+
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 
@@ -76,7 +83,12 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/forgot-id" element={<ForgotId />} />
+                <Route path="/map" element={<WelfareFacilityList />} />
+
+                {/* Common Protected Routes */}
+                <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
 
                 {/* Guardian Routes - GUARDIAN role only */}
                 <Route path="/guardian" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianDashboard /></ProtectedRoute>} />
@@ -115,6 +127,7 @@ const App = () => (
                 <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={["ADMIN"]}><SystemSettings /></ProtectedRoute>} />
                 <Route path="/admin/register" element={<ProtectedRoute allowedRoles={["ADMIN"]}><MemberRegistration /></ProtectedRoute>} />
                 <Route path="/admin/profile" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AdminProfile /></ProtectedRoute>} />
+                <Route path="/admin/facilities" element={<ProtectedRoute allowedRoles={["ADMIN"]}><FacilityManagement /></ProtectedRoute>} />
 
                 {/* Senior Routes - ELDERLY role only */}
                 <Route path="/senior/login" element={<SeniorLogin />} />
