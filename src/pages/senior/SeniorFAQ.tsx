@@ -23,12 +23,13 @@ import {
 import faqsApi from "@/api/faqs";
 import { FaqResponse } from "@/types/api";
 
+// 백엔드 카테고리와 일치하도록 수정 (SERVICE, CALLBOT, MEDICATION, WELFARE)
 const categories = [
   { id: "all", name: "전체", icon: <HelpCircle className="w-6 h-6" /> },
-  { id: "이용방법", name: "이용방법", icon: <Phone className="w-6 h-6" /> },
-  { id: "상담", name: "상담", icon: <Heart className="w-6 h-6" /> },
-  { id: "건강", name: "건강", icon: <Calendar className="w-6 h-6" /> },
-  { id: "복지", name: "복지", icon: <Shield className="w-6 h-6" /> },
+  { id: "SERVICE", name: "서비스", icon: <Phone className="w-6 h-6" /> },
+  { id: "CALLBOT", name: "콜봇", icon: <Heart className="w-6 h-6" /> },
+  { id: "MEDICATION", name: "복약", icon: <Calendar className="w-6 h-6" /> },
+  { id: "WELFARE", name: "복지", icon: <Shield className="w-6 h-6" /> },
 ];
 
 const SeniorFAQ = () => {
@@ -43,8 +44,8 @@ const SeniorFAQ = () => {
     const fetchFaqs = async () => {
       try {
         setIsLoading(true);
-        const response = await faqsApi.getFaqs({ size: 50 });
-        setFaqs(response.content);
+        const data = await faqsApi.getFaqs();
+        setFaqs(data);
       } catch (error) {
         console.error('Failed to fetch FAQs:', error);
       } finally {
