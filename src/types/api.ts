@@ -344,10 +344,15 @@ export interface GuardianCallReviewResponse {
     callId: number;
     elderlyName: string;
     callAt: string;
-    duration: number;
-    emotion: 'GOOD' | 'NEUTRAL' | 'BAD';
+    duration: string;  // "분:초" 형식
     summary: string;
-    counselorComment?: string;
+    emotionLevel: string | null;
+    emotionLevelKorean: string | null;
+    hasDangerResponse: boolean;
+    counselorName: string | null;
+    counselorComment: string | null;
+    urgent: boolean;
+    reviewedAt: string | null;
 }
 
 export interface UnreviewedCountResponse {
