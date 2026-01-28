@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import apiClient, { setAccessToken } from '@/api/index';
 import { logout as apiLogout, refresh } from '@/api/auth';
 import { getMyProfile } from '@/api/users';
-import { setAccessToken } from '@/api/index';
+
 
 type UserRole = 'ADMIN' | 'COUNSELOR' | 'GUARDIAN' | 'ELDERLY';
 
@@ -37,10 +38,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const initSession = async () => {
             try {
                 // 1. Refresh Token으로 Access Token 재발급 시도 (쿠키 사용)
-                await refresh();
+                // 주의: 실패 시 리다이렉트 루프를 방지하기 위해 글로벌 에러 핸들러 스킵
+                // @ts-ignore
+                const response = await apiClient.post('/api/auth/refresh', null, { _skipGlobalErrorHandler: true });
+                const { accessToken } = response.data;
+                setAccessToken(accessToken);
 
                 // 2. 사용자 프로필 정보 가져오기
-                const userProfile = await getMyProfile();
+                // @ts-ignore
+                const profileResponse = await apiClient.get('/api/users/me', { _skipGlobalErrorHandler: true });
+                const userProfile = profileResponse.data;
 
                 // 3. 상태 업데이트
                 setUser(userProfile);
@@ -48,16 +55,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             } catch (error) {
                 // 쿠키 인증 실패 시 localStorage 확인 (백업)
                 const storedToken = localStorage.getItem('accessToken');
-                const storedUser = localStorage.getItem('user');
 
-                if (storedToken && storedUser) {
+                if (storedToken) {
                     try {
+                        // 저장된 토큰이 유효한지 검증 (프로필 조회 시도)
                         setAccessToken(storedToken);
-                        setUser(JSON.parse(storedUser));
+
+                        // 검증 시에는 글로벌 인터셉터(자동 리다이렉트)를 끄고 진행
+                        // @ts-ignore
+                        const response = await apiClient.get('/api/users/me', { _skipGlobalErrorHandler: true });
+                        const userProfile = response.data;
+
+                        setUser(userProfile);
                         setIsLoggedIn(true);
                     } catch (e) {
-                        // 데이터 파싱 실패 등
-                        localStorage.clear();
+                        // 토큰이 만료되었거나 유효하지 않음 -> 초기화
+                        console.warn("Stored session is invalid:", e);
+                        setAccessToken(null);
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('user');
                         setUser(null);
                         setIsLoggedIn(false);
                     }

@@ -64,6 +64,7 @@ export interface MyProfileResponse {
 export interface UpdateMyProfileRequest {
     name?: string;
     phone?: string;
+    email?: string;
 }
 
 // =====================
@@ -383,3 +384,29 @@ export interface RegisterGuardianRequest {
     relationType: string;
     memo?: string;
 }
+
+// =====================
+// 사회복지시설(Map) 관련 타입
+// =====================
+export interface WelfareFacilityResponse {
+    id: number;
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    type: 'ELDERLY_WELFARE_CENTER' | 'DISABLED_WELFARE_CENTER' | 'CHILD_WELFARE_CENTER' | 'COMMUNITY_WELFARE_CENTER' | 'SENIOR_CENTER' | 'DAYCARE_CENTER' | 'HOME_CARE_SERVICE';
+    phone?: string;
+    operatingHours?: string;
+    typeDescription?: string;
+}
+
+export interface WelfareFacilityRequest {
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    type: 'ELDERLY_WELFARE_CENTER' | 'DISABLED_WELFARE_CENTER' | 'CHILD_WELFARE_CENTER' | 'COMMUNITY_WELFARE_CENTER' | 'SENIOR_CENTER' | 'DAYCARE_CENTER' | 'HOME_CARE_SERVICE';
+    phone?: string;
+    operatingHours?: string;
+}
+
