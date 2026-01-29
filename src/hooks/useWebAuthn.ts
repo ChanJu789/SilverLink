@@ -66,7 +66,27 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
         return false;
       }
       
-      const creationOptions = JSON.parse(startResponse.creationOptionsJson);
+      let creationOptions;
+      try {
+        const parsed = JSON.parse(startResponse.creationOptionsJson);
+        console.log('[WebAuthn] Parsed registration response:', parsed);
+        
+        // 백엔드가 중첩된 구조로 보내는 경우 처리
+        if (parsed.publicKeyCredentialCreationOptions) {
+          creationOptions = parsed.publicKeyCredentialCreationOptions;
+          console.log('[WebAuthn] Using nested publicKeyCredentialCreationOptions');
+        } else {
+          creationOptions = parsed;
+        }
+        
+        console.log('[WebAuthn] Final creation options:', creationOptions);
+        console.log('[WebAuthn] RP ID from backend:', creationOptions.rp?.id);
+        console.log('[WebAuthn] Current domain:', window.location.hostname);
+      } catch (parseError) {
+        console.error('[WebAuthn] Failed to parse creationOptionsJson:', parseError);
+        setError("서버 응답 형식이 올바르지 않습니다.");
+        return false;
+      }
 
       // challenge와 user.id 검증 및 변환
       if (!creationOptions.challenge) {
@@ -169,22 +189,59 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
 
     try {
       // 1. 서버에서 인증 옵션 가져오기
+      console.log('[WebAuthn] Starting passkey login...');
       const startResponse = await startPasskeyLogin();
+      console.log('[WebAuthn] Start response:', startResponse);
       
-      // 응답 검증
-      if (!startResponse.assertionRequestJson) {
-        setError("서버 응답이 올바르지 않습니다.");
+      // 응답 검증 - 더 명확한 에러 메시지
+      if (!startResponse) {
+        console.error('[WebAuthn] No response from server');
+        setError("서버와 연결할 수 없습니다. 네트워크를 확인해주세요.");
         return { success: false };
       }
       
-      const assertionOptions = JSON.parse(startResponse.assertionRequestJson);
+      if (!startResponse.assertionRequestJson) {
+        console.error('[WebAuthn] Missing assertionRequestJson in response:', startResponse);
+        setError("서버 응답이 올바르지 않습니다. 관리자에게 문의해주세요.");
+        return { success: false };
+      }
+      
+      let assertionOptions;
+      try {
+        const parsed = JSON.parse(startResponse.assertionRequestJson);
+        console.log('[WebAuthn] Parsed response:', parsed);
+        
+        // 백엔드가 중첩된 구조로 보내는 경우 처리
+        if (parsed.publicKeyCredentialRequestOptions) {
+          assertionOptions = parsed.publicKeyCredentialRequestOptions;
+          console.log('[WebAuthn] Using nested publicKeyCredentialRequestOptions');
+        } else {
+          assertionOptions = parsed;
+        }
+        
+        console.log('[WebAuthn] Final assertion options:', assertionOptions);
+        console.log('[WebAuthn] Challenge value:', assertionOptions?.challenge);
+      } catch (parseError) {
+        console.error('[WebAuthn] Failed to parse assertionRequestJson:', parseError);
+        setError("서버 응답 형식이 올바르지 않습니다.");
+        return { success: false };
+      }
 
       // challenge 검증 및 변환
       if (!assertionOptions.challenge) {
-        setError("인증 챌린지가 없습니다.");
+        console.error('[WebAuthn] Missing challenge in assertion options');
+        console.error('[WebAuthn] Full assertion options:', JSON.stringify(assertionOptions, null, 2));
+        setError("인증 챌린지가 없습니다. 다시 시도해주세요.");
         return { success: false };
       }
-      assertionOptions.challenge = base64URLDecode(assertionOptions.challenge);
+      
+      try {
+        assertionOptions.challenge = base64URLDecode(assertionOptions.challenge);
+      } catch (decodeError) {
+        console.error('[WebAuthn] Failed to decode challenge:', decodeError);
+        setError("인증 데이터 처리 중 오류가 발생했습니다.");
+        return { success: false };
+      }
 
       // allowCredentials 처리 - 등록된 패스키가 없으면 에러
       if (assertionOptions.allowCredentials && assertionOptions.allowCredentials.length > 0) {
@@ -250,9 +307,19 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
       if (err.response) {
         const status = err.response.status;
         const errorData = err.response.data;
+        const errorCode = errorData?.error;
+        
+        console.log('[WebAuthn] Backend error:', { status, errorCode, errorData });
         
         if (status === 401 || status === 403) {
           setError("인증에 실패했습니다. 다시 시도해주세요.");
+        } else if (errorCode === 'WEBAUTHN_LOGIN_FAILED') {
+          // Unknown credential 에러
+          if (errorData?.message?.includes('Unknown credential')) {
+            setError("등록된 생체 인증 정보가 없습니다. 먼저 로그인 후 프로필에서 지문을 등록해주세요.");
+          } else {
+            setError("생체 인증에 실패했습니다. 다시 시도해주세요.");
+          }
         } else if (status === 500) {
           console.error("Server error details:", errorData);
           setError("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
