@@ -143,6 +143,8 @@ const App = () => (
                   <Route path="/senior/medication" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorMedication /></ProtectedRoute>} />
                   <Route path="/senior/notices" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorNotices /></ProtectedRoute>} />
                   <Route path="/senior/faq" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorFAQ /></ProtectedRoute>} />
+                  <Route path="/senior/profile" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorProfile /></ProtectedRoute>} />
+                  <Route path="/senior/biometric" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorBiometric /></ProtectedRoute>} />
 
                   {/* Catch-all for 404 */}
                   <Route path="*" element={<NotFound />} />
