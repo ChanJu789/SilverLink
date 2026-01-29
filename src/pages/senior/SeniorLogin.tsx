@@ -120,16 +120,21 @@ const SeniorLogin = () => {
       console.log("인증번호 발송 요청:", { phone: digits, purpose: "DEVICE_REGISTRATION" });
       const response = await requestVerificationCode(digits, "DEVICE_REGISTRATION");
       console.log("인증번호 발송 응답:", response);
-      
+
       setVerificationId(response.verificationId);
       setIsCodeSent(true);
       setCooldown(60); // 60초 재발송 대기
 
-      // 만료 시간 계산
-      const expireAt = new Date(response.expireAt);
-      const now = new Date();
-      const diffSeconds = Math.floor((expireAt.getTime() - now.getTime()) / 1000);
-      setExpiresIn(Math.max(diffSeconds, 0));
+      // 만료 시간 계산 - 서버에서 계산한 값을 우선 사용 (시간대 불일치 방지)
+      if (response.expiresInSeconds !== undefined && response.expiresInSeconds !== null) {
+        setExpiresIn(Math.max(response.expiresInSeconds, 0));
+      } else {
+        // fallback: expireAt으로 계산 (이전 버전 호환성)
+        const expireAt = new Date(response.expireAt);
+        const now = new Date();
+        const diffSeconds = Math.floor((expireAt.getTime() - now.getTime()) / 1000);
+        setExpiresIn(Math.max(diffSeconds, 0));
+      }
 
       toast.success("인증번호가 발송되었어요!", {
         description: "문자 메시지를 확인해주세요.",
@@ -141,7 +146,7 @@ const SeniorLogin = () => {
         response: err?.response?.data,
         status: err?.response?.status,
       });
-      
+
       const errorMessage = getErrorMessage(err, "인증번호 발송에 실패했어요.");
       console.log("표시할 에러 메시지:", errorMessage);
       toast.error(errorMessage);
@@ -200,8 +205,8 @@ const SeniorLogin = () => {
 
   // 지문 인증 로그인
   const handleBiometricLogin = async () => {
-    const success = await authenticate();
-    if (success) {
+    const result = await authenticate();
+    if (result.success) {
       toast.success("지문 인증 성공!", {
         description: "어서오세요. 마음돌봄 서비스입니다.",
       });

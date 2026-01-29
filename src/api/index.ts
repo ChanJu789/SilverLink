@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { showGlobalDuplicateLoginDialog } from '@/contexts/DuplicateLoginContext';
 import { showGlobalSessionExpiredDialog } from '@/contexts/SessionExpiredContext';
+import { showGlobalSessionInvalidatedDialog } from '@/contexts/SessionInvalidatedContext';
 
 // API 기본 URL 설정
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -82,6 +83,24 @@ apiClient.interceptors.response.use(
         isRedirectingToLogin = true;
         // 모달 표시 (모달에서 확인 버튼 클릭 시 로그인 페이지로 이동)
         showGlobalSessionExpiredDialog();
+      }
+      return Promise.reject(error);
+    }
+
+    // 세션 강제 종료 에러 처리 - 다른 기기에서 로그인하여 현재 세션 종료됨
+    if (errorCode === 'SESSION_INVALIDATED') {
+      setAccessToken(null);
+
+      // 이미 로그인 페이지에 있으면 무시
+      const currentPath = window.location.pathname;
+      if (currentPath === '/login' || currentPath.startsWith('/login')) {
+        return Promise.reject(error);
+      }
+
+      // 중복 모달 표시 방지
+      if (!isRedirectingToLogin) {
+        isRedirectingToLogin = true;
+        showGlobalSessionInvalidatedDialog();
       }
       return Promise.reject(error);
     }
