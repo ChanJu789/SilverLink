@@ -31,7 +31,7 @@ import {
 
 const SeniorLogin = () => {
   const navigate = useNavigate();
-  const { isLoggedIn, user } = useAuth();
+  const { isLoggedIn, user, login } = useAuth();
 
   // 이미 로그인된 상태라면 어르신 대시보드로 리다이렉트
   useEffect(() => {
@@ -176,6 +176,21 @@ const SeniorLogin = () => {
 
           if (loginResponse.data.accessToken) {
             setAccessToken(loginResponse.data.accessToken);
+
+            // 사용자 정보 조회 후 AuthContext 로그인
+            try {
+              const profileResponse = await apiClient.get('/api/users/me');
+              const userProfile = profileResponse.data;
+              login(loginResponse.data.accessToken, userProfile);
+            } catch (profileErr) {
+              console.error('프로필 조회 실패:', profileErr);
+              // 프로필 조회 실패해도 기본 정보로 로그인 처리
+              login(loginResponse.data.accessToken, {
+                id: 0,
+                role: 'ELDERLY' as const,
+                name: '어르신',
+              });
+            }
           }
 
           toast.success("로그인 성공!", {
@@ -206,7 +221,22 @@ const SeniorLogin = () => {
   // 지문 인증 로그인
   const handleBiometricLogin = async () => {
     const result = await authenticate();
-    if (result.success) {
+    if (result.success && result.accessToken) {
+      // 사용자 정보 조회 후 AuthContext 로그인
+      try {
+        const profileResponse = await apiClient.get('/api/users/me');
+        const userProfile = profileResponse.data;
+        login(result.accessToken, userProfile);
+      } catch (profileErr) {
+        console.error('프로필 조회 실패:', profileErr);
+        // 프로필 조회 실패해도 기본 정보로 로그인 처리
+        login(result.accessToken, {
+          id: 0,
+          role: 'ELDERLY' as const,
+          name: '어르신',
+        });
+      }
+
       toast.success("지문 인증 성공!", {
         description: "어서오세요. 마음돌봄 서비스입니다.",
       });
