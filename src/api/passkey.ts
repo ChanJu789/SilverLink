@@ -36,24 +36,22 @@ export interface TokenResponse {
 
 /**
  * Passkey 등록 시작 (옵션 가져오기)
+ * ✅ 보안 강화: userId는 JWT에서 자동 추출되므로 body에 포함하지 않음
  */
-export const startPasskeyRegistration = async (userId: number): Promise<StartRegResponse> => {
-    const response = await apiClient.post<StartRegResponse>('/api/auth/passkey/register/options', {
-        userId,
-    });
+export const startPasskeyRegistration = async (): Promise<StartRegResponse> => {
+    const response = await apiClient.post<StartRegResponse>('/api/auth/passkey/register/options', {});
     return response.data;
 };
 
 /**
  * Passkey 등록 완료 (브라우저 인증 후 검증)
+ * ✅ 보안 강화: userId는 JWT에서 자동 추출되므로 body에 포함하지 않음
  */
 export const finishPasskeyRegistration = async (
-    userId: number,
     requestId: string,
     credentialJson: string
 ): Promise<void> => {
     await apiClient.post('/api/auth/passkey/register/verify', {
-        userId,
         requestId,
         credentialJson,
     });

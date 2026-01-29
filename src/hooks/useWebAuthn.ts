@@ -28,7 +28,7 @@ interface UseWebAuthnReturn {
   isRegistering: boolean;
   isAuthenticating: boolean;
   error: string | null;
-  register: (userId: number) => Promise<boolean>;
+  register: () => Promise<boolean>;  // ✅ userId 파라미터 제거
   authenticate: () => Promise<{ success: boolean; accessToken?: string; role?: string }>;
   checkPlatformAuthenticator: () => Promise<void>;
 }
@@ -46,7 +46,8 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
   }, []);
 
   // 지문/생체 인증 등록 (백엔드 API 연동)
-  const register = useCallback(async (userId: number): Promise<boolean> => {
+  // ✅ 보안 강화: userId는 JWT에서 자동 추출되므로 파라미터로 받지 않음
+  const register = useCallback(async (): Promise<boolean> => {
     if (!isWebAuthnSupported()) {
       setError("이 기기에서는 생체 인증을 지원하지 않습니다.");
       return false;
@@ -56,8 +57,8 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
     setError(null);
 
     try {
-      // 1. 서버에서 등록 옵션 가져오기
-      const startResponse = await startPasskeyRegistration(userId);
+      // 1. 서버에서 등록 옵션 가져오기 (userId는 JWT에서 자동 추출)
+      const startResponse = await startPasskeyRegistration();
       const creationOptions = JSON.parse(startResponse.creationOptionsJson);
 
       // challenge와 user.id를 ArrayBuffer로 변환
@@ -81,7 +82,7 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
         return false;
       }
 
-      // 3. 서버에 등록 완료 요청
+      // 3. 서버에 등록 완료 요청 (userId는 JWT에서 자동 추출)
       const attestationResponse = credential.response as AuthenticatorAttestationResponse;
       const credentialJson = JSON.stringify({
         id: credential.id,
@@ -94,7 +95,7 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
         clientExtensionResults: credential.getClientExtensionResults(),
       });
 
-      await finishPasskeyRegistration(userId, startResponse.requestId, credentialJson);
+      await finishPasskeyRegistration(startResponse.requestId, credentialJson);
       return true;
 
     } catch (err: unknown) {
