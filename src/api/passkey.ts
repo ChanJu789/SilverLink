@@ -39,8 +39,23 @@ export interface TokenResponse {
  * ✅ 보안 강화: userId는 JWT에서 자동 추출되므로 body에 포함하지 않음
  */
 export const startPasskeyRegistration = async (): Promise<StartRegResponse> => {
-    const response = await apiClient.post<StartRegResponse>('/api/auth/passkey/register/options', {});
-    return response.data;
+    try {
+        console.log('[Passkey] Starting registration - requesting options from server');
+        const response = await apiClient.post<StartRegResponse>('/api/auth/passkey/register/options', {});
+        console.log('[Passkey] Registration options received:', {
+            requestId: response.data.requestId,
+            hasCreationOptions: !!response.data.creationOptionsJson
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error('[Passkey] Failed to start registration:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            message: error.message
+        });
+        throw error;
+    }
 };
 
 /**

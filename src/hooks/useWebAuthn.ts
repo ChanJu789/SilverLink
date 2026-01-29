@@ -59,17 +59,35 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
     try {
       // 1. 서버에서 등록 옵션 가져오기 (userId는 JWT에서 자동 추출)
       const startResponse = await startPasskeyRegistration();
+      
+      // 응답 검증
+      if (!startResponse.creationOptionsJson) {
+        setError("서버 응답이 올바르지 않습니다.");
+        return false;
+      }
+      
       const creationOptions = JSON.parse(startResponse.creationOptionsJson);
 
-      // challenge와 user.id를 ArrayBuffer로 변환
+      // challenge와 user.id 검증 및 변환
+      if (!creationOptions.challenge) {
+        setError("인증 챌린지가 없습니다.");
+        return false;
+      }
+      if (!creationOptions.user?.id) {
+        setError("사용자 정보가 올바르지 않습니다.");
+        return false;
+      }
+      
       creationOptions.challenge = base64URLDecode(creationOptions.challenge);
       creationOptions.user.id = base64URLDecode(creationOptions.user.id);
 
       if (creationOptions.excludeCredentials) {
-        creationOptions.excludeCredentials = creationOptions.excludeCredentials.map((cred: any) => ({
-          ...cred,
-          id: base64URLDecode(cred.id),
-        }));
+        creationOptions.excludeCredentials = creationOptions.excludeCredentials
+          .filter((cred: any) => cred && cred.id) // id가 있는 것만 필터링
+          .map((cred: any) => ({
+            ...cred,
+            id: base64URLDecode(cred.id),
+          }));
       }
 
       // 2. 브라우저가 "지문 대세요" 창을 띄움
@@ -98,9 +116,26 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
       await finishPasskeyRegistration(startResponse.requestId, credentialJson);
       return true;
 
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error("Registration error:", err);
-      if (err instanceof Error) {
+      
+      // 백엔드 에러 처리
+      if (err.response) {
+        const status = err.response.status;
+        const errorData = err.response.data;
+        
+        if (status === 401 || status === 403) {
+          setError("로그인이 필요합니다. 다시 로그인해주세요.");
+        } else if (status === 500) {
+          console.error("Server error details:", errorData);
+          setError("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        } else if (errorData?.message) {
+          setError(errorData.message);
+        } else {
+          setError("등록 중 오류가 발생했습니다.");
+        }
+      } else if (err instanceof Error) {
+        // 브라우저 WebAuthn 에러
         if (err.name === "NotAllowedError") {
           setError("인증이 취소되었습니다. 다시 시도해주세요.");
         } else if (err.name === "NotSupportedError") {
@@ -108,6 +143,8 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
         } else {
           setError("등록 중 오류가 발생했습니다: " + err.message);
         }
+      } else {
+        setError("등록 중 오류가 발생했습니다.");
       }
       return false;
     } finally {
@@ -133,9 +170,20 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
     try {
       // 1. 서버에서 인증 옵션 가져오기
       const startResponse = await startPasskeyLogin();
+      
+      // 응답 검증
+      if (!startResponse.assertionRequestJson) {
+        setError("서버 응답이 올바르지 않습니다.");
+        return { success: false };
+      }
+      
       const assertionOptions = JSON.parse(startResponse.assertionRequestJson);
 
-      // challenge를 ArrayBuffer로 변환
+      // challenge 검증 및 변환
+      if (!assertionOptions.challenge) {
+        setError("인증 챌린지가 없습니다.");
+        return { success: false };
+      }
       assertionOptions.challenge = base64URLDecode(assertionOptions.challenge);
 
       // allowCredentials 처리 - 등록된 패스키가 없으면 에러
@@ -195,9 +243,26 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
         user: loginResponse.user,
       };
 
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error("Authentication error:", err);
-      if (err instanceof Error) {
+      
+      // 백엔드 에러 처리
+      if (err.response) {
+        const status = err.response.status;
+        const errorData = err.response.data;
+        
+        if (status === 401 || status === 403) {
+          setError("인증에 실패했습니다. 다시 시도해주세요.");
+        } else if (status === 500) {
+          console.error("Server error details:", errorData);
+          setError("서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        } else if (errorData?.message) {
+          setError(errorData.message);
+        } else {
+          setError("로그인 중 오류가 발생했습니다.");
+        }
+      } else if (err instanceof Error) {
+        // 브라우저 WebAuthn 에러
         if (err.name === "NotAllowedError") {
           setError("인증이 취소되었습니다. 다시 시도해주세요.");
         } else if (err.name === "NotSupportedError") {
@@ -214,6 +279,8 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
         } else {
           setError("로그인 중 오류가 발생했습니다: " + err.message);
         }
+      } else {
+        setError("로그인 중 오류가 발생했습니다.");
       }
       return { success: false };
     } finally {
@@ -242,6 +309,12 @@ const base64URLEncode = (buffer: ArrayBuffer): string => {
 };
 
 const base64URLDecode = (base64url: string): ArrayBuffer => {
+  // 방어 코드: undefined나 null 체크
+  if (!base64url || typeof base64url !== 'string') {
+    console.error('base64URLDecode: Invalid input', base64url);
+    throw new Error('Invalid base64url string');
+  }
+  
   const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
   const binary = atob(base64 + padding);

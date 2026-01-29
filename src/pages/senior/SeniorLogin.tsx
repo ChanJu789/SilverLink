@@ -220,22 +220,28 @@ const SeniorLogin = () => {
 
   // 지문 인증 로그인 - 새 API: authenticate()가 user 프로필도 함께 반환
   const handleBiometricLogin = async () => {
-    const result = await authenticate();
-    if (result.success && result.accessToken && result.user) {
-      // 추가 API 호출 없이 바로 로그인 처리
-      login(result.accessToken, {
-        id: result.user.id,
-        role: result.user.role as 'ELDERLY' | 'GUARDIAN' | 'COUNSELOR' | 'ADMIN',
-        name: result.user.name,
-        phone: result.user.phone,
-      });
+    try {
+      const result = await authenticate();
+      if (result.success && result.accessToken && result.user) {
+        // 추가 API 호출 없이 바로 로그인 처리
+        login(result.accessToken, {
+          id: result.user.id,
+          role: result.user.role as 'ELDERLY' | 'GUARDIAN' | 'COUNSELOR' | 'ADMIN',
+          name: result.user.name,
+          phone: result.user.phone,
+        });
 
-      toast.success("지문 인증 성공!", {
-        description: "어서오세요. 마음돌봄 서비스입니다.",
-      });
-      navigate("/senior");
-    } else if (error) {
-      toast.error(error);
+        toast.success("지문 인증 성공!", {
+          description: "어서오세요. 마음돌봄 서비스입니다.",
+        });
+        navigate("/senior");
+      } else if (error) {
+        // useWebAuthn 훅에서 설정한 에러 메시지 표시
+        toast.error(error);
+      }
+    } catch (err) {
+      console.error("Biometric login error:", err);
+      toast.error("지문 인증 중 오류가 발생했어요. 다시 시도해주세요.");
     }
   };
 
