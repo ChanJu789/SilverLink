@@ -35,14 +35,15 @@ const SeniorBiometric = () => {
   }, [checkPlatformAuthenticator]);
 
   // 지문 등록 (로그인 후에만 가능)
+  // ✅ 보안 강화: userId는 JWT에서 자동 추출되므로 전달하지 않음
   const handleBiometricRegistration = async () => {
     if (!registrationName.trim()) {
       toast.error("이름을 입력해주세요.");
       return;
     }
 
-    const credential = await register(registrationName);
-    if (credential) {
+    const success = await register();  // ✅ userId 파라미터 제거
+    if (success) {
       toast.success("지문 등록 완료!", {
         description: "이제 지문으로 로그인할 수 있어요.",
       });

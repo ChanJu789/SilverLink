@@ -28,7 +28,7 @@ interface UseWebAuthnReturn {
   isRegistering: boolean;
   isAuthenticating: boolean;
   error: string | null;
-  register: (userId: number) => Promise<boolean>;
+  register: () => Promise<boolean>;  // ✅ userId 파라미터 제거
   authenticate: () => Promise<{ success: boolean; accessToken?: string; role?: string }>;
   checkPlatformAuthenticator: () => Promise<void>;
 }
@@ -46,7 +46,8 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
   }, []);
 
   // 지문/생체 인증 등록 (백엔드 API 연동)
-  const register = useCallback(async (userId: number): Promise<boolean> => {
+  // ✅ 보안 강화: userId는 JWT에서 자동 추출되므로 파라미터로 받지 않음
+  const register = useCallback(async (): Promise<boolean> => {
     if (!isWebAuthnSupported()) {
       setError("이 기기에서는 생체 인증을 지원하지 않습니다.");
       return false;
@@ -56,8 +57,8 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
     setError(null);
 
     try {
-      // 1. 서버에서 등록 옵션 가져오기
-      const startResponse = await startPasskeyRegistration(userId);
+      // 1. 서버에서 등록 옵션 가져오기 (userId는 JWT에서 자동 추출)
+      const startResponse = await startPasskeyRegistration();
       const creationOptions = JSON.parse(startResponse.creationOptionsJson);
 
       // challenge와 user.id를 ArrayBuffer로 변환
@@ -81,7 +82,7 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
         return false;
       }
 
-      // 3. 서버에 등록 완료 요청
+      // 3. 서버에 등록 완료 요청 (userId는 JWT에서 자동 추출)
       const attestationResponse = credential.response as AuthenticatorAttestationResponse;
       const credentialJson = JSON.stringify({
         id: credential.id,
@@ -94,7 +95,7 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
         clientExtensionResults: credential.getClientExtensionResults(),
       });
 
-      await finishPasskeyRegistration(userId, startResponse.requestId, credentialJson);
+      await finishPasskeyRegistration(startResponse.requestId, credentialJson);
       return true;
 
     } catch (err: unknown) {
@@ -115,7 +116,12 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
   }, []);
 
   // 지문/생체 인증 로그인 (백엔드 API 연동)
-  const authenticate = useCallback(async (): Promise<{ success: boolean; accessToken?: string; role?: string }> => {
+  // 새 응답: 토큰 + 사용자 프로필 함께 반환 (추가 API 호출 불필요)
+  const authenticate = useCallback(async (): Promise<{
+    success: boolean;
+    accessToken?: string;
+    user?: { id: number; name: string; phone: string; role: string; };
+  }> => {
     if (!isWebAuthnSupported()) {
       setError("이 기기에서는 생체 인증을 지원하지 않습니다.");
       return { success: false };
@@ -129,13 +135,26 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
       const startResponse = await startPasskeyLogin();
       const assertionOptions = JSON.parse(startResponse.assertionRequestJson);
 
-      // challenge와 allowCredentials.id를 ArrayBuffer로 변환
+      // challenge를 ArrayBuffer로 변환
       assertionOptions.challenge = base64URLDecode(assertionOptions.challenge);
-      if (assertionOptions.allowCredentials) {
-        assertionOptions.allowCredentials = assertionOptions.allowCredentials.map((cred: any) => ({
-          ...cred,
-          id: base64URLDecode(cred.id),
-        }));
+
+      // allowCredentials 처리 - 등록된 패스키가 없으면 에러
+      if (assertionOptions.allowCredentials && assertionOptions.allowCredentials.length > 0) {
+        assertionOptions.allowCredentials = assertionOptions.allowCredentials
+          .filter((cred: any) => cred && cred.id) // id가 있는 것만 필터링
+          .map((cred: any) => ({
+            ...cred,
+            id: base64URLDecode(cred.id),
+          }));
+
+        // 필터링 후 빈 배열이면 등록된 패스키 없음
+        if (assertionOptions.allowCredentials.length === 0) {
+          setError("등록된 생체 인증 정보가 없습니다. 먼저 등록해주세요.");
+          return { success: false };
+        }
+      } else {
+        // allowCredentials가 없거나 비어있으면 - Passkey Discoverable Credentials 시도
+        // 이 경우 브라우저가 저장된 모든 패스키를 검색
       }
 
       // 2. 브라우저가 "저장된 패스키로 로그인할까요?" 창을 띄움
@@ -148,7 +167,7 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
         return { success: false };
       }
 
-      // 3. 서버에 인증 완료 요청 및 토큰 발급 받기
+      // 3. 서버에 인증 완료 요청 및 토큰 + 사용자 프로필 발급 받기
       const assertionResponse = credential.response as AuthenticatorAssertionResponse;
       const credentialJson = JSON.stringify({
         id: credential.id,
@@ -164,15 +183,16 @@ export const useWebAuthn = (): UseWebAuthnReturn => {
       });
 
       // Note: backend uses 'requsetId' (typo)
-      const tokenResponse = await finishPasskeyLogin(startResponse.requsetId, credentialJson);
+      const loginResponse = await finishPasskeyLogin(startResponse.requsetId, credentialJson);
 
       // 토큰 저장
-      setAccessToken(tokenResponse.accessToken);
+      setAccessToken(loginResponse.accessToken);
 
+      // 성공: 토큰 + 사용자 프로필 반환 (추가 API 호출 불필요!)
       return {
         success: true,
-        accessToken: tokenResponse.accessToken,
-        role: tokenResponse.role,
+        accessToken: loginResponse.accessToken,
+        user: loginResponse.user,
       };
 
     } catch (err: unknown) {

@@ -218,24 +218,17 @@ const SeniorLogin = () => {
     }
   };
 
-  // 지문 인증 로그인
+  // 지문 인증 로그인 - 새 API: authenticate()가 user 프로필도 함께 반환
   const handleBiometricLogin = async () => {
     const result = await authenticate();
-    if (result.success && result.accessToken) {
-      // 사용자 정보 조회 후 AuthContext 로그인
-      try {
-        const profileResponse = await apiClient.get('/api/users/me');
-        const userProfile = profileResponse.data;
-        login(result.accessToken, userProfile);
-      } catch (profileErr) {
-        console.error('프로필 조회 실패:', profileErr);
-        // 프로필 조회 실패해도 기본 정보로 로그인 처리
-        login(result.accessToken, {
-          id: 0,
-          role: 'ELDERLY' as const,
-          name: '어르신',
-        });
-      }
+    if (result.success && result.accessToken && result.user) {
+      // 추가 API 호출 없이 바로 로그인 처리
+      login(result.accessToken, {
+        id: result.user.id,
+        role: result.user.role as 'ELDERLY' | 'GUARDIAN' | 'COUNSELOR' | 'ADMIN',
+        name: result.user.name,
+        phone: result.user.phone,
+      });
 
       toast.success("지문 인증 성공!", {
         description: "어서오세요. 마음돌봄 서비스입니다.",

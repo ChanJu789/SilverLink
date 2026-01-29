@@ -64,6 +64,10 @@ const MemberRegistration = () => {
     sensitiveInfoApproval: true,
     medicationInfoApproval: true,
     healthInfoApproval: true,
+    // 통화 스케줄
+    preferredCallTime: "09:00",
+    preferredCallDays: ["MON", "WED", "FRI"] as string[],
+    callScheduleEnabled: true,
   });
   const [seniorPhoneVerified, setSeniorPhoneVerified] = useState(false);
   const [seniorProofToken, setSeniorProofToken] = useState("");
@@ -183,12 +187,15 @@ const MemberRegistration = () => {
         // email: optional
         admCode: Number(seniorData.admCode) || 12345678, // 임시 기본값 또는 입력받기
         birthDate: seniorData.birthDate,
-        gender: seniorData.gender,
+        gender: seniorData.gender as 'M' | 'F',
         addressLine1: seniorData.address,
         addressLine2: seniorData.detailAddress,
         zipcode: seniorData.zipcode || "00000",
         memo: seniorData.memo,
-        proofToken: seniorProofToken, // 휴대폰 인증 토큰
+        // 통화 스케줄
+        preferredCallTime: seniorData.callScheduleEnabled ? seniorData.preferredCallTime : undefined,
+        preferredCallDays: seniorData.callScheduleEnabled ? seniorData.preferredCallDays : undefined,
+        callScheduleEnabled: seniorData.callScheduleEnabled,
       });
 
       toast({
@@ -200,6 +207,7 @@ const MemberRegistration = () => {
         loginId: "", password: "", name: "", birthDate: "", gender: "M",
         phone: "", address: "", detailAddress: "", zipcode: "", admCode: "",
         memo: "", sensitiveInfoApproval: true, medicationInfoApproval: true, healthInfoApproval: true,
+        preferredCallTime: "09:00", preferredCallDays: ["MON", "WED", "FRI"], callScheduleEnabled: true,
       });
       setSeniorPhoneVerified(false);
       setSeniorProofToken("");
@@ -445,6 +453,81 @@ const MemberRegistration = () => {
                           <Input value={seniorData.memo} onChange={e => setSeniorData({ ...seniorData, memo: e.target.value })} placeholder="관리자 메모" />
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* 통화 스케줄 */}
+                  <Card className="shadow-card border-0">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Phone className="w-5 h-5 text-primary" /> 통화 스케줄
+                      </CardTitle>
+                      <CardDescription>어르신과의 정기 통화 일정을 설정합니다</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-base">스케줄 활성화</Label>
+                          <p className="text-sm text-muted-foreground">정기 통화 스케줄 사용 여부</p>
+                        </div>
+                        <Switch
+                          checked={seniorData.callScheduleEnabled}
+                          onCheckedChange={(checked) => setSeniorData({ ...seniorData, callScheduleEnabled: checked })}
+                        />
+                      </div>
+
+                      {seniorData.callScheduleEnabled && (
+                        <>
+                          <div className="space-y-2">
+                            <Label>선호 통화 시간</Label>
+                            <Select
+                              value={seniorData.preferredCallTime}
+                              onValueChange={(v) => setSeniorData({ ...seniorData, preferredCallTime: v })}
+                            >
+                              <SelectTrigger><SelectValue placeholder="시간 선택" /></SelectTrigger>
+                              <SelectContent>
+                                {["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"].map((time) => (
+                                  <SelectItem key={time} value={time}>{time}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>선호 통화 요일</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { value: "MON", label: "월" },
+                                { value: "TUE", label: "화" },
+                                { value: "WED", label: "수" },
+                                { value: "THU", label: "목" },
+                                { value: "FRI", label: "금" },
+                              ].map((day) => (
+                                <Badge
+                                  key={day.value}
+                                  variant={seniorData.preferredCallDays.includes(day.value) ? "default" : "outline"}
+                                  className="cursor-pointer px-4 py-2 text-sm"
+                                  onClick={() => {
+                                    const newDays = seniorData.preferredCallDays.includes(day.value)
+                                      ? seniorData.preferredCallDays.filter((d) => d !== day.value)
+                                      : [...seniorData.preferredCallDays, day.value];
+                                    setSeniorData({ ...seniorData, preferredCallDays: newDays });
+                                  }}
+                                >
+                                  {day.label}
+                                </Badge>
+                              ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              선택된 요일: {seniorData.preferredCallDays.length > 0
+                                ? seniorData.preferredCallDays.map(d =>
+                                  d === "MON" ? "월" : d === "TUE" ? "화" : d === "WED" ? "수" : d === "THU" ? "목" : "금"
+                                ).join(", ")
+                                : "없음"}
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
 
