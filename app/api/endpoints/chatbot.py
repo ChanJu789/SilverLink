@@ -5,7 +5,7 @@ from dependency_injector.wiring import Provide
 from fastapi import APIRouter, Depends
 
 from app.core.container import Container
-from app.core.middleware import inject_callbot
+from app.core.middleware import inject_chatbot
 # from app.model.user import User
 from app.chatbot.services.chatbot_service import ChatbotService
 from app.chatbot.services.data_sync_service import DataSyncService
@@ -15,7 +15,7 @@ router = APIRouter(
     tags=["chatbot"],
 )
 
-@inject_callbot
+@inject_chatbot
 def get_post_list(
     service: ChatbotService = Depends(Provide[Container.chatbot_service]),
 ):
@@ -29,7 +29,7 @@ def get_post_list(
     summary="챗봇 기능 상태 확인",
     description="챗봇 서비스의 핵심 기능(Milvus 연결, 설정 로드)이 정상적인지 확인합니다."
 )
-@inject_callbot
+@inject_chatbot
 def chat_status(service: ChatbotService = Depends(Provide[Container.chatbot_service])):
     """챗봇 기능 상태 점검"""
     status = {
@@ -79,7 +79,7 @@ def chat_status(service: ChatbotService = Depends(Provide[Container.chatbot_serv
     - elderly_id: 어르신 ID
     """
 )
-@inject_callbot
+@inject_chatbot
 async def chat_endpoint(request: ChatRequest, service: ChatbotService = Depends(Provide[Container.chatbot_service])):
     """챗봇 질문 처리"""
     result = await service.process_chat(
@@ -111,7 +111,7 @@ async def chat_endpoint(request: ChatRequest, service: ChatbotService = Depends(
     - 초기 데이터 셋업 시
     """
 )
-@inject_callbot
+@inject_chatbot
 def sync_faqs(datasync_service: DataSyncService = Depends(Provide[Container.datasync_service])):
     """FAQ 데이터 동기화"""
     try:
@@ -136,7 +136,7 @@ def sync_faqs(datasync_service: DataSyncService = Depends(Provide[Container.data
     - 초기 데이터 셋업 시
     """
 )
-@inject_callbot
+@inject_chatbot
 def sync_inquiries(datasync_service: DataSyncService = Depends(Provide[Container.datasync_service])):
     """Inquiry 데이터 동기화"""
     try:
