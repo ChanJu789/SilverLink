@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DuplicateLoginProvider } from "@/contexts/DuplicateLoginContext";
 import { SessionExpiredProvider } from "@/contexts/SessionExpiredContext";
+import { SessionInvalidatedProvider } from "@/contexts/SessionInvalidatedContext";
 import { lazy, Suspense } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
@@ -152,7 +153,7 @@ const App = () => (
         </SessionExpiredProvider>
       </DuplicateLoginProvider>
     </AuthProvider>
-  </QueryClientProvider >
+  </QueryClientProvider>
 );
 
 export default App;

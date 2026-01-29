@@ -16,6 +16,7 @@ export interface RequestCodeRequest {
 export interface RequestCodeResponse {
     verificationId: number;
     expireAt: string; // ISO DateTime
+    expiresInSeconds?: number; // 서버에서 계산한 남은 시간(초)
     debugCode?: string; // 개발용
 }
 
