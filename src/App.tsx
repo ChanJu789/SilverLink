@@ -135,18 +135,6 @@ const App = () => (
                   <Route path="/admin/facilities" element={<ProtectedRoute allowedRoles={["ADMIN"]}><FacilityManagement /></ProtectedRoute>} />
                   <Route path="/admin/counselors/new" element={<ProtectedRoute allowedRoles={["ADMIN"]}><CounselorRegistration /></ProtectedRoute>} />
 
-<<<<<<< HEAD
-                    {/* Senior Routes - ELDERLY role only */}
-                    <Route path="/senior/login" element={<SeniorLogin />} />
-                    <Route path="/senior" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorDashboard /></ProtectedRoute>} />
-                    <Route path="/senior/ocr" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorOCR /></ProtectedRoute>} />
-                    <Route path="/senior/health" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorHealth /></ProtectedRoute>} />
-                    <Route path="/senior/medication" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorMedication /></ProtectedRoute>} />
-                    <Route path="/senior/notices" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorNotices /></ProtectedRoute>} />
-                    <Route path="/senior/faq" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorFAQ /></ProtectedRoute>} />
-                    <Route path="/senior/profile" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorProfile /></ProtectedRoute>} />
-                    <Route path="/senior/biometric" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorBiometric /></ProtectedRoute>} />
-=======
                   {/* Senior Routes - ELDERLY role only */}
                   <Route path="/senior/login" element={<SeniorLogin />} />
                   <Route path="/senior" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorDashboard /></ProtectedRoute>} />
@@ -155,7 +143,8 @@ const App = () => (
                   <Route path="/senior/medication" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorMedication /></ProtectedRoute>} />
                   <Route path="/senior/notices" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorNotices /></ProtectedRoute>} />
                   <Route path="/senior/faq" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorFAQ /></ProtectedRoute>} />
->>>>>>> develop
+                  <Route path="/senior/profile" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorProfile /></ProtectedRoute>} />
+                  <Route path="/senior/biometric" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorBiometric /></ProtectedRoute>} />
 
                   {/* Catch-all for 404 */}
                   <Route path="*" element={<NotFound />} />
