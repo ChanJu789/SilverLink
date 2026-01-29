@@ -39,8 +39,23 @@ export interface TokenResponse {
  * ✅ 보안 강화: userId는 JWT에서 자동 추출되므로 body에 포함하지 않음
  */
 export const startPasskeyRegistration = async (): Promise<StartRegResponse> => {
-    const response = await apiClient.post<StartRegResponse>('/api/auth/passkey/register/options', {});
-    return response.data;
+    try {
+        console.log('[Passkey] Starting registration - requesting options from server');
+        const response = await apiClient.post<StartRegResponse>('/api/auth/passkey/register/options', {});
+        console.log('[Passkey] Registration options received:', {
+            requestId: response.data.requestId,
+            hasCreationOptions: !!response.data.creationOptionsJson
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error('[Passkey] Failed to start registration:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            message: error.message
+        });
+        throw error;
+    }
 };
 
 /**
@@ -61,10 +76,25 @@ export const finishPasskeyRegistration = async (
  * Passkey 로그인 시작 (옵션 가져오기)
  */
 export const startPasskeyLogin = async (loginId?: string): Promise<StartAuthResponse> => {
-    const response = await apiClient.post<StartAuthResponse>('/api/auth/passkey/login/options', {
-        loginId: loginId || null,
-    });
-    return response.data;
+    try {
+        console.log('[Passkey] Starting login - requesting options from server');
+        const response = await apiClient.post<StartAuthResponse>('/api/auth/passkey/login/options', {
+            loginId: loginId || null,
+        });
+        console.log('[Passkey] Login options received:', {
+            requestId: response.data.requsetId,
+            hasAssertionRequest: !!response.data.assertionRequestJson
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error('[Passkey] Failed to start login:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            message: error.message
+        });
+        throw error;
+    }
 };
 
 /**
@@ -74,11 +104,27 @@ export const finishPasskeyLogin = async (
     requestId: string,
     credentialJson: string
 ): Promise<PasskeyLoginResponse> => {
-    const response = await apiClient.post<PasskeyLoginResponse>('/api/auth/passkey/login/verify', {
-        requestId,
-        credentialJson,
-    });
-    return response.data;
+    try {
+        console.log('[Passkey] Finishing login - verifying credential');
+        const response = await apiClient.post<PasskeyLoginResponse>('/api/auth/passkey/login/verify', {
+            requestId,
+            credentialJson,
+        });
+        console.log('[Passkey] Login successful:', {
+            hasToken: !!response.data.accessToken,
+            userId: response.data.user?.id,
+            userName: response.data.user?.name
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error('[Passkey] Failed to finish login:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            message: error.message
+        });
+        throw error;
+    }
 };
 
 export default {
