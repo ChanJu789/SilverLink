@@ -15,6 +15,19 @@ export interface StartAuthResponse {
     assertionRequestJson: string;
 }
 
+// Passkey 로그인 응답 - 사용자 프로필 포함
+export interface PasskeyLoginResponse {
+    accessToken: string;
+    expiresInSeconds: number;
+    user: {
+        id: number;
+        name: string;
+        phone: string;
+        role: string;
+    };
+}
+
+// Legacy 호환용 (일반 로그인)
 export interface TokenResponse {
     accessToken: string;
     expiresIn: number;
@@ -57,13 +70,13 @@ export const startPasskeyLogin = async (loginId?: string): Promise<StartAuthResp
 };
 
 /**
- * Passkey 로그인 완료 (브라우저 인증 후 검증 및 토큰 발급)
+ * Passkey 로그인 완료 (브라우저 인증 후 검증 및 토큰 + 사용자 프로필 발급)
  */
 export const finishPasskeyLogin = async (
     requestId: string,
     credentialJson: string
-): Promise<TokenResponse> => {
-    const response = await apiClient.post<TokenResponse>('/api/auth/passkey/login/verify', {
+): Promise<PasskeyLoginResponse> => {
+    const response = await apiClient.post<PasskeyLoginResponse>('/api/auth/passkey/login/verify', {
         requestId,
         credentialJson,
     });

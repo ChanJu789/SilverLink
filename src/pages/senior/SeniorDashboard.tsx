@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -25,6 +26,7 @@ import {
 
 const SeniorDashboard = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [fontSize, setFontSize] = useState(18);
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -46,7 +48,8 @@ const SeniorDashboard = () => {
     setIsEmergencyOpen(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 
@@ -130,7 +133,7 @@ const SeniorDashboard = () => {
   const isDaytime = hour >= 6 && hour < 18;
 
   return (
-    <div 
+    <div
       className="min-h-screen bg-background"
       style={{ fontSize: `${fontSize}px` }}
     >
@@ -150,9 +153,10 @@ const SeniorDashboard = () => {
             variant="ghost"
             size="lg"
             onClick={handleLogout}
-            className="text-primary-foreground hover:bg-primary-foreground/20 p-3"
+            className="text-primary-foreground hover:bg-primary-foreground/20 p-3 flex items-center gap-2"
           >
-            <LogOut className="w-8 h-8" />
+            <LogOut className="w-6 h-6" />
+            <span className="text-lg font-medium">로그아웃</span>
           </Button>
         </div>
 

@@ -395,6 +395,10 @@ export interface RegisterElderlyRequest {
     addressLine2?: string;
     zipcode?: string;
     memo?: string;
+    // 통화 스케줄 (선택)
+    preferredCallTime?: string;
+    preferredCallDays?: string[];
+    callScheduleEnabled?: boolean;
 }
 
 export interface RegisterGuardianRequest {
