@@ -95,6 +95,13 @@ class Configs(BaseSettings):
     # number
     SILVERLINK_NUMBER:str = os.getenv("SILVERLINK_NUMBER")
     NUMBER:str = ''
+    
+    # AWS SQS Configuration
+    AWS_REGION: str = os.getenv("AWS_REGION", "ap-northeast-2")
+    AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+    SQS_QUEUE_URL: str = os.getenv("SQS_QUEUE_URL", "")
+    SQS_DLQ_URL: str = os.getenv("SQS_DLQ_URL", "")
 
     class Config:
         case_sensitive = True

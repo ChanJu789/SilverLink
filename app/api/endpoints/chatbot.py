@@ -15,7 +15,7 @@ router = APIRouter(
     tags=["chatbot"],
 )
 
-@inject_chatbot 
+@inject_chatbot
 def get_post_list(
     service: ChatbotService = Depends(Provide[Container.chatbot_service]),
 ):
