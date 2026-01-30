@@ -150,7 +150,7 @@ const MemberManagement = () => {
   const [selectedCounselor, setSelectedCounselor] = useState<CounselorResponse | null>(null);
   const [counselorElderly, setCounselorElderly] = useState<AssignmentResponse[]>([]);
   const [selectedGuardian, setSelectedGuardian] = useState<GuardianResponse | null>(null);
-  const [guardianElderly, setGuardianElderly] = useState<GuardianElderlyResponse | null>(null);
+  const [guardianElderly, setGuardianElderly] = useState<GuardianElderlyResponse[]>([]);
   const [selectedElderly, setSelectedElderly] = useState<ElderlySummaryResponse | null>(null);
   const [elderlyAssignment, setElderlyAssignment] = useState<AssignmentResponse | null>(null);
   const [elderlyGuardian, setElderlyGuardian] = useState<GuardianResponse | null>(null);
@@ -314,7 +314,7 @@ const MemberManagement = () => {
       }
     } catch (error) {
       console.error('Failed to fetch guardian elderly:', error);
-      setGuardianElderly(null);
+      setGuardianElderly([]);
     } finally {
       setIsDetailLoading(false);
     }
