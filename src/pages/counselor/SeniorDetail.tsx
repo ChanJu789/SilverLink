@@ -47,6 +47,7 @@ import {
   Radar,
 } from "recharts";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Mock data
 const seniorData = {
@@ -141,6 +142,7 @@ const radarData = [
 export default function SeniorDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [newRecord, setNewRecord] = useState({
     type: "정기 상담",
@@ -178,7 +180,7 @@ export default function SeniorDetail() {
   return (
     <DashboardLayout
       role="counselor"
-      userName="이상담"
+      userName={user?.name || "상담사"}
       userAvatar=""
       navItems={counselorNavItems}
     >

@@ -41,6 +41,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import { useAuth } from "@/contexts/AuthContext";
 
 const requests = [
   {
@@ -99,6 +100,7 @@ const infoTypes = [
 ];
 
 const CounselorSensitiveInfo = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -141,7 +143,7 @@ const CounselorSensitiveInfo = () => {
   return (
     <DashboardLayout
       role="counselor"
-      userName="김상담"
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">
