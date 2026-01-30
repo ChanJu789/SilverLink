@@ -1,27 +1,61 @@
 import apiClient from './index';
 
 // 접근 권한 범위 타입
-export type AccessScope = 'HEALTH_INFO' | 'MEDICATION_INFO' | 'CALL_RECORD' | 'ALL';
+export type AccessScope = 'HEALTH_INFO' | 'MEDICATION' | 'CALL_RECORDS' | 'ALL';
 
 // 요청 상태 타입
 export type AccessRequestStatus = 'PENDING' | 'DOCUMENTS_VERIFIED' | 'APPROVED' | 'REJECTED' | 'REVOKED' | 'EXPIRED';
 
 // 접근 요청 응답 타입
 export interface AccessRequestResponse {
-    requestId: number;
-    guardianUserId: number;
-    guardianName: string;
-    elderlyUserId: number;
+    id: number;
+    requester: {
+        userId: number;
+        name: string;
+        phone: string;
+        email: string;
+    };
+    elderly: {
+        userId: number;
+        name: string;
+        phone: string;
+        admCode: number;
+        sidoName: string;
+        sigunguName: string;
+        dongName: string;
+        fullAddress: string;
+    };
+    scope: AccessScope;
+    scopeDescription: string;
+    status: AccessRequestStatus;
+    statusDescription: string;
+    documentVerified: boolean;
+    reviewer: {
+        userId: number;
+        name: string;
+    } | null;
+    requestedAt: string;
+    decidedAt: string | null;
+    expiresAt: string | null;
+    revokedAt: string | null;
+    decisionNote: string | null;
+    accessGranted: boolean;
+}
+
+export interface AccessRequestSummary {
+    id: number;
+    requesterName: string;
     elderlyName: string;
     scope: AccessScope;
-    reason: string;
+    scopeDescription: string;
     status: AccessRequestStatus;
-    createdAt: string;
-    processedAt?: string;
-    processedByName?: string;
-    rejectReason?: string;
-    expiresAt?: string;
-    documentsVerified: boolean;
+    statusDescription: string;
+    documentVerified: boolean;
+    requestedAt: string;
+    decidedAt: string | null;
+    decisionNote: string | null;
+    reviewedBy: string | null;
+    accessGranted: boolean;
 }
 
 // 요청 생성 타입
@@ -57,8 +91,8 @@ export interface PendingStats {
  * 내 요청 목록 조회 (보호자)
  * GET /api/access-requests/my
  */
-export const getMyRequests = async (): Promise<AccessRequestResponse[]> => {
-    const response = await apiClient.get<AccessRequestResponse[]>('/api/access-requests/my');
+export const getMyRequests = async (): Promise<AccessRequestSummary[]> => {
+    const response = await apiClient.get<AccessRequestSummary[]>('/api/access-requests/my');
     return response.data;
 };
 
@@ -87,8 +121,8 @@ export const cancelRequest = async (requestId: number): Promise<void> => {
  * 대기 중인 요청 목록 조회 (관리자)
  * GET /api/access-requests/pending
  */
-export const getPendingRequests = async (): Promise<AccessRequestResponse[]> => {
-    const response = await apiClient.get<AccessRequestResponse[]>('/api/access-requests/pending');
+export const getPendingRequests = async (): Promise<AccessRequestSummary[]> => {
+    const response = await apiClient.get<AccessRequestSummary[]>('/api/access-requests/pending');
     return response.data;
 };
 
@@ -96,8 +130,8 @@ export const getPendingRequests = async (): Promise<AccessRequestResponse[]> => 
  * 서류 확인 완료된 대기 요청 목록 (관리자)
  * GET /api/access-requests/pending/verified
  */
-export const getVerifiedPendingRequests = async (): Promise<AccessRequestResponse[]> => {
-    const response = await apiClient.get<AccessRequestResponse[]>('/api/access-requests/pending/verified');
+export const getVerifiedPendingRequests = async (): Promise<AccessRequestSummary[]> => {
+    const response = await apiClient.get<AccessRequestSummary[]>('/api/access-requests/pending/verified');
     return response.data;
 };
 
@@ -163,8 +197,8 @@ export const revokeAccess = async (requestId: number, request?: RevokeAccessRequ
  * 나에 대한 접근 요청 목록 조회 (어르신)
  * GET /api/access-requests/for-me
  */
-export const getRequestsForMe = async (): Promise<AccessRequestResponse[]> => {
-    const response = await apiClient.get<AccessRequestResponse[]>('/api/access-requests/for-me');
+export const getRequestsForMe = async (): Promise<AccessRequestSummary[]> => {
+    const response = await apiClient.get<AccessRequestSummary[]>('/api/access-requests/for-me');
     return response.data;
 };
 

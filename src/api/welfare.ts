@@ -24,6 +24,15 @@ export const welfareApi = {
         const response = await apiClient.get(`/api/welfare/${welfareId}`);
         return response.data;
     },
+
+    /**
+     * 데이터 수동 동기화 (관리자)
+     * POST /api/welfare/sync/manual
+     */
+    manualSync: async (): Promise<string> => {
+        const response = await apiClient.post('/api/welfare/sync/manual');
+        return response.data;
+    },
 };
 
 export default welfareApi;

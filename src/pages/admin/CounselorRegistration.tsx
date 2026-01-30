@@ -154,10 +154,7 @@ export default function CounselorRegistration() {
         <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
             <div className="container mx-auto p-6 max-w-3xl">
                 <div className="flex items-center gap-4 mb-6">
-                    <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-                        <ArrowLeft className="w-4 h-4 mr-1" />
-                        뒤로가기
-                    </Button>
+
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <UserPlus className="w-6 h-6 text-primary" />
                         상담사 등록
@@ -276,7 +273,7 @@ export default function CounselorRegistration() {
 
                     <div className="flex justify-end gap-2">
                         <Button type="button" variant="outline" onClick={() => navigate(-1)}>취소</Button>
-                        <Button type="submit" disabled={isLoading || !formData.admCode}>
+                        <Button type="submit" disabled={isLoading || !formData.admCode || !formData.loginId || !formData.password || !formData.name || !formData.phone}>
                             {isLoading ? '저장 중...' : '상담사 등록 저장'}
                         </Button>
                     </div>

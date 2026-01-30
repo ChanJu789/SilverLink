@@ -82,17 +82,18 @@ const SensitiveInfoManagement = () => {
       const pendingData = await accessRequestsApi.getPendingRequests();
 
       // 응답을 화면에 표시할 형태로 변환
-      const mappedRequests: RequestDisplay[] = pendingData.map((r: AccessRequestResponse) => ({
-        id: r.requestId,
-        guardianName: r.guardianName || '보호자',
+      // map from AccessRequestSummary
+      const mappedRequests: RequestDisplay[] = pendingData.map((r: any) => ({
+        id: r.id,
+        guardianName: r.requesterName || '보호자',
         elderlyName: r.elderlyName || '어르신',
         scope: mapScopeToKorean(r.scope),
-        reason: r.reason,
+        reason: "-", // Summary does not include request reason
         status: r.status,
-        createdAt: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '',
-        processedAt: r.processedAt ? new Date(r.processedAt).toLocaleDateString() : undefined,
-        processedByName: r.processedByName,
-        rejectReason: r.rejectReason,
+        createdAt: r.requestedAt ? new Date(r.requestedAt).toLocaleDateString() : '',
+        processedAt: r.decidedAt ? new Date(r.decidedAt).toLocaleDateString() : undefined,
+        processedByName: r.reviewedBy,
+        rejectReason: r.decisionNote,
         documentsVerified: r.documentsVerified,
       }));
 
@@ -122,8 +123,8 @@ const SensitiveInfoManagement = () => {
   const mapScopeToKorean = (scope: string): string => {
     switch (scope) {
       case 'HEALTH_INFO': return '건강정보';
-      case 'MEDICATION_INFO': return '복약정보';
-      case 'CALL_RECORD': return '통화기록';
+      case 'MEDICATION': return '복약정보';
+      case 'CALL_RECORDS': return '통화기록';
       case 'ALL': return '전체';
       default: return scope;
     }

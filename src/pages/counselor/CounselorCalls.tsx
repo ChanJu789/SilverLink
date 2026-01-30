@@ -33,6 +33,7 @@ import { counselorNavItems } from "@/config/counselorNavItems";
 import callReviewsApi from "@/api/callReviews";
 import usersApi from "@/api/users";
 import { CallRecordSummaryResponse, MyProfileResponse } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const EmotionIcon = ({ emotion }: { emotion: string }) => {
   switch (emotion?.toLowerCase()) {
@@ -53,16 +54,15 @@ const CounselorCalls = () => {
   const [emotionFilter, setEmotionFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [callRecords, setCallRecords] = useState<CallRecordSummaryResponse[]>([]);
-  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
-        // 사용자 프로필 조회
-        const profile = await usersApi.getMyProfile();
-        setUserProfile(profile);
+        // 사용자 프로필 조회 (Removed)
+
 
         // 통화 기록 조회
         const callsResponse = await callReviewsApi.getCallRecordsForCounselor({ size: 50 });
@@ -105,7 +105,7 @@ const CounselorCalls = () => {
   return (
     <DashboardLayout
       role="counselor"
-      userName={userProfile?.name || "상담사"}
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">

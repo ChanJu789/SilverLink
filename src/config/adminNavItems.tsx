@@ -1,4 +1,6 @@
-import { Home, Users, UserPlus, UserCog, BarChart3, MessageSquare, Shield, Megaphone, Settings, FileText, MapPin, User } from "lucide-react";
+import {
+  Home, Users, UserPlus, UserCog, BarChart3, MessageSquare, Shield, Megaphone, Settings, FileText, MapPin, User, AlertOctagon, Database
+} from "lucide-react";
 
 export const adminNavItems = [
   { title: "홈", href: "/admin", icon: <Home className="w-5 h-5" /> },
@@ -12,6 +14,11 @@ export const adminNavItems = [
   { title: "불편사항 관리", href: "/admin/complaints", icon: <MessageSquare className="w-5 h-5" /> },
   { title: "공지사항 관리", href: "/admin/notices", icon: <Megaphone className="w-5 h-5" /> },
   { title: "운영정책 관리", href: "/admin/policies", icon: <FileText className="w-5 h-5" /> },
+  {
+    title: "복지 서비스 관리",
+    href: "/admin/welfare-services",
+    icon: <Database className="h-5 w-5" />,
+  },
   { title: "시스템 설정", href: "/admin/settings", icon: <Settings className="w-5 h-5" /> },
   { title: "내 프로필", href: "/my-profile", icon: <User className="w-5 h-5" /> },
 ];
