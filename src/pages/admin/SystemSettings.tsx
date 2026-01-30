@@ -11,21 +11,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import {
   Bell,
-  Shield,
-  Database,
   Mail,
+  MessageSquare,
   Phone,
-  Clock,
   Save,
   RefreshCw,
   Globe
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
-import { BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMaintenance } from "@/contexts/MaintenanceContext";
 
 const SystemSettings = () => {
   const { user } = useAuth();
+  const { isMaintenanceMode, setMaintenanceMode } = useMaintenance();
   const [isSaving, setIsSaving] = useState(false);
 
   // 일반 설정
@@ -35,44 +34,35 @@ const SystemSettings = () => {
     contactEmail: "support@maumdolbom.go.kr",
     contactPhone: "1588-0000",
     operatingHours: "09:00 - 18:00",
-    maintenanceMode: false,
+    maintenanceMode: isMaintenanceMode,
   });
 
   // 알림 설정
   const [notificationSettings, setNotificationSettings] = useState({
-    emailNotifications: true,
     smsNotifications: true,
     pushNotifications: true,
-    emergencyAlertEmail: true,
     emergencyAlertSms: true,
-    dailyReportEmail: true,
-    weeklyReportEmail: false,
+    emergencyAlertPush: true,
   });
 
-  // AI 설정
-  const [aiSettings, setAiSettings] = useState({
-    autoAnalysis: true,
-    analysisInterval: "24",
-    riskThreshold: "70",
-    emotionDetection: true,
-    voiceAnalysis: true,
-    autoAlert: true,
-  });
-
-  // 보안 설정
-  const [securitySettings, setSecuritySettings] = useState({
-    sessionTimeout: "30",
-    maxLoginAttempts: "5",
-    passwordExpiry: "90",
-    twoFactorAuth: false,
-    ipWhitelist: "",
-  });
+  const hours = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
 
   const handleSave = async (section: string) => {
     setIsSaving(true);
     await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    if (section === "일반") {
+      setMaintenanceMode(generalSettings.maintenanceMode);
+    }
+
     toast.success(`${section} 설정이 저장되었습니다.`);
     setIsSaving(false);
+  };
+
+  const handleTimeChange = (type: 'start' | 'end', value: string) => {
+    const [start, end] = generalSettings.operatingHours.split(' - ');
+    const newTime = type === 'start' ? `${value} - ${end}` : `${start} - ${value}`;
+    setGeneralSettings({ ...generalSettings, operatingHours: newTime });
   };
 
   return (
@@ -89,7 +79,7 @@ const SystemSettings = () => {
         </div>
 
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="general" className="gap-2">
               <Globe className="w-4 h-4" />
               일반
@@ -97,14 +87,6 @@ const SystemSettings = () => {
             <TabsTrigger value="notifications" className="gap-2">
               <Bell className="w-4 h-4" />
               알림
-            </TabsTrigger>
-            <TabsTrigger value="ai" className="gap-2">
-              <BarChart3 className="w-4 h-4" />
-              AI
-            </TabsTrigger>
-            <TabsTrigger value="security" className="gap-2">
-              <Shield className="w-4 h-4" />
-              보안
             </TabsTrigger>
           </TabsList>
 
@@ -119,23 +101,45 @@ const SystemSettings = () => {
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="siteName">사이트 이름</Label>
-                    <Input
-                      id="siteName"
-                      value={generalSettings.siteName}
-                      onChange={(e) =>
-                        setGeneralSettings({ ...generalSettings, siteName: e.target.value })
-                      }
-                    />
+                    <div className="p-2 font-medium text-black">
+                      {generalSettings.siteName}
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="operatingHours">운영 시간</Label>
-                    <Input
-                      id="operatingHours"
-                      value={generalSettings.operatingHours}
-                      onChange={(e) =>
-                        setGeneralSettings({ ...generalSettings, operatingHours: e.target.value })
-                      }
-                    />
+                    <Label>운영 시간</Label>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={generalSettings.operatingHours.split(' - ')[0]}
+                        onValueChange={(value) => handleTimeChange('start', value)}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue placeholder="시작 시간" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {hours.map((time) => (
+                            <SelectItem key={`start-${time}`} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-muted-foreground">~</span>
+                      <Select
+                        value={generalSettings.operatingHours.split(' - ')[1]}
+                        onValueChange={(value) => handleTimeChange('end', value)}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue placeholder="종료 시간" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {hours.map((time) => (
+                            <SelectItem key={`end-${time}`} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -221,19 +225,7 @@ const SystemSettings = () => {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                       <div className="flex items-center gap-3">
-                        <Mail className="w-5 h-5 text-muted-foreground" />
-                        <span>이메일 알림</span>
-                      </div>
-                      <Switch
-                        checked={notificationSettings.emailNotifications}
-                        onCheckedChange={(checked) =>
-                          setNotificationSettings({ ...notificationSettings, emailNotifications: checked })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Phone className="w-5 h-5 text-muted-foreground" />
+                        <MessageSquare className="w-5 h-5 text-muted-foreground" />
                         <span>SMS 알림</span>
                       </div>
                       <Switch
@@ -262,19 +254,7 @@ const SystemSettings = () => {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg border border-destructive/20">
                       <div className="flex items-center gap-3">
-                        <Mail className="w-5 h-5 text-destructive" />
-                        <span>긴급상황 이메일 알림</span>
-                      </div>
-                      <Switch
-                        checked={notificationSettings.emergencyAlertEmail}
-                        onCheckedChange={(checked) =>
-                          setNotificationSettings({ ...notificationSettings, emergencyAlertEmail: checked })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg border border-destructive/20">
-                      <div className="flex items-center gap-3">
-                        <Phone className="w-5 h-5 text-destructive" />
+                        <MessageSquare className="w-5 h-5 text-destructive" />
                         <span>긴급상황 SMS 알림</span>
                       </div>
                       <Switch
@@ -284,237 +264,23 @@ const SystemSettings = () => {
                         }
                       />
                     </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h3 className="font-medium">리포트 설정</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <span>일일 리포트 이메일</span>
+                    <div className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                      <div className="flex items-center gap-3">
+                        <Bell className="w-5 h-5 text-destructive" />
+                        <span>긴급상황 푸시 알림</span>
+                      </div>
                       <Switch
-                        checked={notificationSettings.dailyReportEmail}
+                        checked={notificationSettings.emergencyAlertPush}
                         onCheckedChange={(checked) =>
-                          setNotificationSettings({ ...notificationSettings, dailyReportEmail: checked })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <span>주간 리포트 이메일</span>
-                      <Switch
-                        checked={notificationSettings.weeklyReportEmail}
-                        onCheckedChange={(checked) =>
-                          setNotificationSettings({ ...notificationSettings, weeklyReportEmail: checked })
+                          setNotificationSettings({ ...notificationSettings, emergencyAlertPush: checked })
                         }
                       />
                     </div>
                   </div>
                 </div>
+
                 <div className="flex justify-end">
                   <Button onClick={() => handleSave("알림")} disabled={isSaving}>
-                    {isSaving ? (
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Save className="w-4 h-4 mr-2" />
-                    )}
-                    저장
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* AI 설정 */}
-          <TabsContent value="ai">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI 분석 설정</CardTitle>
-                <CardDescription>AI 분석 기능을 설정합니다</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg border border-primary/20">
-                    <div className="space-y-1">
-                      <p className="font-medium">자동 분석</p>
-                      <p className="text-sm text-muted-foreground">
-                        통화 종료 후 자동으로 AI 분석을 수행합니다
-                      </p>
-                    </div>
-                    <Switch
-                      checked={aiSettings.autoAnalysis}
-                      onCheckedChange={(checked) =>
-                        setAiSettings({ ...aiSettings, autoAnalysis: checked })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>분석 주기 (시간)</Label>
-                      <Select
-                        value={aiSettings.analysisInterval}
-                        onValueChange={(value) =>
-                          setAiSettings({ ...aiSettings, analysisInterval: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="12">12시간</SelectItem>
-                          <SelectItem value="24">24시간</SelectItem>
-                          <SelectItem value="48">48시간</SelectItem>
-                          <SelectItem value="168">1주일</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>위험도 임계값 (%)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={aiSettings.riskThreshold}
-                        onChange={(e) =>
-                          setAiSettings({ ...aiSettings, riskThreshold: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h3 className="font-medium">분석 기능</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="space-y-1">
-                        <p className="font-medium">감정 분석</p>
-                        <p className="text-sm text-muted-foreground">
-                          통화 내용에서 감정 상태를 분석합니다
-                        </p>
-                      </div>
-                      <Switch
-                        checked={aiSettings.emotionDetection}
-                        onCheckedChange={(checked) =>
-                          setAiSettings({ ...aiSettings, emotionDetection: checked })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="space-y-1">
-                        <p className="font-medium">음성 분석</p>
-                        <p className="text-sm text-muted-foreground">
-                          음성 톤과 패턴을 분석합니다
-                        </p>
-                      </div>
-                      <Switch
-                        checked={aiSettings.voiceAnalysis}
-                        onCheckedChange={(checked) =>
-                          setAiSettings({ ...aiSettings, voiceAnalysis: checked })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg border border-destructive/20">
-                      <div className="space-y-1">
-                        <p className="font-medium">자동 알림</p>
-                        <p className="text-sm text-muted-foreground">
-                          위험 감지 시 자동으로 알림을 발송합니다
-                        </p>
-                      </div>
-                      <Switch
-                        checked={aiSettings.autoAlert}
-                        onCheckedChange={(checked) =>
-                          setAiSettings({ ...aiSettings, autoAlert: checked })
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button onClick={() => handleSave("AI")} disabled={isSaving}>
-                    {isSaving ? (
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Save className="w-4 h-4 mr-2" />
-                    )}
-                    저장
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* 보안 설정 */}
-          <TabsContent value="security">
-            <Card>
-              <CardHeader>
-                <CardTitle>보안 설정</CardTitle>
-                <CardDescription>시스템 보안을 설정합니다</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>세션 만료 시간 (분)</Label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        type="number"
-                        value={securitySettings.sessionTimeout}
-                        onChange={(e) =>
-                          setSecuritySettings({ ...securitySettings, sessionTimeout: e.target.value })
-                        }
-                        className="pl-9"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>최대 로그인 시도 횟수</Label>
-                    <Input
-                      type="number"
-                      value={securitySettings.maxLoginAttempts}
-                      onChange={(e) =>
-                        setSecuritySettings({ ...securitySettings, maxLoginAttempts: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>비밀번호 만료 기간 (일)</Label>
-                  <Input
-                    type="number"
-                    value={securitySettings.passwordExpiry}
-                    onChange={(e) =>
-                      setSecuritySettings({ ...securitySettings, passwordExpiry: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg border border-primary/20">
-                  <div className="space-y-1">
-                    <p className="font-medium">2단계 인증</p>
-                    <p className="text-sm text-muted-foreground">
-                      로그인 시 추가 인증을 요구합니다
-                    </p>
-                  </div>
-                  <Switch
-                    checked={securitySettings.twoFactorAuth}
-                    onCheckedChange={(checked) =>
-                      setSecuritySettings({ ...securitySettings, twoFactorAuth: checked })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>IP 화이트리스트</Label>
-                  <Textarea
-                    placeholder="허용할 IP 주소를 입력하세요 (줄바꿈으로 구분)"
-                    value={securitySettings.ipWhitelist}
-                    onChange={(e) =>
-                      setSecuritySettings({ ...securitySettings, ipWhitelist: e.target.value })
-                    }
-                    rows={4}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    비워두면 모든 IP에서 접근 가능합니다
-                  </p>
-                </div>
-                <div className="flex justify-end">
-                  <Button onClick={() => handleSave("보안")} disabled={isSaving}>
                     {isSaving ? (
                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
