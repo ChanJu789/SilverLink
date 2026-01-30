@@ -11,6 +11,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import noticesApi from "@/api/notices";
 
 export interface PopupNotice {
     id: number;
@@ -66,14 +67,35 @@ const PopupNoticeModal = ({
             }
         }
         setIsVisible(open && notices.length > 0);
-    }, [open, notices]);
+
+        // 팝업이 열릴 때 현재 공지사항을 읽음 처리
+        if (open && notices.length > 0 && currentNotice) {
+            markNoticeAsRead(currentNotice.id);
+        }
+    }, [open, notices, currentNotice]);
+
+    // 공지사항 읽음 처리
+    const markNoticeAsRead = async (noticeId: number) => {
+        try {
+            await noticesApi.markAsRead(noticeId);
+            console.log(`공지사항 ${noticeId} 읽음 처리 완료`);
+        } catch (error) {
+            console.error(`공지사항 ${noticeId} 읽음 처리 실패:`, error);
+        }
+    };
 
     const handlePrev = () => {
-        setCurrentIndex((prev) => (prev > 0 ? prev - 1 : totalCount - 1));
+        const newIndex = currentIndex > 0 ? currentIndex - 1 : totalCount - 1;
+        setCurrentIndex(newIndex);
+        // 새로운 공지사항을 읽음 처리
+        markNoticeAsRead(sortedNotices[newIndex].id);
     };
 
     const handleNext = () => {
-        setCurrentIndex((prev) => (prev < totalCount - 1 ? prev + 1 : 0));
+        const newIndex = currentIndex < totalCount - 1 ? currentIndex + 1 : 0;
+        setCurrentIndex(newIndex);
+        // 새로운 공지사항을 읽음 처리
+        markNoticeAsRead(sortedNotices[newIndex].id);
     };
 
     const handleClose = () => {
@@ -153,7 +175,11 @@ const PopupNoticeModal = ({
                                     key={idx}
                                     className={`w-2 h-2 rounded-full transition-colors ${idx === currentIndex ? "bg-primary" : "bg-muted"
                                         }`}
-                                    onClick={() => setCurrentIndex(idx)}
+                                    onClick={() => {
+                                        setCurrentIndex(idx);
+                                        // 클릭한 공지사항을 읽음 처리
+                                        markNoticeAsRead(sortedNotices[idx].id);
+                                    }}
                                 />
                             ))}
                         </div>

@@ -89,7 +89,7 @@ const CounselorNotices = () => {
     );
   }
 
-  const importantCount = notices.filter(n => n.isImportant).length;
+  const importantCount = notices.filter(n => n.isPriority).length;
   const unreadCount = notices.filter(n => !n.isRead).length;
   const weekCount = notices.filter(n => {
     const noticeDate = new Date(n.createdAt);
@@ -192,15 +192,20 @@ const CounselorNotices = () => {
               filteredNotices.map((notice) => (
                 <div
                   key={notice.id}
-                  className={`p-4 rounded-xl transition-colors cursor-pointer ${notice.isRead ? 'bg-secondary/30 hover:bg-secondary/50' : 'bg-primary/5 hover:bg-primary/10'
-                    }`}
+                  className={`p-4 rounded-xl transition-colors cursor-pointer ${
+                    notice.isPriority 
+                      ? 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100' 
+                      : notice.isRead 
+                        ? 'bg-secondary/30 hover:bg-secondary/50' 
+                        : 'bg-primary/5 hover:bg-primary/10'
+                  }`}
                   onClick={() => handleNoticeClick(notice)}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        {notice.isImportant && (
-                          <Badge variant="destructive" className="text-xs">중요</Badge>
+                        {notice.isPriority && (
+                          <Badge variant="destructive" className="text-xs font-semibold">📌 중요</Badge>
                         )}
                         {!notice.isRead && (
                           <Badge variant="default" className="text-xs">NEW</Badge>
@@ -209,7 +214,12 @@ const CounselorNotices = () => {
                           {notice.category}
                         </Badge>
                       </div>
-                      <h3 className="font-medium text-foreground">{notice.title}</h3>
+                      <h3 className={`font-medium text-foreground ${
+                        notice.isPriority ? "text-red-800 font-semibold" : ""
+                      }`}>
+                        {notice.isPriority && "📌 "}
+                        {notice.title}
+                      </h3>
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
                         {notice.content}
                       </p>
@@ -231,7 +241,7 @@ const CounselorNotices = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <div className="flex items-center gap-2 mb-2">
-              {selectedNotice?.isImportant && (
+              {selectedNotice?.isPriority && (
                 <Badge variant="destructive" className="text-xs">중요</Badge>
               )}
               <Badge className={getCategoryBadge(selectedNotice?.category || "")}>

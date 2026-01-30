@@ -138,11 +138,13 @@ const SeniorNotices = () => {
               onClick={() => handleNoticeClick(notice)}
               className="w-full text-left"
             >
-              <Card className="hover:shadow-lg transition-all active:scale-[0.98]">
+              <Card className={`hover:shadow-lg transition-all active:scale-[0.98] ${
+                notice.isPriority ? 'border-l-4 border-l-red-500 bg-red-50' : ''
+              }`}>
                 <CardContent className="p-5">
                   <div className="flex items-start gap-4">
                     <div className={`w-14 h-14 rounded-xl ${getCategoryStyle(notice.category)} flex items-center justify-center flex-shrink-0`}>
-                      {notice.isImportant ? (
+                      {notice.isPriority ? (
                         <Pin className="w-7 h-7" />
                       ) : (
                         <Megaphone className="w-7 h-7" />
@@ -151,14 +153,19 @@ const SeniorNotices = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
                         {getCategoryBadge(notice.category)}
-                        {notice.isImportant && (
-                          <Badge variant="outline" className="text-sm">고정</Badge>
+                        {notice.isPriority && (
+                          <Badge variant="destructive" className="text-sm font-semibold">📌 중요</Badge>
                         )}
                         {!notice.isRead && (
                           <Badge className="bg-primary text-primary-foreground text-sm">NEW</Badge>
                         )}
                       </div>
-                      <p className="font-bold text-lg line-clamp-2">{notice.title}</p>
+                      <p className={`font-bold text-lg line-clamp-2 ${
+                        notice.isPriority ? "text-red-800" : ""
+                      }`}>
+                        {notice.isPriority && "📌 "}
+                        {notice.title}
+                      </p>
                       <div className="flex items-center gap-2 mt-2 text-muted-foreground">
                         <Calendar className="w-4 h-4" />
                         <span className="text-sm">{notice.createdAt?.split('T')[0]}</span>

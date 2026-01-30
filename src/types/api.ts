@@ -208,7 +208,7 @@ export interface NoticeResponse {
     categoryDescription?: string;
     targetMode?: string;
     targetRoles: string[];
-    isImportant: boolean;
+    isPriority: boolean;  // isImportant에서 isPriority로 변경
     isPopup: boolean;
     popupStartAt?: string;
     popupEndAt?: string;
@@ -217,6 +217,15 @@ export interface NoticeResponse {
     createdAt: string;
     updatedAt?: string;
     isRead: boolean;
+    readCount?: number;
+    totalTargetCount?: number;
+}
+
+// 읽음 현황 관련 타입
+export interface NoticeReadStatus {
+    userId: number;
+    userName: string;
+    readAt: string;
 }
 
 // =====================
@@ -432,6 +441,7 @@ export interface WelfareFacilityResponse {
     type: 'ELDERLY_WELFARE_CENTER' | 'DISABLED_WELFARE_CENTER' | 'CHILD_WELFARE_CENTER' | 'COMMUNITY_WELFARE_CENTER' | 'SENIOR_CENTER' | 'DAYCARE_CENTER' | 'HOME_CARE_SERVICE';
     phone?: string;
     operatingHours?: string;
+    description?: string;
     typeDescription?: string;
 }
 
@@ -443,5 +453,6 @@ export interface WelfareFacilityRequest {
     type: 'ELDERLY_WELFARE_CENTER' | 'DISABLED_WELFARE_CENTER' | 'CHILD_WELFARE_CENTER' | 'COMMUNITY_WELFARE_CENTER' | 'SENIOR_CENTER' | 'DAYCARE_CENTER' | 'HOME_CARE_SERVICE';
     phone?: string;
     operatingHours?: string;
+    description?: string;
 }
 

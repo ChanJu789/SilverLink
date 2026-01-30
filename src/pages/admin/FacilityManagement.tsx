@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
     Select,
     SelectContent,
@@ -28,7 +29,13 @@ import {
 } from "@/components/ui/select";
 import { mapApi } from "@/api/map";
 import { WelfareFacilityResponse, WelfareFacilityRequest } from "@/types/api";
-import { Trash2, RefreshCw, Plus, Pencil, MapPin, Search, Loader2, CheckCircle } from "lucide-react";
+import { Trash2, Plus, Pencil, MapPin, Search, Loader2, CheckCircle } from "lucide-react";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { adminNavItems } from "@/config/adminNavItems";
 import FacilityAutocomplete from "@/components/common/FacilityAutocomplete";
@@ -63,7 +70,8 @@ export default function FacilityManagement() {
         longitude: 0,
         type: 'ELDERLY_WELFARE_CENTER',
         phone: '',
-        operatingHours: ''
+        operatingHours: '',
+        description: ''
     };
     const [formData, setFormData] = useState<WelfareFacilityRequest>(initialFormData);
 
@@ -136,7 +144,8 @@ export default function FacilityManagement() {
             longitude: facility.longitude,
             type: facility.type,
             phone: facility.phone || '',
-            operatingHours: facility.operatingHours || ''
+            operatingHours: facility.operatingHours || '',
+            description: facility.description || ''
         }));
         setGeocodingSuccess(true);
         setGeocodingError(null);
@@ -207,7 +216,8 @@ export default function FacilityManagement() {
             longitude: facility.longitude,
             type: facility.type,
             phone: facility.phone || '',
-            operatingHours: facility.operatingHours || ''
+            operatingHours: facility.operatingHours || '',
+            description: facility.description || ''
         });
         setGeocodingSuccess(true); // 기존 좌표가 있으므로 성공 상태로
         setGeocodingError(null);
@@ -331,26 +341,34 @@ export default function FacilityManagement() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="phone" className="text-right">연락처</Label>
-                <Input id="phone" name="phone" value={formData.phone} onChange={handleInputChange} className="col-span-3" />
+                <Input id="phone" name="phone" value={formData.phone} onChange={handleInputChange} className="col-span-3" placeholder="예: 02-1234-5678" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="operatingHours" className="text-right">운영시간</Label>
-                <Input id="operatingHours" name="operatingHours" value={formData.operatingHours} onChange={handleInputChange} className="col-span-3" />
+                <Input id="operatingHours" name="operatingHours" value={formData.operatingHours} onChange={handleInputChange} className="col-span-3" placeholder="예: 평일 09:00-18:00, 토요일 09:00-13:00" />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="description" className="text-right pt-2">상세정보</Label>
+                <Textarea 
+                    id="description" 
+                    name="description" 
+                    value={formData.description || ''} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    className="col-span-3" 
+                    placeholder="시설의 상세 정보, 제공 서비스, 특징 등을 입력하세요"
+                    rows={4}
+                />
             </div>
         </div>
     );
 
     return (
         <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
-            <div className="container mx-auto p-6">
+            <TooltipProvider>
+                <div className="container mx-auto p-6">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">사회복지시설 관리</h1>
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={loadFacilities} disabled={loading}>
-                            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                            새로고침
-                        </Button>
-
                         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                             <DialogTrigger asChild>
                                 <Button onClick={openCreateModal}>
@@ -358,7 +376,7 @@ export default function FacilityManagement() {
                                     시설 등록
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-[500px]">
+                            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>새 시설 등록</DialogTitle>
                                 </DialogHeader>
@@ -408,21 +426,35 @@ export default function FacilityManagement() {
                                             <TableCell>{facility.phone || '-'}</TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => openEditModal(facility)}
-                                                    >
-                                                        <Pencil className="w-4 h-4 text-blue-500" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                        onClick={() => handleDelete(facility.id)}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => openEditModal(facility)}
+                                                            >
+                                                                <Pencil className="w-4 h-4 text-blue-500" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>시설 정보 수정</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                                onClick={() => handleDelete(facility.id)}
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>시설 삭제</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -435,7 +467,7 @@ export default function FacilityManagement() {
 
                 {/* Edit Modal */}
                 <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                    <DialogContent className="sm:max-w-[500px]">
+                    <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>시설 정보 수정</DialogTitle>
                         </DialogHeader>
@@ -446,6 +478,7 @@ export default function FacilityManagement() {
                     </DialogContent>
                 </Dialog>
             </div>
+            </TooltipProvider>
         </DashboardLayout >
     );
 }

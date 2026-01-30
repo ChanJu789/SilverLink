@@ -21,7 +21,8 @@ import {
   Plus,
   Minus,
   Pill,
-  Fingerprint
+  Fingerprint,
+  MapPin
 } from "lucide-react";
 
 const SeniorDashboard = () => {
@@ -85,6 +86,14 @@ const SeniorDashboard = () => {
       icon: <Phone className="w-12 h-12" />,
       color: "bg-primary",
       action: () => navigate("/senior/call"),
+    },
+    {
+      id: "facilities",
+      title: "주변 시설",
+      description: "가까운 복지시설을 찾아요",
+      icon: <MapPin className="w-12 h-12" />,
+      color: "bg-teal-500",
+      action: () => navigate("/map"),
     },
     {
       id: "ocr",

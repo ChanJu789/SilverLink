@@ -33,21 +33,21 @@ export const DuplicateLoginDialog = ({
             </div>
             <AlertDialogTitle className="text-xl">다른 기기에서 로그인 중</AlertDialogTitle>
           </div>
-          <AlertDialogDescription className="text-base space-y-3 pt-2">
-            <p className="text-foreground font-medium">
+          <div className="text-base space-y-3 pt-2">
+            <div className="text-foreground font-medium">
               이미 다른 기기에서 로그인되어 있습니다.
-            </p>
-            <p className="text-muted-foreground">
+            </div>
+            <div className="text-muted-foreground">
               기존 로그인을 종료하고 이 기기에서 로그인하시겠습니까?
-            </p>
+            </div>
             <div className="p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground mb-1">💡 참고</p>
+              <div className="font-medium text-foreground mb-1">💡 참고</div>
               <ul className="list-disc list-inside space-y-1">
                 <li>확인을 누르면 다른 기기에서 자동 로그아웃됩니다</li>
                 <li>취소하면 기존 로그인이 유지됩니다</li>
               </ul>
             </div>
-          </AlertDialogDescription>
+          </div>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel} disabled={isLoading}>

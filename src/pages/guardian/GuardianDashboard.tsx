@@ -26,7 +26,9 @@ import { useNavigate } from "react-router-dom";
 import guardiansApi from "@/api/guardians";
 import callReviewsApi from "@/api/callReviews";
 import usersApi from "@/api/users";
-import { GuardianElderlyResponse, GuardianCallReviewResponse, MyProfileResponse } from "@/types/api";
+import noticesApi from "@/api/notices";
+import { GuardianElderlyResponse, GuardianCallReviewResponse, MyProfileResponse, NoticeResponse } from "@/types/api";
+import PopupNoticeModal from "@/components/notice/PopupNoticeModal";
 
 // EmotionIcon 컴포넌트
 
@@ -48,6 +50,8 @@ const GuardianDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
   const [elderlyData, setElderlyData] = useState<GuardianElderlyResponse | null>(null);
+  const [popupNotices, setPopupNotices] = useState<NoticeResponse[]>([]);
+  const [showPopupNotices, setShowPopupNotices] = useState(false);
   const [recentCalls, setRecentCalls] = useState<GuardianCallReviewResponse[]>([]);
   const [emotionStats, setEmotionStats] = useState({ good: 0, neutral: 0, bad: 0 });
 
@@ -84,6 +88,9 @@ const GuardianDashboard = () => {
             bad: Math.round((stats.bad / total) * 100),
           });
         }
+
+        // 팝업 공지사항 조회 (보호자 대상)
+        await fetchPopupNotices();
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -93,6 +100,46 @@ const GuardianDashboard = () => {
 
     fetchData();
   }, []);
+
+  // 팝업 공지사항 조회
+  const fetchPopupNotices = async () => {
+    try {
+      // 임시로 일반 공지사항에서 보호자 대상 공지를 가져옴
+      // 실제로는 noticesApi.getPopups() API를 사용해야 함
+      const response = await noticesApi.getNotices({ 
+        size: 10,
+        targetRole: 'GUARDIAN' // 보호자 대상 공지만
+      });
+      
+      // 팝업으로 표시할 공지사항 필터링 (최근 3일 이내, 중요 공지)
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      
+      const popupCandidates = response.content.filter(notice => 
+        notice.isImportant && // 중요 공지만
+        new Date(notice.createdAt) > threeDaysAgo && // 최근 3일 이내
+        notice.status === 'PUBLISHED' // 게시중인 공지만
+      );
+
+      if (popupCandidates.length > 0) {
+        setPopupNotices(popupCandidates);
+        setShowPopupNotices(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch popup notices:', error);
+    }
+  };
+
+  // 팝업 공지 닫기
+  const handleClosePopupNotices = () => {
+    setShowPopupNotices(false);
+  };
+
+  // 오늘 하루 보지 않기
+  const handleDontShowToday = (noticeIds: number[]) => {
+    console.log('오늘 하루 보지 않기:', noticeIds);
+    // 로컬 스토리지에 저장하는 로직은 PopupNoticeModal에서 처리
+  };
 
   // 로딩 중 표시
   if (isLoading) {
@@ -288,6 +335,22 @@ const GuardianDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* 팝업 공지사항 모달 */}
+      {showPopupNotices && (
+        <PopupNoticeModal
+          notices={popupNotices.map(notice => ({
+            id: notice.id,
+            title: notice.title,
+            content: notice.content || '',
+            createdAt: notice.createdAt,
+            priority: notice.isImportant ? "HIGH" : "NORMAL"
+          }))}
+          onClose={handleClosePopupNotices}
+          onDontShowToday={handleDontShowToday}
+          open={showPopupNotices}
+        />
+      )}
     </DashboardLayout>
   );
 };

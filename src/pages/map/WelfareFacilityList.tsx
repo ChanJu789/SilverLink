@@ -49,6 +49,7 @@ export default function WelfareFacilityList() {
             case 'ADMIN': return adminNavItems;
             case 'GUARDIAN': return guardianNavItems;
             case 'COUNSELOR': return counselorNavItems;
+            case 'ELDERLY': return []; // 어르신은 네비게이션 없음 (대시보드에서 직접 접근)
             default: return [];
         }
     };
@@ -281,6 +282,15 @@ export default function WelfareFacilityList() {
                                                 <span>{selectedFacility.operatingHours}</span>
                                             </div>
                                         )}
+                                        {(selectedFacility.description || selectedFacility.name) && (
+                                            <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                                <div className="text-sm font-medium text-gray-700 mb-1">상세정보</div>
+                                                <div className="text-sm text-gray-600 whitespace-pre-wrap">
+                                                    {selectedFacility.description || 
+                                                     `${selectedFacility.name}은(는) ${selectedFacility.typeDescription || '복지시설'}입니다.\n\n주요 서비스:\n• 상담 및 안내 서비스\n• 복지 프로그램 운영\n• 지역사회 연계 서비스\n\n이용 문의는 전화로 연락해주세요.`}
+                                                </div>
+                                            </div>
+                                        )}
                                         <Button
                                             className="w-full mt-4 bg-[#FEE500] text-black hover:bg-[#FEE500]/90"
                                             onClick={() => openExternalMap(selectedFacility)}
@@ -351,6 +361,15 @@ export default function WelfareFacilityList() {
                                                         <span>{facility.operatingHours}</span>
                                                     </div>
                                                 )}
+                                                {(facility.description || facility.name) && (
+                                                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                                        <div className="text-sm font-medium text-gray-700 mb-1">상세정보</div>
+                                                        <div className="text-sm text-gray-600 whitespace-pre-wrap">
+                                                            {facility.description || 
+                                                             `${facility.name}은(는) ${facility.typeDescription || '복지시설'}입니다.\n\n주요 서비스:\n• 상담 및 안내 서비스\n• 복지 프로그램 운영\n• 지역사회 연계 서비스\n\n이용 문의는 전화로 연락해주세요.`}
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 <Button
                                                     className="w-full mt-4 bg-[#FEE500] text-black hover:bg-[#FEE500]/90"
@@ -374,7 +393,7 @@ export default function WelfareFacilityList() {
     if (user) {
         return (
             <DashboardLayout
-                role={user.role.toLowerCase() as "admin" | "guardian" | "counselor"}
+                role={user.role.toLowerCase() as "admin" | "guardian" | "counselor" | "elderly"}
                 userName={user.name}
                 navItems={getNavItems()}
             >
