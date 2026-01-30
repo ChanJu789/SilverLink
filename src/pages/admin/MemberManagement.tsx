@@ -230,22 +230,22 @@ const MemberManagement = () => {
         let assignment: AssignmentResponse | null = null;
         let guardian: GuardianResponse | null = null;
 
-        // Fetch assignment - suppress 400 errors
+        // Fetch assignment - suppress 400/404/204 errors
         try {
           assignment = await assignmentsApi.getElderlyAssignment(elderlyMember.userId);
         } catch (error: any) {
-          // 400 means no assignment - this is normal, not an error
-          if (error?.response?.status !== 400 && error?.response?.status !== 404) {
+          // 400/404/204 means no assignment - this is normal, not an error
+          if (error?.response?.status !== 400 && error?.response?.status !== 404 && error?.response?.status !== 204) {
             console.error(`Failed to fetch assignment for elderly ${elderlyMember.userId}:`, error);
           }
         }
 
-        // Fetch guardian - suppress 400 errors
+        // Fetch guardian - suppress 400/404/204 errors
         try {
           guardian = await guardiansApi.getGuardianByElderlyForAdmin(elderlyMember.userId);
         } catch (error: any) {
-          // 400 means no guardian - this is normal, not an error
-          if (error?.response?.status !== 400 && error?.response?.status !== 404) {
+          // 400/404/204 means no guardian - this is normal, not an error
+          if (error?.response?.status !== 400 && error?.response?.status !== 404 && error?.response?.status !== 204) {
             console.error(`Failed to fetch guardian for elderly ${elderlyMember.userId}:`, error);
           }
         }
