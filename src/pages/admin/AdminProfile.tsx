@@ -13,9 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import usersApi from "@/api/users";
 import adminsApi from "@/api/admins";
 import { MyProfileResponse, AdminResponse } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AdminProfile = () => {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -108,7 +110,7 @@ const AdminProfile = () => {
 
     if (isLoading) {
         return (
-            <DashboardLayout role="admin" userName="로딩중..." navItems={adminNavItems}>
+            <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
                 <div className="flex items-center justify-center h-64">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
@@ -119,7 +121,7 @@ const AdminProfile = () => {
     return (
         <DashboardLayout
             role="admin"
-            userName={profile?.name || "관리자"}
+            userName={user?.name || profile?.name || "관리자"}
             navItems={adminNavItems}
         >
             <div className="max-w-3xl mx-auto space-y-6">

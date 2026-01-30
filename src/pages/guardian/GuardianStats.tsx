@@ -34,6 +34,7 @@ import {
   Cell,
   Legend
 } from "recharts";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Mock data - Weekly emotion data
 const weeklyEmotionData = [
@@ -91,6 +92,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const GuardianStats = () => {
+  const { user } = useAuth();
   const [period, setPeriod] = useState("weekly");
 
   const currentScore = 85;
@@ -100,7 +102,7 @@ const GuardianStats = () => {
   return (
     <DashboardLayout
       role="guardian"
-      userName="홍길동"
+      userName={user?.name || "보호자"}
       navItems={guardianNavItems}
     >
       <div className="space-y-6">

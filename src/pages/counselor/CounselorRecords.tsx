@@ -23,6 +23,7 @@ import {
   FileText
 } from "lucide-react";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CounselingRecord {
   id: string;
@@ -99,6 +100,7 @@ const mockRecords: CounselingRecord[] = [
 ];
 
 const CounselorRecords = () => {
+  const { user } = useAuth();
   const [records, setRecords] = useState<CounselingRecord[]>(mockRecords);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
@@ -226,7 +228,7 @@ const CounselorRecords = () => {
   return (
     <DashboardLayout
       role="counselor"
-      userName="김상담"
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">

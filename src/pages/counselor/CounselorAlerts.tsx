@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import { useAuth } from "@/contexts/AuthContext";
 
 const alerts = [
   { 
@@ -74,6 +75,7 @@ const SeverityBadge = ({ severity }: { severity: string }) => {
 };
 
 const CounselorAlerts = () => {
+  const { user } = useAuth();
   const [selectedAlert, setSelectedAlert] = useState<typeof alerts[0] | null>(null);
   const [showEmergencyDialog, setShowEmergencyDialog] = useState(false);
 
@@ -82,7 +84,7 @@ const CounselorAlerts = () => {
   return (
     <DashboardLayout
       role="counselor"
-      userName="김상담"
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       {/* Emergency Fullscreen Alert */}

@@ -24,6 +24,7 @@ import { adminNavItems } from "@/config/adminNavItems";
 import { Megaphone } from "lucide-react";
 import noticesApi, { NoticeRequest } from "@/api/notices";
 import { NoticeResponse } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Notice {
   id: number;
@@ -38,6 +39,7 @@ interface Notice {
 }
 
 const NoticeManagement = () => {
+  const { user } = useAuth();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -223,7 +225,7 @@ const NoticeManagement = () => {
 
   if (loading) {
     return (
-      <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+      <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -234,7 +236,7 @@ const NoticeManagement = () => {
   return (
     <DashboardLayout
       role="admin"
-      userName="관리자"
+      userName={user?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">

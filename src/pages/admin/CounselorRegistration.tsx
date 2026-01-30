@@ -17,9 +17,11 @@ import { AddressResponse, CounselorRequest } from "@/types/api";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { adminNavItems } from "@/config/adminNavItems";
 import { UserPlus, Save, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function CounselorRegistration() {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
 
     // Form Data
@@ -151,7 +153,7 @@ export default function CounselorRegistration() {
     };
 
     return (
-        <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+        <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
             <div className="container mx-auto p-6 max-w-3xl">
                 <div className="flex items-center gap-4 mb-6">
                     <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>

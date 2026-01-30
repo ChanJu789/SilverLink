@@ -34,6 +34,7 @@ import { counselorNavItems } from "@/config/counselorNavItems";
 import { toast } from "sonner";
 import assignmentsApi, { AssignmentResponse } from "@/api/assignments";
 import counselorsApi from "@/api/counselors";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Senior {
   id: string;
@@ -50,12 +51,13 @@ interface Senior {
 
 export default function SeniorList() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [riskFilter, setRiskFilter] = useState("all");
   const [emotionFilter, setEmotionFilter] = useState("all");
   const [seniors, setSeniors] = useState<Senior[]>([]);
   const [loading, setLoading] = useState(true);
-  const [counselorName, setCounselorName] = useState("상담사");
+  const [counselorName, setCounselorName] = useState(user?.name || "상담사");
 
   // 데이터 로드
   useEffect(() => {
