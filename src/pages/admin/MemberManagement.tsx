@@ -216,7 +216,7 @@ const MemberManagement = () => {
     setIsDetailLoading(true);
     try {
       const elderlyData = await guardiansApi.getElderlyByGuardianForAdmin(guardian.id);
-      setGuardianElderly(elderlyData);
+      setGuardianElderly(Array.isArray(elderlyData) ? elderlyData : []);
     } catch (error) {
       console.error('Failed to fetch guardian elderly:', error);
       setGuardianElderly([]);
@@ -891,7 +891,7 @@ const MemberManagement = () => {
                   <p className="text-sm text-muted-foreground py-4 text-center">연결된 어르신이 없습니다.</p>
                 ) : (
                   <div className="space-y-2">
-                    {guardianElderly.map((relation) => {
+                    {Array.isArray(guardianElderly) && guardianElderly.map((relation) => {
                       const elderlyInfo = elderly.find(e => e.userId === relation.elderlyId);
                       return (
                         <div key={relation.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
