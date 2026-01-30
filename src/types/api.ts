@@ -205,12 +205,17 @@ export interface NoticeResponse {
     title: string;
     content: string;
     category: string;
+    categoryDescription?: string;
+    targetMode?: string;
+    targetRoles: string[];
     isImportant: boolean;
     isPopup: boolean;
-    targetRoles: string[];
+    popupStartAt?: string;
+    popupEndAt?: string;
+    status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED';
+    viewCount: number;
     createdAt: string;
     updatedAt?: string;
-    viewCount: number;
     isRead: boolean;
 }
 

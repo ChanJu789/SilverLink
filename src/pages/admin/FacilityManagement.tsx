@@ -31,6 +31,7 @@ import { WelfareFacilityResponse, WelfareFacilityRequest } from "@/types/api";
 import { Trash2, RefreshCw, Plus, Pencil, MapPin, Search, Loader2, CheckCircle } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { adminNavItems } from "@/config/adminNavItems";
+import FacilityAutocomplete from "@/components/common/FacilityAutocomplete";
 
 // Kakao Maps 타입 선언
 declare global {
@@ -123,6 +124,22 @@ export default function FacilityManagement() {
 
     const handleSelectChange = (value: string) => {
         setFormData(prev => ({ ...prev, type: value as any }));
+    };
+
+    // 시설명 자동완성에서 시설 선택 시 처리
+    const handleFacilitySelect = (facility: WelfareFacilityResponse) => {
+        setFormData(prev => ({
+            ...prev,
+            name: facility.name,
+            address: facility.address,
+            latitude: facility.latitude,
+            longitude: facility.longitude,
+            type: facility.type,
+            phone: facility.phone || '',
+            operatingHours: facility.operatingHours || ''
+        }));
+        setGeocodingSuccess(true);
+        setGeocodingError(null);
     };
 
     const handleAddressSearch = () => {
@@ -245,7 +262,17 @@ export default function FacilityManagement() {
         <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">시설명</Label>
-                <Input id="name" name="name" value={formData.name} onChange={handleInputChange} className="col-span-3" />
+                <div className="col-span-3">
+                    <FacilityAutocomplete
+                        value={formData.name}
+                        onChange={(value) => setFormData(prev => ({ ...prev, name: value }))}
+                        onFacilitySelect={handleFacilitySelect}
+                        placeholder="시설명을 입력하거나 검색하세요"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                        기존 시설명을 검색하여 정보를 자동으로 가져올 수 있습니다.
+                    </p>
+                </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="type" className="text-right">유형</Label>

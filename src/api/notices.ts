@@ -135,6 +135,60 @@ export const restoreNotice = async (id: number): Promise<void> => {
     await apiClient.post(`/api/admin/notices/${id}/restore`);
 };
 
+/**
+ * 관리자: 공지사항 상태 변경
+ * PATCH /api/admin/notices/{id}/status
+ */
+export const changeNoticeStatus = async (id: number, status: string): Promise<void> => {
+    await apiClient.patch(`/api/admin/notices/${id}/status`, null, {
+        params: { status }
+    });
+};
+
+/**
+ * 관리자: 공지사항 일괄 상태 변경
+ * PATCH /api/admin/notices/bulk-status
+ */
+export const bulkChangeNoticeStatus = async (ids: number[], status: string): Promise<void> => {
+    await apiClient.patch('/api/admin/notices/bulk-status', null, {
+        params: { ids: ids.join(','), status }
+    });
+};
+
+/**
+ * 테스트 API
+ * GET /api/admin/notices/test
+ */
+export const testNoticeApi = async (): Promise<string> => {
+    const response = await apiClient.get<string>('/api/admin/notices/test');
+    return response.data;
+};
+
+/**
+ * 관리자: 공지사항 분류 변경
+ * PATCH /api/admin/notices/{id}/category
+ */
+export const changeNoticeCategory = async (id: number, category: string, isPriority: boolean = false): Promise<void> => {
+    await apiClient.patch(`/api/admin/notices/${id}/category`, null, {
+        params: { category, isPriority }
+    });
+};
+
+/**
+ * 관리자: 공지사항 대상 변경
+ * PATCH /api/admin/notices/{id}/target
+ */
+export const changeNoticeTarget = async (id: number, targetMode: string, targetRoles?: string[]): Promise<void> => {
+    const params: any = { targetMode };
+    if (targetRoles && targetRoles.length > 0) {
+        params.targetRoles = targetRoles;
+    }
+    
+    await apiClient.patch(`/api/admin/notices/${id}/target`, null, {
+        params
+    });
+};
+
 export default {
     getNotices,
     getPopups,
@@ -149,5 +203,10 @@ export default {
     updateNotice,
     getConfirmList,
     restoreNotice,
+    changeNoticeStatus,
+    changeNoticeCategory,
+    changeNoticeTarget,
+    bulkChangeNoticeStatus,
+    testNoticeApi,
 };
 
