@@ -20,24 +20,22 @@ import {
 } from "@/components/ui/dialog";
 import { counselorNavItems } from "@/config/counselorNavItems";
 import noticesApi from "@/api/notices";
-import usersApi from "@/api/users";
-import { NoticeResponse, MyProfileResponse } from "@/types/api";
+// import usersApi from "@/api/users"; // Removed unused
+import { NoticeResponse } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CounselorNotices = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedNotice, setSelectedNotice] = useState<NoticeResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notices, setNotices] = useState<NoticeResponse[]>([]);
-  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-
-        const profile = await usersApi.getMyProfile();
-        setUserProfile(profile);
-
+        // Removed separate profile fetch since we have useAuth
         const noticesResponse = await noticesApi.getNotices({ size: 50 });
         setNotices(noticesResponse.content);
       } catch (error) {
@@ -81,7 +79,7 @@ const CounselorNotices = () => {
 
   if (isLoading) {
     return (
-      <DashboardLayout role="counselor" userName="로딩중..." navItems={counselorNavItems}>
+      <DashboardLayout role="counselor" userName={user?.name || "상담사"} navItems={counselorNavItems}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -101,7 +99,7 @@ const CounselorNotices = () => {
   return (
     <DashboardLayout
       role="counselor"
-      userName={userProfile?.name || "상담사"}
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">

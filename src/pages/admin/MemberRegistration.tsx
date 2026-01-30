@@ -273,7 +273,7 @@ const MemberRegistration = () => {
         elderlyUserId: Number(guardianData.seniorId),
         relationType: guardianData.relation,
         memo: guardianData.memo,
-        proofToken: guardianProofToken, // 휴대폰 인증 토큰
+        // proofToken: guardianProofToken, // 휴대폰 인증 토큰
       });
 
       toast({

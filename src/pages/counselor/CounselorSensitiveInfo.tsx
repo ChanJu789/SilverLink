@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { 
+import { useState, useEffect } from "react";
+import {
   Lock,
   Search,
   Plus,
@@ -41,73 +41,105 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { counselorNavItems } from "@/config/counselorNavItems";
-
-const requests = [
-  {
-    id: 1,
-    seniorName: "김순자",
-    guardianName: "홍길동",
-    infoType: "의료기록",
-    reason: "어르신 건강 상태 파악을 위해 최근 진료 기록 확인 필요",
-    status: "approved",
-    requestDate: "2024-01-10",
-    processDate: "2024-01-11",
-    processedBy: "관리자1",
-  },
-  {
-    id: 2,
-    seniorName: "박영희",
-    guardianName: "박민수",
-    infoType: "재정정보",
-    reason: "복지 서비스 신청을 위한 소득 정보 확인 필요",
-    status: "pending",
-    requestDate: "2024-01-15",
-    processDate: null,
-    processedBy: null,
-  },
-  {
-    id: 3,
-    seniorName: "이철수",
-    guardianName: "이영희",
-    infoType: "가족관계",
-    reason: "긴급 연락처 업데이트를 위한 가족 정보 확인",
-    status: "rejected",
-    requestDate: "2024-01-12",
-    processDate: "2024-01-13",
-    processedBy: "관리자2",
-    rejectReason: "어르신 동의 미확보",
-  },
-  {
-    id: 4,
-    seniorName: "정말자",
-    guardianName: "정수민",
-    infoType: "의료기록",
-    reason: "정기 건강검진 결과 확인 및 상담 자료 필요",
-    status: "pending",
-    requestDate: "2024-01-14",
-    processDate: null,
-    processedBy: null,
-  },
-];
+import { useAuth } from "@/contexts/AuthContext";
+import assignmentsApi from "@/api/assignments";
+import elderlyApi from "@/api/elderly";
+import { ElderlySummaryResponse } from "@/types/api";
+import accessRequestsApi, { AccessScope } from "@/api/accessRequests";
+import { toast } from "sonner";
 
 const infoTypes = [
-  { value: "medical", label: "의료기록" },
-  { value: "financial", label: "재정정보" },
-  { value: "family", label: "가족관계" },
-  { value: "address", label: "주거정보" },
-  { value: "other", label: "기타" },
+  { value: "HEALTH_INFO", label: "건강정보" },
+  { value: "MEDICATION", label: "복약정보" },
+  { value: "CALL_RECORDS", label: "통화기록" },
+  { value: "ALL", label: "전체" },
 ];
 
+
+
 const CounselorSensitiveInfo = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [assignedSeniors, setAssignedSeniors] = useState<ElderlySummaryResponse[]>([]);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [newRequest, setNewRequest] = useState({
     seniorName: "",
+    seniorId: 0,
     guardianName: "",
     infoType: "",
     reason: "",
   });
+
+  const fetchAssignments = async () => {
+    try {
+      const assignments = await assignmentsApi.getMyAssignments();
+      const activeAssignments = assignments.filter(a => a.status === 'ACTIVE');
+
+      const details = await Promise.all(
+        activeAssignments.map(a => elderlyApi.getSummary(a.elderlyId))
+      );
+      setAssignedSeniors(details);
+    } catch (error) {
+      console.error("Failed to fetch assigned seniors:", error);
+    }
+  };
+
+  const mapScopeToLabel = (scope: string) => {
+    const found = infoTypes.find(t => t.value === scope);
+    return found ? found.label : scope;
+  };
+
+  const fetchRequests = async () => {
+    try {
+      setLoading(true);
+      // Assuming getMyRequests returns requests made by the current user
+      const data = await accessRequestsApi.getMyRequests();
+
+      const mappedRequests = data.map(r => ({
+        id: r.id,
+        seniorName: r.elderlyName,
+        guardianName: r.requesterName,
+        infoType: mapScopeToLabel(r.scope),
+        reason: "-", // Reason is not available in summary
+        status: r.status.toLowerCase(),
+        requestDate: r.requestedAt ? r.requestedAt.split('T')[0] : '',
+        processDate: r.decidedAt ? r.decidedAt.split('T')[0] : null,
+        processedBy: r.reviewedBy,
+      }));
+      setRequests(mappedRequests);
+    } catch (error) {
+      console.error("Failed to fetch requests:", error);
+      // Fallback or empty state
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const handleOpenDialog = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (open) {
+      fetchAssignments();
+    }
+  };
+
+  const handleSeniorChange = (name: string) => {
+    const selectedSenior = assignedSeniors.find(s => s.name === name);
+    setNewRequest({
+      ...newRequest,
+      seniorName: name,
+      seniorId: selectedSenior?.userId || 0,
+      guardianName: selectedSenior?.guardianName || ""
+    });
+  };
 
   const filteredRequests = requests.filter((req) => {
     const matchesSearch = req.seniorName.includes(searchTerm) || req.guardianName.includes(searchTerm);
@@ -132,16 +164,33 @@ const CounselorSensitiveInfo = () => {
     }
   };
 
-  const handleSubmitRequest = () => {
-    // Submit logic here
-    setIsDialogOpen(false);
-    setNewRequest({ seniorName: "", guardianName: "", infoType: "", reason: "" });
+  const handleSubmitRequest = async () => {
+    if (!newRequest.seniorId || !newRequest.infoType || !newRequest.reason) {
+      toast.error("모든 필수 항목을 입력해주세요.");
+      return;
+    }
+
+    try {
+      await accessRequestsApi.createRequest({
+        elderlyUserId: newRequest.seniorId,
+        scope: newRequest.infoType as AccessScope,
+        reason: newRequest.reason
+      });
+
+      toast.success("요청이 성공적으로 전송되었습니다.");
+      setIsDialogOpen(false);
+      setNewRequest({ seniorName: "", seniorId: 0, guardianName: "", infoType: "", reason: "" });
+      fetchRequests(); // Refresh list
+    } catch (error) {
+      console.error("Request failed:", error);
+      toast.error("요청 전송에 실패했습니다.");
+    }
   };
 
   return (
     <DashboardLayout
       role="counselor"
-      userName="김상담"
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">
@@ -151,7 +200,7 @@ const CounselorSensitiveInfo = () => {
             <h1 className="text-2xl font-bold text-foreground">민감정보 요청</h1>
             <p className="text-muted-foreground mt-1">어르신 민감정보 열람을 위한 권한을 요청하세요</p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={handleOpenDialog}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
@@ -165,19 +214,45 @@ const CounselorSensitiveInfo = () => {
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label>어르신 성함</Label>
-                  <Input
-                    placeholder="어르신 성함을 입력하세요"
+                  <Select
                     value={newRequest.seniorName}
-                    onChange={(e) => setNewRequest({ ...newRequest, seniorName: e.target.value })}
-                  />
+                    onValueChange={handleSeniorChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="어르신을 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {assignedSeniors.map((senior) => (
+                        <SelectItem key={senior.userId} value={senior.name}>
+                          {senior.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>보호자 성함</Label>
-                  <Input
-                    placeholder="보호자 성함을 입력하세요"
+                  <Select
                     value={newRequest.guardianName}
-                    onChange={(e) => setNewRequest({ ...newRequest, guardianName: e.target.value })}
-                  />
+                    onValueChange={(value) => setNewRequest({ ...newRequest, guardianName: value })}
+                    disabled={!newRequest.seniorName}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={newRequest.seniorName ? "보호자를 선택하세요" : "어르신을 먼저 선택하세요"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {newRequest.guardianName && (
+                        <SelectItem value={newRequest.guardianName}>
+                          {newRequest.guardianName}
+                        </SelectItem>
+                      )}
+                      {!newRequest.guardianName && newRequest.seniorName && (
+                        <SelectItem value="none" disabled>
+                          등록된 보호자가 없습니다
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>정보 유형</Label>
@@ -228,7 +303,7 @@ const CounselorSensitiveInfo = () => {
               <div>
                 <p className="font-medium text-foreground">민감정보 열람 안내</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  민감정보 열람은 어르신의 동의와 관리자의 승인이 필요합니다. 
+                  민감정보 열람은 어르신의 동의와 관리자의 승인이 필요합니다.
                   요청 사유를 명확히 작성해주시고, 승인된 정보는 업무 목적으로만 사용해주세요.
                 </p>
               </div>

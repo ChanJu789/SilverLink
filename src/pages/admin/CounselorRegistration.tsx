@@ -17,9 +17,11 @@ import { AddressResponse, CounselorRequest } from "@/types/api";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { adminNavItems } from "@/config/adminNavItems";
 import { UserPlus, Save, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function CounselorRegistration() {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
 
     // Form Data
@@ -53,7 +55,11 @@ export default function CounselorRegistration() {
     const loadSido = async () => {
         try {
             const data = await addressApi.getSido();
-            setSidoList(data);
+            // 중복 제거: sidoCode 기준으로 유니크하게
+            const uniqueData = data.filter((item, index, self) => 
+                index === self.findIndex((t) => t.sidoCode === item.sidoCode)
+            );
+            setSidoList(uniqueData);
         } catch (error) {
             console.error("Failed to load Sido:", error);
         }
@@ -73,7 +79,11 @@ export default function CounselorRegistration() {
     const loadSigungu = async (sidoCode: string) => {
         try {
             const data = await addressApi.getSigungu(sidoCode);
-            setSigunguList(data);
+            // 중복 제거: sigunguCode 기준으로 유니크하게
+            const uniqueData = data.filter((item, index, self) => 
+                index === self.findIndex((t) => t.sigunguCode === item.sigunguCode)
+            );
+            setSigunguList(uniqueData);
         } catch (error) {
             console.error("Failed to load Sigungu:", error);
         }
@@ -91,7 +101,11 @@ export default function CounselorRegistration() {
     const loadDong = async (sidoCode: string, sigunguCode: string) => {
         try {
             const data = await addressApi.getDong(sidoCode, sigunguCode);
-            setDongList(data);
+            // 중복 제거: admCode 기준으로 유니크하게
+            const uniqueData = data.filter((item, index, self) => 
+                index === self.findIndex((t) => t.admCode === item.admCode)
+            );
+            setDongList(uniqueData);
         } catch (error) {
             console.error("Failed to load Dong:", error);
         }
@@ -151,13 +165,10 @@ export default function CounselorRegistration() {
     };
 
     return (
-        <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+        <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
             <div className="container mx-auto p-6 max-w-3xl">
                 <div className="flex items-center gap-4 mb-6">
-                    <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-                        <ArrowLeft className="w-4 h-4 mr-1" />
-                        뒤로가기
-                    </Button>
+
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <UserPlus className="w-6 h-6 text-primary" />
                         상담사 등록
@@ -233,8 +244,8 @@ export default function CounselorRegistration() {
                                             <SelectValue placeholder="시/도 선택" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {sidoList.map((sido) => (
-                                                <SelectItem key={sido.sidoCode || sido.sidoName} value={sido.sidoCode || ''}>
+                                            {sidoList.map((sido, index) => (
+                                                <SelectItem key={`sido-${index}`} value={sido.sidoCode || ''}>
                                                     {sido.sidoName}
                                                 </SelectItem>
                                             ))}
@@ -246,8 +257,8 @@ export default function CounselorRegistration() {
                                             <SelectValue placeholder="시/군/구 선택" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {sigunguList.map((sigungu) => (
-                                                <SelectItem key={sigungu.sigunguCode || sigungu.sigunguName} value={sigungu.sigunguCode || ''}>
+                                            {sigunguList.map((sigungu, index) => (
+                                                <SelectItem key={`sigungu-${index}`} value={sigungu.sigunguCode || ''}>
                                                     {sigungu.sigunguName}
                                                 </SelectItem>
                                             ))}
@@ -259,8 +270,8 @@ export default function CounselorRegistration() {
                                             <SelectValue placeholder="읍/면/동 선택" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {dongList.map((dong) => (
-                                                <SelectItem key={dong.admCode} value={String(dong.admCode)}>
+                                            {dongList.map((dong, index) => (
+                                                <SelectItem key={`dong-${index}`} value={String(dong.admCode)}>
                                                     {dong.dongName}
                                                 </SelectItem>
                                             ))}
@@ -276,7 +287,7 @@ export default function CounselorRegistration() {
 
                     <div className="flex justify-end gap-2">
                         <Button type="button" variant="outline" onClick={() => navigate(-1)}>취소</Button>
-                        <Button type="submit" disabled={isLoading || !formData.admCode}>
+                        <Button type="submit" disabled={isLoading || !formData.admCode || !formData.loginId || !formData.password || !formData.name || !formData.phone}>
                             {isLoading ? '저장 중...' : '상담사 등록 저장'}
                         </Button>
                     </div>

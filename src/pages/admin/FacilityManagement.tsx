@@ -31,6 +31,7 @@ import { WelfareFacilityResponse, WelfareFacilityRequest } from "@/types/api";
 import { Trash2, RefreshCw, Plus, Pencil, MapPin, Search, Loader2, CheckCircle } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { adminNavItems } from "@/config/adminNavItems";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Kakao Maps 타입 선언
 declare global {
@@ -41,6 +42,7 @@ declare global {
 }
 
 export default function FacilityManagement() {
+    const { user } = useAuth();
     const [facilities, setFacilities] = useState<WelfareFacilityResponse[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -314,7 +316,7 @@ export default function FacilityManagement() {
     );
 
     return (
-        <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+        <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
             <div className="container mx-auto p-6">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">사회복지시설 관리</h1>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { 
+import {
   Calendar,
   TrendingUp,
   TrendingDown,
@@ -11,6 +11,7 @@ import {
   Moon,
   Phone
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { guardianNavItems } from "@/config/guardianNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,7 @@ import {
   Cell,
   Legend
 } from "recharts";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Mock data - Weekly emotion data
 const weeklyEmotionData = [
@@ -91,6 +93,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const GuardianStats = () => {
+  const { user } = useAuth();
   const [period, setPeriod] = useState("weekly");
 
   const currentScore = 85;
@@ -100,7 +103,7 @@ const GuardianStats = () => {
   return (
     <DashboardLayout
       role="guardian"
-      userName="홍길동"
+      userName={user?.name || "보호자"}
       navItems={guardianNavItems}
     >
       <div className="space-y-6">
@@ -111,14 +114,14 @@ const GuardianStats = () => {
             <p className="text-muted-foreground mt-1">부모님의 감정 및 생활 패턴을 분석합니다</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
+            <Button
               variant={period === "weekly" ? "default" : "outline"}
               size="sm"
               onClick={() => setPeriod("weekly")}
             >
               주간
             </Button>
-            <Button 
+            <Button
               variant={period === "monthly" ? "default" : "outline"}
               size="sm"
               onClick={() => setPeriod("monthly")}
@@ -211,37 +214,37 @@ const GuardianStats = () => {
               <CardContent>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart 
+                    <AreaChart
                       data={period === "weekly" ? weeklyEmotionData : monthlyEmotionData}
                       margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                     >
                       <defs>
                         <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(172, 50%, 38%)" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="hsl(172, 50%, 38%)" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="hsl(172, 50%, 38%)" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(172, 50%, 38%)" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" vertical={false} />
-                      <XAxis 
-                        dataKey={period === "weekly" ? "day" : "month"} 
-                        axisLine={false} 
+                      <XAxis
+                        dataKey={period === "weekly" ? "day" : "month"}
+                        axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(220, 10%, 50%)', fontSize: 12 }}
                       />
-                      <YAxis 
-                        domain={[0, 100]} 
-                        axisLine={false} 
+                      <YAxis
+                        domain={[0, 100]}
+                        axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(220, 10%, 50%)', fontSize: 12 }}
                       />
                       <Tooltip content={<CustomTooltip />} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="score" 
-                        stroke="hsl(172, 50%, 38%)" 
+                      <Area
+                        type="monotone"
+                        dataKey="score"
+                        stroke="hsl(172, 50%, 38%)"
                         strokeWidth={3}
-                        fillOpacity={1} 
-                        fill="url(#colorScore)" 
+                        fillOpacity={1}
+                        fill="url(#colorScore)"
                         name="감정 점수"
                       />
                     </AreaChart>
@@ -306,19 +309,19 @@ const GuardianStats = () => {
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
+                <BarChart
                   data={period === "weekly" ? weeklyEmotionData : monthlyEmotionData}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" vertical={false} />
-                  <XAxis 
-                    dataKey={period === "weekly" ? "day" : "month"} 
-                    axisLine={false} 
+                  <XAxis
+                    dataKey={period === "weekly" ? "day" : "month"}
+                    axisLine={false}
                     tickLine={false}
                     tick={{ fill: 'hsl(220, 10%, 50%)', fontSize: 12 }}
                   />
-                  <YAxis 
-                    axisLine={false} 
+                  <YAxis
+                    axisLine={false}
                     tickLine={false}
                     tick={{ fill: 'hsl(220, 10%, 50%)', fontSize: 12 }}
                   />
@@ -360,20 +363,20 @@ const GuardianStats = () => {
               <TabsContent value="meals">
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart 
+                    <BarChart
                       data={weeklyActivitiesData}
                       margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" vertical={false} />
-                      <XAxis 
-                        dataKey="day" 
-                        axisLine={false} 
+                      <XAxis
+                        dataKey="day"
+                        axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(220, 10%, 50%)', fontSize: 12 }}
                       />
-                      <YAxis 
-                        domain={[0, 3]} 
-                        axisLine={false} 
+                      <YAxis
+                        domain={[0, 3]}
+                        axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(220, 10%, 50%)', fontSize: 12 }}
                       />
@@ -387,28 +390,28 @@ const GuardianStats = () => {
               <TabsContent value="sleep">
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart 
+                    <LineChart
                       data={weeklyActivitiesData}
                       margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" vertical={false} />
-                      <XAxis 
-                        dataKey="day" 
-                        axisLine={false} 
+                      <XAxis
+                        dataKey="day"
+                        axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(220, 10%, 50%)', fontSize: 12 }}
                       />
-                      <YAxis 
-                        domain={[0, 10]} 
-                        axisLine={false} 
+                      <YAxis
+                        domain={[0, 10]}
+                        axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(220, 10%, 50%)', fontSize: 12 }}
                       />
                       <Tooltip content={<CustomTooltip />} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="sleep" 
-                        stroke="hsl(210, 80%, 55%)" 
+                      <Line
+                        type="monotone"
+                        dataKey="sleep"
+                        stroke="hsl(210, 80%, 55%)"
                         strokeWidth={3}
                         dot={{ fill: "hsl(210, 80%, 55%)", strokeWidth: 0 }}
                         name="수면 시간"
@@ -422,20 +425,20 @@ const GuardianStats = () => {
               <TabsContent value="exercise">
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart 
+                    <BarChart
                       data={weeklyActivitiesData}
                       margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" vertical={false} />
-                      <XAxis 
-                        dataKey="day" 
-                        axisLine={false} 
+                      <XAxis
+                        dataKey="day"
+                        axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(220, 10%, 50%)', fontSize: 12 }}
                       />
-                      <YAxis 
-                        domain={[0, 2]} 
-                        axisLine={false} 
+                      <YAxis
+                        domain={[0, 2]}
+                        axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(220, 10%, 50%)', fontSize: 12 }}
                       />

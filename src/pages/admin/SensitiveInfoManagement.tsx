@@ -82,17 +82,18 @@ const SensitiveInfoManagement = () => {
       const pendingData = await accessRequestsApi.getPendingRequests();
 
       // 응답을 화면에 표시할 형태로 변환
-      const mappedRequests: RequestDisplay[] = pendingData.map((r: AccessRequestResponse) => ({
-        id: r.requestId,
-        guardianName: r.guardianName || '보호자',
+      // map from AccessRequestSummary
+      const mappedRequests: RequestDisplay[] = pendingData.map((r: any) => ({
+        id: r.id,
+        guardianName: r.requesterName || '보호자',
         elderlyName: r.elderlyName || '어르신',
         scope: mapScopeToKorean(r.scope),
-        reason: r.reason,
+        reason: "-", // Summary does not include request reason
         status: r.status,
-        createdAt: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '',
-        processedAt: r.processedAt ? new Date(r.processedAt).toLocaleDateString() : undefined,
-        processedByName: r.processedByName,
-        rejectReason: r.rejectReason,
+        createdAt: r.requestedAt ? new Date(r.requestedAt).toLocaleDateString() : '',
+        processedAt: r.decidedAt ? new Date(r.decidedAt).toLocaleDateString() : undefined,
+        processedByName: r.reviewedBy,
+        rejectReason: r.decisionNote,
         documentsVerified: r.documentsVerified,
       }));
 
@@ -122,8 +123,8 @@ const SensitiveInfoManagement = () => {
   const mapScopeToKorean = (scope: string): string => {
     switch (scope) {
       case 'HEALTH_INFO': return '건강정보';
-      case 'MEDICATION_INFO': return '복약정보';
-      case 'CALL_RECORD': return '통화기록';
+      case 'MEDICATION': return '복약정보';
+      case 'CALL_RECORDS': return '통화기록';
       case 'ALL': return '전체';
       default: return scope;
     }
@@ -163,13 +164,27 @@ const SensitiveInfoManagement = () => {
 
     try {
       setSubmitting(true);
-      await accessRequestsApi.approveRequest(selectedRequest.id, { validDays: 30 });
+
+      // 30일 후 만료 계산
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      // LocalDateTime 형식에 맞체 'Z' 제거 (YYYY-MM-DDTHH:mm:ss)
+      const formattedDate = expiresAt.toISOString().slice(0, 19);
+
+      await accessRequestsApi.approveRequest(selectedRequest.id, {
+        accessRequestId: selectedRequest.id,
+        expiresAt: formattedDate,
+        note: "승인됨"
+      });
+
       toast.success("요청이 승인되었습니다.");
       await fetchRequests();
       setSelectedRequest(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("승인 실패:", error);
-      toast.error("요청 승인에 실패했습니다.");
+      const message = error.response?.data?.message || "요청 승인에 실패했습니다.";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -183,16 +198,25 @@ const SensitiveInfoManagement = () => {
       return;
     }
 
+    if (rejectReason.trim().length < 10) {
+      toast.error("거부 사유는 최소 10자 이상 입력해야 합니다.");
+      return;
+    }
+
     try {
       setSubmitting(true);
-      await accessRequestsApi.rejectRequest(selectedRequest.id, { reason: rejectReason });
+      await accessRequestsApi.rejectRequest(selectedRequest.id, {
+        accessRequestId: selectedRequest.id,
+        reason: rejectReason
+      });
       toast.success("요청이 거부되었습니다.");
       await fetchRequests();
       setSelectedRequest(null);
       setRejectReason("");
-    } catch (error) {
+    } catch (error: any) {
       console.error("거부 실패:", error);
-      toast.error("요청 거부에 실패했습니다.");
+      const message = error.response?.data?.message || "요청 거부에 실패했습니다.";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
