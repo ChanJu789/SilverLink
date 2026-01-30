@@ -223,7 +223,7 @@ class ChatbotService(BaseService):
             with connection.cursor() as cursor:
                 sql = """
                     INSERT INTO chatbot_logs 
-                    (guardian_id, elderly_id, session_id, user_message_text, bot_response_text,
+                    (guardian_user_id, elderly_user_id, session_id, user_message_text, bot_response_text,
                      source_type, embedding_time_ms, search_time_ms, llm_time_ms, 
                      response_time_ms, model_name, created_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
