@@ -13,8 +13,10 @@ import { useToast } from "@/hooks/use-toast";
 import counselorsApi from "@/api/counselors";
 import usersApi from "@/api/users";
 import { CounselorResponse } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CounselorProfile = () => {
+    const { user } = useAuth();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
@@ -101,7 +103,7 @@ const CounselorProfile = () => {
     return (
         <DashboardLayout
             role="counselor"
-            userName={profile?.name || "상담사"}
+            userName={user?.name || "상담사"}
             navItems={counselorNavItems}
         >
             <div className="max-w-3xl mx-auto space-y-6">

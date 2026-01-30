@@ -29,6 +29,7 @@ import { Separator } from "@/components/ui/separator";
 import callReviewsApi from "@/api/callReviews";
 import usersApi from "@/api/users";
 import { CounselorCallRecordResponse, MyProfileResponse } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const EmotionDisplay = ({ emotion, score }: { emotion: string; score: number }) => {
   const config: Record<string, { icon: typeof Smile; color: string; bg: string; label: string }> = {
@@ -63,7 +64,7 @@ const CounselorCallDetail = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [callDetail, setCallDetail] = useState<CounselorCallRecordResponse | null>(null);
-  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,8 +73,8 @@ const CounselorCallDetail = () => {
       try {
         setIsLoading(true);
 
-        const profile = await usersApi.getMyProfile();
-        setUserProfile(profile);
+        // const profile = await usersApi.getMyProfile(); (Removed)
+        // setUserProfile(profile); (Removed)
 
         const detail = await callReviewsApi.getCallRecordDetail(parseInt(id));
         setCallDetail(detail);
@@ -99,7 +100,7 @@ const CounselorCallDetail = () => {
 
   if (!callDetail) {
     return (
-      <DashboardLayout role="counselor" userName={userProfile?.name || "상담사"} navItems={counselorNavItems}>
+      <DashboardLayout role="counselor" userName={user?.name || "상담사"} navItems={counselorNavItems}>
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <p className="text-muted-foreground">통화 기록을 찾을 수 없습니다.</p>
           <Button onClick={() => navigate("/counselor/calls")}>
@@ -117,7 +118,7 @@ const CounselorCallDetail = () => {
   return (
     <DashboardLayout
       role="counselor"
-      userName={userProfile?.name || "상담사"}
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">

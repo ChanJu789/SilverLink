@@ -7,6 +7,7 @@ import {
   Book,
   Loader2
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { guardianNavItems } from "@/config/guardianNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,6 +39,7 @@ const getCategoryName = (categoryId: string): string => {
 const PAGE_SIZE = 10;
 
 const FAQPage = () => {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -89,7 +91,7 @@ const FAQPage = () => {
 
   if (isLoading) {
     return (
-      <DashboardLayout role="guardian" userName="홍길동" navItems={guardianNavItems}>
+      <DashboardLayout role="guardian" userName="로딩중..." navItems={guardianNavItems}>
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-12 h-12 animate-spin text-primary" />
         </div>
@@ -100,7 +102,7 @@ const FAQPage = () => {
   return (
     <DashboardLayout
       role="guardian"
-      userName="홍길동"
+      userName={user?.name || "보호자"}
       navItems={guardianNavItems}
     >
       <div className="space-y-6">
