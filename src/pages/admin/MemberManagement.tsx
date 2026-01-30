@@ -59,6 +59,7 @@ import elderlyApi from "@/api/elderly";
 import assignmentsApi from "@/api/assignments";
 import { MyProfileResponse, CounselorResponse, GuardianResponse, ElderlySummaryResponse, GuardianElderlyResponse } from "@/types/api";
 import { AssignmentResponse } from "@/api/assignments";
+import { useAuth } from "@/contexts/AuthContext";
 
 // 전화번호 포맷팅 함수
 const formatPhoneNumber = (phone: string | undefined): string => {
@@ -129,6 +130,7 @@ const RoleBadge = ({ role }: { role: string }) => {
 
 const MemberManagement = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -409,7 +411,7 @@ const MemberManagement = () => {
 
   if (isLoading) {
     return (
-      <DashboardLayout role="admin" userName="로딩중..." navItems={adminNavItems}>
+      <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -420,7 +422,7 @@ const MemberManagement = () => {
   return (
     <DashboardLayout
       role="admin"
-      userName={userProfile?.name || "관리자"}
+      userName={user?.name || userProfile?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">

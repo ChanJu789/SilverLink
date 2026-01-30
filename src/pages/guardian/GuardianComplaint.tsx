@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import complaintsApi, { ComplaintResponse, ComplaintStats } from "@/api/complaints";
 import usersApi from "@/api/users";
 import { MyProfileResponse } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 // 백엔드 상태를 프론트엔드 표시용으로 변환
 const mapStatus = (status: string): string => {
@@ -64,13 +65,14 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 const GuardianComplaint = () => {
+  const { user } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<ComplaintResponse | null>(null);
   const [complaints, setComplaints] = useState<ComplaintResponse[]>([]);
   const [stats, setStats] = useState<ComplaintStats>({ pending: 0, processing: 0, resolved: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [userName, setUserName] = useState("사용자");
+  const [userName, setUserName] = useState(user?.name || "사용자");
 
   // 폼 상태
   const [formTitle, setFormTitle] = useState("");

@@ -1,5 +1,5 @@
 import apiClient from './index';
-import { ElderlySummaryResponse, HealthInfoResponse } from '@/types/api';
+import { ElderlySummaryResponse, HealthInfoResponse, ApiResponse } from '@/types/api';
 
 /**
  * 어르신 요약 정보 조회

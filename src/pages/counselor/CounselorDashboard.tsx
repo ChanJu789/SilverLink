@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import { useAuth } from "@/contexts/AuthContext";
 import usersApi from "@/api/users";
 import counselorsApi from "@/api/counselors";
 import callReviewsApi from "@/api/callReviews";
@@ -129,9 +130,10 @@ const StatusIcon = ({ status }: { status: string }) => {
 };
 
 const CounselorDashboard = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+  // userProfile state removed
   const [counselorInfo, setCounselorInfo] = useState<CounselorResponse | null>(null);
   const [callRecords, setCallRecords] = useState<CallRecordSummaryResponse[]>([]);
   const [unreviewedCount, setUnreviewedCount] = useState(0);
@@ -147,9 +149,8 @@ const CounselorDashboard = () => {
       try {
         setIsLoading(true);
 
-        // 사용자 프로필 조회
-        const profile = await usersApi.getMyProfile();
-        setUserProfile(profile);
+        // 사용자 프로필 조회 (Removed)
+
 
         // 상담사 정보 조회
         const counselor = await counselorsApi.getMyInfo();
@@ -201,14 +202,14 @@ const CounselorDashboard = () => {
   return (
     <DashboardLayout
       role="counselor"
-      userName={userProfile?.name || "상담사"}
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">안녕하세요, 김상담님</h1>
+            <h1 className="text-2xl font-bold text-foreground">안녕하세요, {user?.name || "상담사"}님</h1>
             <p className="text-muted-foreground mt-1">오늘의 상담 현황을 확인하세요</p>
           </div>
           <div className="flex items-center gap-2">
