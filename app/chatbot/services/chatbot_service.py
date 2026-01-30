@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import time
+import pymysql
+from datetime import datetime
 from langgraph.graph import StateGraph, MessagesState
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import SystemMessage, HumanMessage, trim_messages
@@ -167,8 +169,85 @@ class ChatbotService(BaseService):
         total_time = time.time() - total_start
         logger.info(f"✅ 총 소요 시간: {total_time:.2f}초 (임베딩:{embed_time:.2f}s + 검색:{search_time:.2f}s + 병합:{merge_time:.2f}s + LLM:{llm_time:.2f}s)")
         
+        # 5. RDS에 대화 로그 저장
+        try:
+            self._save_chat_log(
+                guardian_id=guardian_id,
+                elderly_id=elderly_id,
+                session_id=thread_id,
+                user_message=message,
+                bot_response=last_message.content,
+                source_type=all_results[0]["source"] if all_results else None,
+                embedding_time_ms=int(embed_time * 1000),
+                search_time_ms=int(search_time * 1000),
+                llm_time_ms=int(llm_time * 1000),
+                response_time_ms=int(total_time * 1000),
+                model_name=configs.OPENAI_MODEL
+            )
+            logger.info("💾 대화 로그가 RDS에 저장되었습니다.")
+        except Exception as e:
+            logger.error(f"❌ 대화 로그 저장 실패: {e}")
+        
         return {
             "answer": last_message.content,
             "sources": [r["source"] for r in all_results[:3]] if all_results else [],
             "confidence": all_results[0]["score"] if all_results else 0.0
         }
+
+    def _save_chat_log(
+        self,
+        guardian_id: int,
+        elderly_id: int,
+        session_id: str,
+        user_message: str,
+        bot_response: str,
+        source_type: str = None,
+        embedding_time_ms: int = None,
+        search_time_ms: int = None,
+        llm_time_ms: int = None,
+        response_time_ms: int = None,
+        model_name: str = None
+    ):
+        """대화 로그를 RDS chatbot_logs 테이블에 저장"""
+        connection = None
+        try:
+            connection = pymysql.connect(
+                host=configs.RDS_HOST,
+                port=configs.RDS_PORT,
+                user=configs.RDS_USER,
+                password=configs.RDS_PASSWORD,
+                database=configs.RDS_DATABASE,
+                charset='utf8mb4'
+            )
+            
+            with connection.cursor() as cursor:
+                sql = """
+                    INSERT INTO chatbot_logs 
+                    (guardian_id, elderly_id, session_id, user_message_text, bot_response_text,
+                     source_type, embedding_time_ms, search_time_ms, llm_time_ms, 
+                     response_time_ms, model_name, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(sql, (
+                    guardian_id,
+                    elderly_id,
+                    session_id,
+                    user_message,
+                    bot_response,
+                    source_type,
+                    embedding_time_ms,
+                    search_time_ms,
+                    llm_time_ms,
+                    response_time_ms,
+                    model_name,
+                    datetime.now()
+                ))
+                connection.commit()
+                
+        except Exception as e:
+            logger.error(f"RDS 연결/저장 오류: {e}")
+            raise
+        finally:
+            if connection:
+                connection.close()
+

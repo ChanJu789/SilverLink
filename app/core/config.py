@@ -95,6 +95,13 @@ class Configs(BaseSettings):
     # number
     SILVERLINK_NUMBER:str = os.getenv("SILVERLINK_NUMBER")
     NUMBER:str = ''
+    
+    # RDS (MySQL) 연결 정보
+    RDS_HOST: str = os.getenv("RDS_HOST", "localhost")
+    RDS_PORT: int = int(os.getenv("RDS_PORT", "3306"))
+    RDS_USER: str = os.getenv("RDS_USER", "root")
+    RDS_PASSWORD: str = os.getenv("RDS_PASSWORD", "")
+    RDS_DATABASE: str = os.getenv("RDS_DATABASE", "silverlink")
 
     class Config:
         case_sensitive = True
