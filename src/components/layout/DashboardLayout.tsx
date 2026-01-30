@@ -10,7 +10,6 @@ import {
   LogOut,
   Menu,
   X,
-  Bell,
   User,
   Settings,
   ChevronRight
@@ -32,6 +31,7 @@ import { getRoleHomePath } from "@/contexts/AuthContext";
 import { SessionTimer } from "@/components/auth/SessionTimer";
 import { toast } from "sonner";
 import ChatbotWidget from "@/components/chatbot/ChatbotWidget";
+import NotificationDropdown from "@/components/notification/NotificationDropdown";
 
 interface NavItem {
   title: string;
@@ -208,21 +208,7 @@ const DashboardLayout = ({
 
             <div className="flex items-center gap-2">
               {/* Notifications */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel>알림</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    새로운 알림이 없습니다
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <NotificationDropdown role={role} />
 
               {/* User Menu */}
               <DropdownMenu>
