@@ -7,7 +7,7 @@ import {
   XCircle,
   Clock,
   Eye,
-  Edit,
+  Pencil,
   Trash2,
   Download,
   Loader2,
@@ -59,19 +59,20 @@ import elderlyApi from "@/api/elderly";
 import assignmentsApi from "@/api/assignments";
 import { MyProfileResponse, CounselorResponse, GuardianResponse, ElderlySummaryResponse, GuardianElderlyResponse } from "@/types/api";
 import { AssignmentResponse } from "@/api/assignments";
+import { useAuth } from "@/contexts/AuthContext";
 
 // 전화번호 포맷팅 함수
 const formatPhoneNumber = (phone: string | undefined): string => {
   if (!phone) return '-';
-  
+
   // 숫자만 추출
   const numbers = phone.replace(/[^0-9]/g, '');
-  
+
   // 010-xxxx-xxxx 형식으로 변환
   if (numbers.length === 11 && numbers.startsWith('010')) {
     return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
   }
-  
+
   // 02-xxx-xxxx 또는 02-xxxx-xxxx 형식 (서울 지역번호)
   if (numbers.length === 9 && numbers.startsWith('02')) {
     return `${numbers.slice(0, 2)}-${numbers.slice(2, 5)}-${numbers.slice(5)}`;
@@ -79,7 +80,7 @@ const formatPhoneNumber = (phone: string | undefined): string => {
   if (numbers.length === 10 && numbers.startsWith('02')) {
     return `${numbers.slice(0, 2)}-${numbers.slice(2, 6)}-${numbers.slice(6)}`;
   }
-  
+
   // 지역번호 3자리 (031, 032 등)
   if (numbers.length === 10) {
     return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6)}`;
@@ -87,7 +88,7 @@ const formatPhoneNumber = (phone: string | undefined): string => {
   if (numbers.length === 11) {
     return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
   }
-  
+
   // 포맷팅 불가능한 경우 원본 반환
   return phone;
 };
@@ -129,6 +130,7 @@ const RoleBadge = ({ role }: { role: string }) => {
 
 const MemberManagement = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -270,9 +272,28 @@ const MemberManagement = () => {
     e.fullAddress?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Combine for All Tab
+  const allMembers = [
+    ...counselors.map(c => ({ ...c, role: 'COUNSELOR', id: c.id, original: c })),
+    ...guardians.map(g => ({ ...g, role: 'GUARDIAN', id: g.id, original: g })),
+    ...elderly.map(e => ({ ...e, role: 'ELDERLY', id: e.userId, original: e }))
+  ];
+
+  const filteredAllMembers = allMembers.filter(m => {
+    const searchLower = searchQuery.toLowerCase();
+    const nameMatch = m.name?.toLowerCase().includes(searchLower);
+    const phoneMatch = m.phone?.includes(searchQuery);
+    const emailMatch = (m as any).email?.toLowerCase().includes(searchLower);
+    const roleMatch = m.role.toLowerCase().includes(searchLower);
+
+    return nameMatch || phoneMatch || emailMatch || roleMatch;
+  });
+
+
+
   if (isLoading) {
     return (
-      <DashboardLayout role="admin" userName="로딩중..." navItems={adminNavItems}>
+      <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -283,7 +304,7 @@ const MemberManagement = () => {
   return (
     <DashboardLayout
       role="admin"
-      userName={userProfile?.name || "관리자"}
+      userName={user?.name || userProfile?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">
@@ -297,10 +318,6 @@ const MemberManagement = () => {
             <Button variant="outline" className="w-full sm:w-auto">
               <Download className="w-4 h-4 mr-2" />
               내보내기
-            </Button>
-            <Button onClick={() => navigate('/admin/members/register')} className="w-full sm:w-auto">
-              <UserPlus className="w-4 h-4 mr-2" />
-              회원 추가
             </Button>
           </div>
         </div>
@@ -377,91 +394,198 @@ const MemberManagement = () => {
         </Card>
 
         {/* Tabs */}
-        <Tabs defaultValue="counselors" className="space-y-4">
-          <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex">
+        <Tabs defaultValue="all" className="space-y-4">
+          <TabsList className="w-full sm:w-auto grid grid-cols-4 sm:inline-flex">
+            <TabsTrigger value="all" className="text-xs sm:text-sm">전체</TabsTrigger>
             <TabsTrigger value="counselors" className="text-xs sm:text-sm">상담사 ({filteredCounselors.length})</TabsTrigger>
             <TabsTrigger value="guardians" className="text-xs sm:text-sm">보호자 ({filteredGuardians.length})</TabsTrigger>
             <TabsTrigger value="seniors" className="text-xs sm:text-sm">어르신 ({filteredElderly.length})</TabsTrigger>
           </TabsList>
+
+
+
+          {/* All Members Tab */}
+          <TabsContent value="all" className="space-y-4">
+            <Card className="shadow-card border-0">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table className="table-fixed w-full">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[15%] min-w-[120px]">이름</TableHead>
+                        <TableHead className="w-[10%] min-w-[80px]">역할</TableHead>
+                        <TableHead className="w-[15%] min-w-[120px]">연락처</TableHead>
+                        <TableHead className="w-[30%] min-w-[200px]">관련 정보</TableHead>
+                        <TableHead className="w-[15%] min-w-[100px]">등록일</TableHead>
+                        <TableHead className="w-[15%] min-w-[80px] text-right">관리</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAllMembers.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            {searchQuery ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredAllMembers.map((member: any) => (
+                          <TableRow
+                            key={`${member.role}-${member.id}`}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => {
+                              if (member.role === 'COUNSELOR') handleCounselorClick(member.original);
+                              else if (member.role === 'GUARDIAN') handleGuardianClick(member.original);
+                              else if (member.role === 'ELDERLY') handleElderlyClick(member.original);
+                            }}
+                          >
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="w-9 h-9">
+                                  <AvatarFallback className={`text-sm ${member.role === 'COUNSELOR' ? 'bg-primary/10 text-primary' :
+                                    member.role === 'GUARDIAN' ? 'bg-accent/10 text-accent' :
+                                      'bg-info/10 text-info'
+                                    }`}>
+                                    {member.name?.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{member.name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {(member as any).email || '-'}
+                                  </p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell><RoleBadge role={member.role} /></TableCell>
+                            <TableCell className="text-muted-foreground">{formatPhoneNumber(member.phone)}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground truncate">
+                              {member.role === 'COUNSELOR' ? `담당 ${member.assignedElderlyCount || 0}명` :
+                                member.role === 'GUARDIAN' ? `어르신 ${member.elderlyCount || 0}명` :
+                                  (member.counselorName ? `담당: ${member.counselorName}` : '미배정')}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {member.createdAt?.split('T')[0] || '-'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (member.role === 'COUNSELOR') handleCounselorClick(member.original);
+                                    else if (member.role === 'GUARDIAN') handleGuardianClick(member.original);
+                                    else if (member.role === 'ELDERLY') handleElderlyClick(member.original);
+                                  }}>
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    상세보기
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                    <Pencil className="w-4 h-4 mr-2 text-blue-500" />
+                                    수정
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    삭제
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
 
           {/* Counselors Tab */}
           <TabsContent value="counselors" className="space-y-4">
             <Card className="shadow-card border-0">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-fixed w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="min-w-[200px]">상담사</TableHead>
-                        <TableHead className="min-w-[120px]">연락처</TableHead>
-                        <TableHead className="min-w-[100px]">담당 어르신</TableHead>
-                        <TableHead className="min-w-[100px]">등록일</TableHead>
-                        <TableHead className="text-right min-w-[80px]">관리</TableHead>
+                        <TableHead className="w-[15%] min-w-[120px]">이름</TableHead>
+                        <TableHead className="w-[10%] min-w-[80px] text-transparent select-none">&nbsp;Role</TableHead>
+                        <TableHead className="w-[15%] min-w-[120px]">연락처</TableHead>
+                        <TableHead className="w-[30%] min-w-[200px]">담당 어르신</TableHead>
+                        <TableHead className="w-[15%] min-w-[100px]">등록일</TableHead>
+                        <TableHead className="w-[15%] min-w-[80px] text-right">관리</TableHead>
                       </TableRow>
                     </TableHeader>
-                  <TableBody>
-                    {filteredCounselors.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          {searchQuery ? '검색 결과가 없습니다.' : '등록된 상담사가 없습니다.'}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredCounselors.map((counselor) => (
-                        <TableRow
-                          key={counselor.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleCounselorClick(counselor)}
-                        >
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="w-9 h-9">
-                                <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                                  {counselor.name?.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{counselor.name}</p>
-                                <p className="text-sm text-muted-foreground">{counselor.email}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">{formatPhoneNumber(counselor.phone)}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{counselor.assignedElderlyCount || 0}명</Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {counselor.createdAt?.split('T')[0]}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                <Button variant="ghost" size="icon">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCounselorClick(counselor); }}>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  상세보기
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  수정
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  삭제
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                    <TableBody>
+                      {filteredCounselors.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            {searchQuery ? '검색 결과가 없습니다.' : '등록된 상담사가 없습니다.'}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        filteredCounselors.map((counselor) => (
+                          <TableRow
+                            key={counselor.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleCounselorClick(counselor)}
+                          >
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="w-9 h-9">
+                                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                                    {counselor.name?.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{counselor.name}</p>
+                                  <p className="text-sm text-muted-foreground">{counselor.email}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell></TableCell>
+                            <TableCell className="text-muted-foreground">{formatPhoneNumber(counselor.phone)}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{counselor.assignedElderlyCount || 0}명</Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {counselor.createdAt?.split('T')[0]}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCounselorClick(counselor); }}>
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    상세보기
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                    <Pencil className="w-4 h-4 mr-2 text-blue-500" />
+                                    수정
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    삭제
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>
@@ -472,79 +596,95 @@ const MemberManagement = () => {
             <Card className="shadow-card border-0">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-fixed w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="min-w-[200px]">보호자</TableHead>
-                        <TableHead className="min-w-[120px]">연락처</TableHead>
-                        <TableHead className="min-w-[100px]">담당 어르신</TableHead>
-                        <TableHead className="min-w-[100px]">등록일</TableHead>
-                        <TableHead className="text-right min-w-[80px]">관리</TableHead>
+                        <TableHead className="w-[15%] min-w-[120px]">이름</TableHead>
+                        <TableHead className="w-[10%] min-w-[80px] text-transparent select-none">&nbsp;Role</TableHead>
+                        <TableHead className="w-[15%] min-w-[120px]">연락처</TableHead>
+                        <TableHead className="w-[30%] min-w-[200px]">관련 어르신</TableHead>
+                        <TableHead className="w-[15%] min-w-[100px]">등록일</TableHead>
+                        <TableHead className="w-[15%] min-w-[80px] text-right">관리</TableHead>
                       </TableRow>
                     </TableHeader>
-                  <TableBody>
-                    {filteredGuardians.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          {searchQuery ? '검색 결과가 없습니다.' : '등록된 보호자가 없습니다.'}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredGuardians.map((guardian) => (
-                        <TableRow
-                          key={guardian.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleGuardianClick(guardian)}
-                        >
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="w-9 h-9">
-                                <AvatarFallback className="bg-accent/10 text-accent text-sm">
-                                  {guardian.name?.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{guardian.name}</p>
-                                <p className="text-sm text-muted-foreground">{guardian.email}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">{formatPhoneNumber(guardian.phone)}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{guardian.elderlyCount || 0}명</Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {guardian.createdAt?.split('T')[0] || '-'}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                <Button variant="ghost" size="icon">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleGuardianClick(guardian); }}>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  상세보기
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  수정
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  삭제
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                    <TableBody>
+                      {filteredGuardians.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            {searchQuery ? '검색 결과가 없습니다.' : '등록된 보호자가 없습니다.'}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        filteredGuardians.map((guardian) => {
+                          const relatedElderlyNames = elderly
+                            .filter(e => e.guardianName === guardian.name)
+                            .map(e => e.name);
+
+                          return (
+                            <TableRow
+                              key={guardian.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => handleGuardianClick(guardian)}
+                            >
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="w-9 h-9">
+                                    <AvatarFallback className="bg-accent/10 text-accent text-sm">
+                                      {guardian.name?.charAt(0)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium">{guardian.name}</p>
+                                    <p className="text-sm text-muted-foreground">{guardian.email}</p>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell></TableCell>
+                              <TableCell className="text-muted-foreground">{formatPhoneNumber(guardian.phone)}</TableCell>
+                              <TableCell>
+                                {relatedElderlyNames.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {relatedElderlyNames.map((name, idx) => (
+                                      <Badge key={idx} variant="secondary">{name}</Badge>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {guardian.createdAt?.split('T')[0] || '-'}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleGuardianClick(guardian); }}>
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      상세보기
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                      <Pencil className="w-4 h-4 mr-2 text-blue-500" />
+                                      수정
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      삭제
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>
@@ -555,85 +695,99 @@ const MemberManagement = () => {
             <Card className="shadow-card border-0">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-fixed w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="min-w-[150px]">어르신</TableHead>
-                        <TableHead className="min-w-[120px]">연락처</TableHead>
-                        <TableHead className="min-w-[80px]">나이</TableHead>
-                        <TableHead className="min-w-[200px]">주소</TableHead>
-                        <TableHead className="min-w-[100px]">담당 상담사</TableHead>
-                        <TableHead className="text-right min-w-[80px]">관리</TableHead>
+                        <TableHead className="w-[15%] min-w-[120px]">이름</TableHead>
+                        <TableHead className="w-[10%] min-w-[80px]">나이</TableHead>
+                        <TableHead className="w-[10%] min-w-[80px]">성별</TableHead>
+                        <TableHead className="w-[15%] min-w-[120px]">보호자</TableHead>
+                        <TableHead className="w-[15%] min-w-[120px]">연락처</TableHead>
+                        <TableHead className="w-[20%] min-w-[180px]">주소</TableHead>
+                        <TableHead className="w-[15%] min-w-[100px]">담당 상담사</TableHead>
+                        <TableHead className="w-[10%] min-w-[80px] text-right">관리</TableHead>
                       </TableRow>
                     </TableHeader>
-                  <TableBody>
-                    {filteredElderly.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          {searchQuery ? '검색 결과가 없습니다.' : '등록된 어르신이 없습니다.'}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredElderly.map((elderlyMember) => (
-                        <TableRow
-                          key={elderlyMember.userId}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleElderlyClick(elderlyMember)}
-                        >
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="w-9 h-9">
-                                <AvatarFallback className="bg-info/10 text-info text-sm">
-                                  {elderlyMember.name?.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{elderlyMember.name}</p>
-                                <p className="text-sm text-muted-foreground">{elderlyMember.gender}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">{formatPhoneNumber(elderlyMember.phone)}</TableCell>
-                          <TableCell className="text-muted-foreground">{elderlyMember.age}세</TableCell>
-                          <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                            {elderlyMember.fullAddress || elderlyMember.addressLine1}
-                          </TableCell>
-                          <TableCell>
-                            {elderlyMember.counselorName ? (
-                              <Badge variant="secondary">{elderlyMember.counselorName}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">미배정</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                <Button variant="ghost" size="icon">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleElderlyClick(elderlyMember); }}>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  상세보기
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  수정
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  삭제
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                    <TableBody>
+                      {filteredElderly.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                            {searchQuery ? '검색 결과가 없습니다.' : '등록된 어르신이 없습니다.'}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        filteredElderly.map((elderlyMember) => (
+                          <TableRow
+                            key={elderlyMember.userId}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleElderlyClick(elderlyMember)}
+                          >
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="w-9 h-9">
+                                  <AvatarFallback className="bg-info/10 text-info text-sm">
+                                    {elderlyMember.name?.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium">{elderlyMember.name}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{elderlyMember.age}세</TableCell>
+                            <TableCell>
+                              {elderlyMember.gender === 'M' ? '남성' :
+                                elderlyMember.gender === 'F' ? '여성' : '-'}
+                            </TableCell>
+                            <TableCell>
+                              {elderlyMember.guardianName ? (
+                                <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20">
+                                  {elderlyMember.guardianName}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">{formatPhoneNumber(elderlyMember.phone)}</TableCell>
+                            <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                              {elderlyMember.fullAddress || elderlyMember.addressLine1}
+                            </TableCell>
+                            <TableCell>
+                              {elderlyMember.counselorName ? (
+                                <Badge variant="secondary">{elderlyMember.counselorName}</Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">미배정</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleElderlyClick(elderlyMember); }}>
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    상세보기
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                    <Pencil className="w-4 h-4 mr-2 text-blue-500" />
+                                    수정
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    삭제
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>

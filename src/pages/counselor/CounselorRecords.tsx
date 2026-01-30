@@ -112,6 +112,7 @@ const CounselorRecords = () => {
       content: "",
       result: "",
       followUp: "",
+      status: "COMPLETED",
     });
     setIsDialogOpen(true);
   };

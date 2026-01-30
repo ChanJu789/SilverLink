@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Phone, Clock, Navigation, List, Map } from "lucide-react";
 import { mapApi } from "@/api/map";
-import { WelfareFacilityResponse } from "@/types/api";
+import { WelfareFacilityResponse, ElderlySummaryResponse } from "@/types/api";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { adminNavItems } from "@/config/adminNavItems";
 import { guardianNavItems } from "@/config/guardianNavItems";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import { getMyElderly } from "@/api/guardians";
+import elderlyApi from "@/api/elderly";
 
 // Kakao Maps 타입 선언
 declare global {
@@ -38,6 +40,8 @@ export default function WelfareFacilityList() {
     const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
     const [selectedFacility, setSelectedFacility] = useState<WelfareFacilityResponse | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
+    const [elderlyInfo, setElderlyInfo] = useState<ElderlySummaryResponse | null>(null);
+    const [addressInfo, setAddressInfo] = useState<string>('');
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<any>(null);
@@ -53,7 +57,7 @@ export default function WelfareFacilityList() {
         }
     };
 
-    // Kakao Maps SDK 로딩
+    // Kakao Maps SDK 로딩 (services 라이브러리 포함)
     useEffect(() => {
         const kakaoApiKey = import.meta.env.VITE_KAKAO_MAP_API_KEY;
         if (!kakaoApiKey) {
@@ -68,38 +72,102 @@ export default function WelfareFacilityList() {
         }
 
         const script = document.createElement("script");
-        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoApiKey}&autoload=false`;
+        script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoApiKey}&libraries=services&autoload=false`;
         script.async = true;
         script.onload = () => {
             window.kakao.maps.load(() => {
                 setMapLoaded(true);
-                console.log("Kakao Maps SDK loaded");
+                console.log("Kakao Maps SDK loaded with services");
             });
         };
         document.head.appendChild(script);
     }, []);
 
-    // 위치 가져오기 및 시설 조회
+    // 보호자인 경우 연결된 어르신 정보 가져오기
     useEffect(() => {
-        if (!navigator.geolocation) {
-            setError("이 브라우저에서는 위치 서비스를 지원하지 않습니다.");
-            return;
-        }
+        const fetchElderlyAddress = async () => {
+            if (user?.role !== 'GUARDIAN') {
+                // 보호자가 아닌 경우 현재 위치 사용
+                getCurrentLocation();
+                return;
+            }
 
-        setLoading(true);
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-                setLocation({ lat: latitude, lon: longitude });
-                fetchFacilities(latitude, longitude);
-            },
-            (err) => {
+            setLoading(true);
+            try {
+                // 연결된 어르신 정보 가져오기
+                const elderlyConnection = await getMyElderly();
+                
+                if (!elderlyConnection || !elderlyConnection.elderlyId) {
+                    setError("연결된 어르신 정보가 없습니다.");
+                    setLoading(false);
+                    return;
+                }
+
+                // 어르신 상세 정보 가져오기
+                const elderlyData = await elderlyApi.getSummary(elderlyConnection.elderlyId);
+                setElderlyInfo(elderlyData);
+
+                // 주소 정보 확인
+                const address = elderlyData.fullAddress || elderlyData.addressLine1;
+                if (!address) {
+                    setError("어르신의 주소 정보가 등록되어 있지 않습니다.");
+                    setLoading(false);
+                    return;
+                }
+
+                setAddressInfo(address);
+
+                // 주소를 좌표로 변환
+                if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
+                    const geocoder = new window.kakao.maps.services.Geocoder();
+                    
+                    geocoder.addressSearch(address, (result: any, status: any) => {
+                        if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+                            const lat = parseFloat(result[0].y);
+                            const lon = parseFloat(result[0].x);
+                            setLocation({ lat, lon });
+                            fetchFacilities(lat, lon);
+                        } else {
+                            setError("주소에서 좌표를 찾을 수 없습니다. 관리자에게 문의해주세요.");
+                            setLoading(false);
+                        }
+                    });
+                } else {
+                    setError("지도 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+                    setLoading(false);
+                }
+            } catch (err) {
                 console.error(err);
-                setError("위치 정보를 가져올 수 없습니다. 위치 권한을 확인해주세요.");
+                setError("어르신 정보를 불러오는 중 오류가 발생했습니다.");
                 setLoading(false);
             }
-        );
-    }, []);
+        };
+
+        const getCurrentLocation = () => {
+            if (!navigator.geolocation) {
+                setError("이 브라우저에서는 위치 서비스를 지원하지 않습니다.");
+                return;
+            }
+
+            setLoading(true);
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    setLocation({ lat: latitude, lon: longitude });
+                    fetchFacilities(latitude, longitude);
+                },
+                (err) => {
+                    console.error(err);
+                    setError("위치 정보를 가져올 수 없습니다. 위치 권한을 확인해주세요.");
+                    setLoading(false);
+                }
+            );
+        };
+
+        if (mapLoaded) {
+            fetchElderlyAddress();
+        }
+    }, [user, mapLoaded]);
 
     // 지도 초기화 및 마커 표시
     useEffect(() => {
@@ -121,8 +189,11 @@ export default function WelfareFacilityList() {
         });
 
         // 현재 위치 인포윈도우
+        const locationLabel = user?.role === 'GUARDIAN' && elderlyInfo 
+            ? `📍 ${elderlyInfo.name}님 댁` 
+            : '📍 현재 위치';
         const currentInfoWindow = new window.kakao.maps.InfoWindow({
-            content: '<div style="padding:5px;font-size:12px;font-weight:bold;">📍 현재 위치</div>'
+            content: `<div style="padding:5px;font-size:12px;font-weight:bold;">${locationLabel}</div>`
         });
         currentInfoWindow.open(map, currentPositionMarker);
 
@@ -248,7 +319,14 @@ export default function WelfareFacilityList() {
                                 style={{ minHeight: '320px' }}
                             />
                             <div className="text-sm text-gray-500 text-center">
-                                📍 현재 위치 기준 반경 3km 내 시설 {facilities.length}개
+                                {user?.role === 'GUARDIAN' && elderlyInfo ? (
+                                    <>
+                                        📍 {elderlyInfo.name}님 댁 기준 반경 3km 내 시설 {facilities.length}개
+                                        <div className="text-xs mt-1">({addressInfo})</div>
+                                    </>
+                                ) : (
+                                    <>📍 현재 위치 기준 반경 3km 내 시설 {facilities.length}개</>
+                                )}
                             </div>
 
                             {/* 선택된 시설 상세 정보 */}

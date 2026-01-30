@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, Edit, Trash2, Eye, Search, Calendar, Loader2 } from "lucide-react";
+import { FileText, Plus, Pencil, Trash2, Eye, Search, Calendar, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -389,7 +389,7 @@ const PolicyManagement = () => {
                         </div>
                         <div className="flex gap-2 self-end sm:self-start">
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(policy)}>
-                            <Edit className="w-4 h-4" />
+                            <Pencil className="w-4 h-4 text-blue-500" />
                           </Button>
                           <Button
                             variant="ghost"

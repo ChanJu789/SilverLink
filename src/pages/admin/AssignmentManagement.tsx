@@ -198,6 +198,10 @@ const AssignmentManagement = () => {
     return matchesSearch && matchesCounselor && a.status === 'ACTIVE';
   });
 
+  // 통계 계산
+  const assignedElderlyCount = new Set(assignments.filter(a => a.status === 'ACTIVE').map(a => a.elderlyId)).size;
+  const activeCounselorCount = new Set(assignments.filter(a => a.status === 'ACTIVE').map(a => a.counselorId)).size;
+
   if (loading) {
     return (
       <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
@@ -333,7 +337,11 @@ const AssignmentManagement = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <CardTitle className="text-lg">배정 현황</CardTitle>
-                    <CardDescription>어르신별 담당 상담사 현황 ({filteredAssignments.length}건)</CardDescription>
+                    <div className="space-y-1 mt-2 text-sm text-muted-foreground">
+                      <p>배정된 어르신 총 {assignedElderlyCount}명 (상담사 {activeCounselorCount}명)</p>
+                      <p>현재 배정 완료: {filteredAssignments.length}건 (참여 상담사: {activeCounselorCount}명)</p>
+                      <p>총 {assignedElderlyCount}명의 어르신이 {activeCounselorCount}명의 상담사와 연결되었습니다.</p>
+                    </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <div className="relative flex-1 sm:flex-initial">

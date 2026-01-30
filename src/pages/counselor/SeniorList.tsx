@@ -58,6 +58,7 @@ export default function SeniorList() {
   const [emotionFilter, setEmotionFilter] = useState("all");
   const [seniors, setSeniors] = useState<Senior[]>([]);
   const [loading, setLoading] = useState(true);
+  const [counselorName, setCounselorName] = useState(user?.name || "상담사");
 
   // 데이터 로드
   useEffect(() => {
