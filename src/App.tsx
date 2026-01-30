@@ -38,6 +38,7 @@ const CounselorCalls = lazy(() => import("./pages/counselor/CounselorCalls"));
 const CounselorCallDetail = lazy(() => import("./pages/counselor/CounselorCallDetail"));
 const CounselorSensitiveInfo = lazy(() => import("./pages/counselor/CounselorSensitiveInfo"));
 const CounselorProfile = lazy(() => import("./pages/counselor/CounselorProfile"));
+const CounselorScheduleRequests = lazy(() => import("./pages/counselor/CounselorScheduleRequests"));
 
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const MemberManagement = lazy(() => import("./pages/admin/MemberManagement"));
@@ -118,6 +119,7 @@ const App = () => (
                   <Route path="/counselor/alerts" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorAlerts /></ProtectedRoute>} />
                   <Route path="/counselor/notices" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorNotices /></ProtectedRoute>} />
                   <Route path="/counselor/sensitive-info" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorSensitiveInfo /></ProtectedRoute>} />
+                  <Route path="/counselor/schedule-requests" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorScheduleRequests /></ProtectedRoute>} />
                   <Route path="/counselor/profile" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorProfile /></ProtectedRoute>} />
 
                   {/* Admin Routes - ADMIN role only */}
@@ -143,6 +145,8 @@ const App = () => (
                   <Route path="/senior/medication" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorMedication /></ProtectedRoute>} />
                   <Route path="/senior/notices" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorNotices /></ProtectedRoute>} />
                   <Route path="/senior/faq" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorFAQ /></ProtectedRoute>} />
+                  <Route path="/senior/profile" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorProfile /></ProtectedRoute>} />
+                  <Route path="/senior/biometric" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorBiometric /></ProtectedRoute>} />
 
                   {/* Catch-all for 404 */}
                   <Route path="*" element={<NotFound />} />
