@@ -73,8 +73,8 @@ export const connectElderly = async (
  * 보호자별 어르신 목록 조회 (관리자용)
  * GET /api/guardians/admin/{id}/elderly
  */
-export const getElderlyByGuardianForAdmin = async (guardianId: number): Promise<GuardianElderlyResponse[]> => {
-    const response = await apiClient.get<GuardianElderlyResponse[]>(`/api/guardians/admin/${guardianId}/elderly`);
+export const getElderlyByGuardianForAdmin = async (guardianId: number): Promise<GuardianElderlyResponse> => {
+    const response = await apiClient.get<GuardianElderlyResponse>(`/api/guardians/admin/${guardianId}/elderly`);
     return response.data;
 };
 

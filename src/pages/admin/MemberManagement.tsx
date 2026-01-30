@@ -889,24 +889,22 @@ const MemberManagement = () => {
                   <div className="flex justify-center py-4">
                     <Loader2 className="w-5 h-5 animate-spin" />
                   </div>
-                ) : !guardianElderly?.elderlyList?.length ? (
+                ) : !guardianElderly ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">연결된 어르신이 없습니다.</p>
                 ) : (
                   <div className="space-y-2">
-                    {guardianElderly.elderlyList.map((e) => (
-                      <div key={e.elderlyId} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback className="bg-info/10 text-info text-xs">
-                            {e.name?.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{e.name}</p>
-                          <p className="text-xs text-muted-foreground">{e.age}세</p>
-                        </div>
-                        <Badge variant="outline">{e.relationType}</Badge>
+                    <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="bg-info/10 text-info text-xs">
+                          {guardianElderly.elderlyName?.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{guardianElderly.elderlyName}</p>
+                        <p className="text-xs text-muted-foreground">{formatPhoneNumber(guardianElderly.elderlyPhone)}</p>
                       </div>
-                    ))}
+                      <Badge variant="outline">{guardianElderly.relationType}</Badge>
+                    </div>
                   </div>
                 )}
               </div>

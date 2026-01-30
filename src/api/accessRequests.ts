@@ -67,16 +67,20 @@ export interface CreateAccessRequest {
 
 // 승인 요청 타입
 export interface ApproveAccessRequest {
-    validDays?: number;
+    accessRequestId: number;
+    expiresAt?: string; // ISO DateTime string
+    note?: string;
 }
 
 // 거절 요청 타입
 export interface RejectAccessRequest {
+    accessRequestId: number;
     reason: string;
 }
 
 // 철회 요청 타입
 export interface RevokeAccessRequest {
+    accessRequestId: number;
     reason?: string;
 }
 

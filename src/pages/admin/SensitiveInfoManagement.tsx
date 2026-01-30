@@ -164,13 +164,27 @@ const SensitiveInfoManagement = () => {
 
     try {
       setSubmitting(true);
-      await accessRequestsApi.approveRequest(selectedRequest.id, { validDays: 30 });
+
+      // 30일 후 만료 계산
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      // LocalDateTime 형식에 맞체 'Z' 제거 (YYYY-MM-DDTHH:mm:ss)
+      const formattedDate = expiresAt.toISOString().slice(0, 19);
+
+      await accessRequestsApi.approveRequest(selectedRequest.id, {
+        accessRequestId: selectedRequest.id,
+        expiresAt: formattedDate,
+        note: "승인됨"
+      });
+
       toast.success("요청이 승인되었습니다.");
       await fetchRequests();
       setSelectedRequest(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("승인 실패:", error);
-      toast.error("요청 승인에 실패했습니다.");
+      const message = error.response?.data?.message || "요청 승인에 실패했습니다.";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -184,16 +198,25 @@ const SensitiveInfoManagement = () => {
       return;
     }
 
+    if (rejectReason.trim().length < 10) {
+      toast.error("거부 사유는 최소 10자 이상 입력해야 합니다.");
+      return;
+    }
+
     try {
       setSubmitting(true);
-      await accessRequestsApi.rejectRequest(selectedRequest.id, { reason: rejectReason });
+      await accessRequestsApi.rejectRequest(selectedRequest.id, {
+        accessRequestId: selectedRequest.id,
+        reason: rejectReason
+      });
       toast.success("요청이 거부되었습니다.");
       await fetchRequests();
       setSelectedRequest(null);
       setRejectReason("");
-    } catch (error) {
+    } catch (error: any) {
       console.error("거부 실패:", error);
-      toast.error("요청 거부에 실패했습니다.");
+      const message = error.response?.data?.message || "요청 거부에 실패했습니다.";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
