@@ -24,7 +24,8 @@ class ChatbotService(BaseService):
         self.llm = ChatOpenAI(
             model=configs.OPENAI_MODEL,
             api_key=configs.OPENAI_API_KEY,
-            temperature=0.7
+            temperature=0.7,
+            max_tokens=150
         )
         self.memory = MemorySaver()
         self.app = self._build_workflow()
