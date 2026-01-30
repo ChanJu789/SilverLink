@@ -10,6 +10,7 @@ import { MaintenanceProvider } from "@/contexts/MaintenanceContext";
 import { MaintenanceGuard } from "@/components/layout/MaintenanceGuard";
 import { lazy, Suspense } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import AIStats from "./pages/admin/AIStats";
 
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const SeniorBiometric = lazy(() => import("./pages/senior/SeniorBiometric"));
 
 const WelfareFacilityList = lazy(() => import("./pages/map/WelfareFacilityList"));
 const FacilityManagement = lazy(() => import("./pages/admin/FacilityManagement"));
+const WelfareServiceManagement = lazy(() => import("./pages/admin/WelfareServiceManagement"));
 
 const CounselorRegistration = lazy(() => import("./pages/admin/CounselorRegistration"));
 const MyProfile = lazy(() => import("./pages/user/MyProfile"));
@@ -129,6 +131,17 @@ const App = () => (
                       <Route path="/admin" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AdminDashboard /></ProtectedRoute>} />
                       <Route path="/admin/members" element={<ProtectedRoute allowedRoles={["ADMIN"]}><MemberManagement /></ProtectedRoute>} />
                       <Route path="/admin/assignments" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AssignmentManagement /></ProtectedRoute>} />
+                      <Route path="/admin/ai-stats" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AIStats /></ProtectedRoute>} />
+                      <Route path="/admin/complaints" element={<ProtectedRoute allowedRoles={["ADMIN"]}><ComplaintManagement /></ProtectedRoute>} />
+                      <Route path="/admin/sensitive-info" element={<ProtectedRoute allowedRoles={["ADMIN"]}><SensitiveInfoManagement /></ProtectedRoute>} />
+                      <Route path="/admin/notices" element={<ProtectedRoute allowedRoles={["ADMIN"]}><NoticeManagement /></ProtectedRoute>} />
+                      <Route path="/admin/policies" element={<ProtectedRoute allowedRoles={["ADMIN"]}><PolicyManagement /></ProtectedRoute>} />
+                      <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={["ADMIN"]}><SystemSettings /></ProtectedRoute>} />
+                      <Route path="/admin/register" element={<ProtectedRoute allowedRoles={["ADMIN"]}><MemberRegistration /></ProtectedRoute>} />
+                      <Route path="/admin/profile" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AdminProfile /></ProtectedRoute>} />
+                      <Route path="/admin/facilities" element={<ProtectedRoute allowedRoles={["ADMIN"]}><FacilityManagement /></ProtectedRoute>} />
+                      <Route path="/admin/counselors/new" element={<ProtectedRoute allowedRoles={["ADMIN"]}><CounselorRegistration /></ProtectedRoute>} />
+                      <Route path="/admin/welfare-services" element={<ProtectedRoute allowedRoles={["ADMIN"]}><WelfareServiceManagement /></ProtectedRoute>} />
 
                       <Route path="/admin/complaints" element={<ProtectedRoute allowedRoles={["ADMIN"]}><ComplaintManagement /></ProtectedRoute>} />
                       <Route path="/admin/sensitive-info" element={<ProtectedRoute allowedRoles={["ADMIN"]}><SensitiveInfoManagement /></ProtectedRoute>} />

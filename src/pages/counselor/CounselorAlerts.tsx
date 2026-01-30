@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { 
+import {
   AlertTriangle,
   CheckCircle2,
   Clock,
@@ -23,36 +23,36 @@ import { counselorNavItems } from "@/config/counselorNavItems";
 import { useAuth } from "@/contexts/AuthContext";
 
 const alerts = [
-  { 
-    id: 1, 
-    seniorName: "박영희", 
+  {
+    id: 1,
+    seniorName: "박영희",
     age: 82,
-    type: "건강 위험", 
-    message: "통화 중 호흡 곤란 증상 언급. 평소보다 말이 느리고 기침이 잦음.", 
+    type: "건강 위험",
+    message: "통화 중 호흡 곤란 증상 언급. 평소보다 말이 느리고 기침이 잦음.",
     time: "10분 전",
     severity: "critical",
     guardian: "박민수",
     guardianPhone: "010-2345-6789",
     status: "pending"
   },
-  { 
-    id: 2, 
-    seniorName: "이철수", 
+  {
+    id: 2,
+    seniorName: "이철수",
     age: 75,
-    type: "정서 위험", 
-    message: "우울감 호소, 외로움 표현. '살기 힘들다'는 표현 사용.", 
+    type: "정서 위험",
+    message: "우울감 호소, 외로움 표현. '살기 힘들다'는 표현 사용.",
     time: "30분 전",
     severity: "high",
     guardian: "이영희",
     guardianPhone: "010-3456-7890",
     status: "pending"
   },
-  { 
-    id: 3, 
-    seniorName: "정미영", 
+  {
+    id: 3,
+    seniorName: "정미영",
     age: 80,
-    type: "미응답", 
-    message: "3회 연속 통화 미응답. 마지막 통화: 어제 오후 2시", 
+    type: "미응답",
+    message: "3회 연속 통화 미응답. 마지막 통화: 어제 오후 2시",
     time: "1시간 전",
     severity: "medium",
     guardian: "정철수",
@@ -169,22 +169,20 @@ const CounselorAlerts = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {alerts.map((alert) => (
-              <div 
+              <div
                 key={alert.id}
-                className={`p-5 rounded-xl border-2 ${
-                  alert.severity === "critical" ? "border-destructive bg-destructive/5" :
-                  alert.severity === "high" ? "border-warning bg-warning/5" :
-                  "border-border bg-muted/30"
-                } ${alert.status === "resolved" ? "opacity-60" : ""}`}
+                className={`p-5 rounded-xl border-2 ${alert.severity === "critical" ? "border-destructive bg-destructive/5" :
+                    alert.severity === "high" ? "border-warning bg-warning/5" :
+                      "border-border bg-muted/30"
+                  } ${alert.status === "resolved" ? "opacity-60" : ""}`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
                     <Avatar className="w-12 h-12">
-                      <AvatarFallback className={`${
-                        alert.severity === "critical" ? "bg-destructive text-destructive-foreground" :
-                        alert.severity === "high" ? "bg-warning text-warning-foreground" :
-                        "bg-secondary"
-                      }`}>
+                      <AvatarFallback className={`${alert.severity === "critical" ? "bg-destructive text-destructive-foreground" :
+                          alert.severity === "high" ? "bg-warning text-warning-foreground" :
+                            "bg-secondary"
+                        }`}>
                         {alert.seniorName.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
