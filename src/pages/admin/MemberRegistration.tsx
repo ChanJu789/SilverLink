@@ -318,9 +318,7 @@ const MemberRegistration = () => {
     <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Link to="/admin/members">
-            <Button variant="ghost" size="icon"><ChevronLeft className="w-5 h-5" /></Button>
-          </Link>
+
           <div>
             <h1 className="text-2xl font-bold text-foreground">회원 등록</h1>
             <p className="text-muted-foreground mt-1">방문 센터 등록 시 어르신 또는 보호자를 등록합니다</p>

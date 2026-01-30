@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import {
   Search,
   Plus,
-  Edit,
+  Pencil,
   Trash2,
   Eye,
   Pin,
@@ -385,7 +385,7 @@ const NoticeManagement = () => {
                             <Eye className="w-4 h-4" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleEdit(notice); }}>
-                            <Edit className="w-4 h-4" />
+                            <Pencil className="w-4 h-4 text-blue-500" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(notice); }}>
                             <Trash2 className="w-4 h-4 text-destructive" />
@@ -442,7 +442,7 @@ const NoticeManagement = () => {
                                 <Eye className="w-4 h-4" />
                               </Button>
                               <Button variant="ghost" size="sm" onClick={() => handleEdit(notice)}>
-                                <Edit className="w-4 h-4" />
+                                <Pencil className="w-4 h-4 text-blue-500" />
                               </Button>
                               <Button variant="ghost" size="sm" onClick={() => handleDelete(notice)}>
                                 <Trash2 className="w-4 h-4 text-destructive" />
