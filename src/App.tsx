@@ -45,6 +45,7 @@ const CounselorScheduleRequests = lazy(() => import("./pages/counselor/Counselor
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const MemberManagement = lazy(() => import("./pages/admin/MemberManagement"));
 const AssignmentManagement = lazy(() => import("./pages/admin/AssignmentManagement"));
+const CallTest = lazy(() => import("./pages/admin/CallTest"));
 
 const ComplaintManagement = lazy(() => import("./pages/admin/ComplaintManagement"));
 const SystemSettings = lazy(() => import("./pages/admin/SystemSettings"));
@@ -131,6 +132,7 @@ const App = () => (
                       <Route path="/admin" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AdminDashboard /></ProtectedRoute>} />
                       <Route path="/admin/members" element={<ProtectedRoute allowedRoles={["ADMIN"]}><MemberManagement /></ProtectedRoute>} />
                       <Route path="/admin/assignments" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AssignmentManagement /></ProtectedRoute>} />
+                      <Route path="/admin/call-test" element={<ProtectedRoute allowedRoles={["ADMIN"]}><CallTest /></ProtectedRoute>} />
                       <Route path="/admin/ai-stats" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AIStats /></ProtectedRoute>} />
                       <Route path="/admin/complaints" element={<ProtectedRoute allowedRoles={["ADMIN"]}><ComplaintManagement /></ProtectedRoute>} />
                       <Route path="/admin/sensitive-info" element={<ProtectedRoute allowedRoles={["ADMIN"]}><SensitiveInfoManagement /></ProtectedRoute>} />

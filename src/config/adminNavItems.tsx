@@ -1,5 +1,5 @@
 import {
-  Home, Users, UserPlus, UserCog, BarChart3, MessageSquare, Shield, Megaphone, Settings, FileText, MapPin, User, AlertOctagon, Database
+  Home, Users, UserPlus, UserCog, BarChart3, MessageSquare, Shield, Megaphone, Settings, FileText, MapPin, User, AlertOctagon, Database, Phone
 } from "lucide-react";
 
 export const adminNavItems = [
@@ -9,6 +9,7 @@ export const adminNavItems = [
   { title: "회원 등록", href: "/admin/register", icon: <UserPlus className="w-5 h-5" /> },
   { title: "배정 관리", href: "/admin/assignments", icon: <UserCog className="w-5 h-5" /> },
   { title: "복지 시설 관리", href: "/admin/facilities", icon: <MapPin className="w-5 h-5" /> },
+  { title: "CallBot 테스트", href: "/admin/call-test", icon: <Phone className="w-5 h-5" /> },
 
   { title: "민감정보 요청", href: "/admin/sensitive-info", icon: <Shield className="w-5 h-5" /> },
   { title: "불편사항 관리", href: "/admin/complaints", icon: <MessageSquare className="w-5 h-5" /> },
