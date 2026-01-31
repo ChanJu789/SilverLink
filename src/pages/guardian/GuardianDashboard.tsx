@@ -29,6 +29,7 @@ import usersApi from "@/api/users";
 import noticesApi from "@/api/notices";
 import { GuardianElderlyResponse, GuardianCallReviewResponse, MyProfileResponse, NoticeResponse } from "@/types/api";
 import UnreadNoticeAlert from "@/components/notice/UnreadNoticeAlert";
+import { NoticePopup } from "@/components/notice/NoticePopup";
 
 // EmotionIcon 컴포넌트
 
@@ -103,7 +104,6 @@ const GuardianDashboard = () => {
     // 페이지가 다시 포커스될 때 공지사항 다시 확인
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log("페이지가 다시 활성화됨 - 공지사항 재확인");
         fetchUnreadNotices();
       }
     };
@@ -121,29 +121,20 @@ const GuardianDashboard = () => {
       // 팝업 공지사항 조회 (보호자 대상)
       const popupNotices = await noticesApi.getPopups();
       
-      console.log("=== 팝업 공지사항 필터링 ===");
-      console.log("전체 팝업 공지사항 수:", popupNotices.length);
-      
       // 읽지 않은 팝업 공지사항만 필터링
       const unreadList = popupNotices.filter(notice => {
         const isUnread = !notice.isRead; // 읽지 않은 공지
         const isPopup = notice.isPopup; // 팝업 공지
         const isPublished = notice.status === 'PUBLISHED'; // 게시중
         
-        console.log(`공지 ${notice.id}: 읽지않음=${isUnread}, 팝업=${isPopup}, 게시중=${isPublished}, isRead=${notice.isRead}`);
-        
         // 반드시 읽지 않은 팝업 공지사항만 표시
         return isUnread && isPopup && isPublished;
       });
-
-      console.log("읽지 않은 팝업 공지사항 수:", unreadList.length);
-      console.log("읽지 않은 공지 목록:", unreadList.map(n => ({ id: n.id, title: n.title, isRead: n.isRead })));
 
       if (unreadList.length > 0) {
         setUnreadNotices(unreadList);
         setShowUnreadAlert(true);
       } else {
-        console.log("표시할 읽지 않은 팝업 공지사항이 없습니다.");
         setShowUnreadAlert(false);
       }
     } catch (error) {
@@ -175,11 +166,13 @@ const GuardianDashboard = () => {
   };
 
   return (
-    <DashboardLayout
-      role="guardian"
-      userName={userProfile?.name || "보호자"}
-      navItems={guardianNavItems}
-    >
+    <>
+      <NoticePopup userRole="GUARDIAN" />
+      <DashboardLayout
+        role="guardian"
+        userName={userProfile?.name || "보호자"}
+        navItems={guardianNavItems}
+      >
       <div className="space-y-6">
         {/* Page Header */}
         <div>
@@ -364,6 +357,7 @@ const GuardianDashboard = () => {
         />
       )}
     </DashboardLayout>
+    </>
   );
 };
 

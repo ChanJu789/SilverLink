@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { NoticePopup } from "@/components/notice/NoticePopup";
 import {
   Heart,
   Phone,
@@ -142,10 +143,12 @@ const SeniorDashboard = () => {
   const isDaytime = hour >= 6 && hour < 18;
 
   return (
-    <div
-      className="min-h-screen bg-background"
-      style={{ fontSize: `${fontSize}px` }}
-    >
+    <>
+      <NoticePopup userRole="ELDERLY" />
+      <div
+        className="min-h-screen bg-background"
+        style={{ fontSize: `${fontSize}px` }}
+      >
       {/* Header */}
       <header className="bg-primary text-primary-foreground p-6 rounded-b-3xl shadow-lg">
         <div className="flex items-center justify-between mb-6">
@@ -289,6 +292,7 @@ const SeniorDashboard = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 };
 

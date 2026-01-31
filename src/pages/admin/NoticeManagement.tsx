@@ -25,7 +25,8 @@ import {
   CheckCircle2,
   Upload,
   File,
-  X
+  X,
+  Edit
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import { Megaphone } from "lucide-react";
@@ -118,15 +119,12 @@ const NoticeManagement = () => {
 
     try {
       setFileUploading(true);
-      console.log("=== 파일 업로드 시작 ===");
-      console.log("업로드할 파일 수:", pdfFiles.length);
 
       const uploadPromises = pdfFiles.map(file => 
         filesApi.uploadFile(file, 'notices')
       );
 
       const uploadResults = await Promise.all(uploadPromises);
-      console.log("업로드 결과:", uploadResults);
 
       setUploadedFiles(prev => [...prev, ...uploadResults]);
       toast.success(`${uploadResults.length}개의 파일이 업로드되었습니다.`);
@@ -149,8 +147,6 @@ const NoticeManagement = () => {
     if (!fileToRemove) return;
 
     try {
-      console.log("=== 파일 삭제 시작 ===");
-      console.log("삭제할 파일:", fileToRemove);
 
       await filesApi.deleteFile(fileToRemove.filePath);
       setUploadedFiles(prev => prev.filter((_, index) => index !== fileIndex));
@@ -166,23 +162,14 @@ const NoticeManagement = () => {
   const fetchNotices = async () => {
     try {
       setLoading(true);
-      console.log("=== 공지사항 목록 조회 시작 ===");
-      
-      // 현재 사용자 정보 확인
-      const currentUser = localStorage.getItem('accessToken');
-      console.log("현재 액세스 토큰:", currentUser ? "있음" : "없음");
       
       const response = await noticesApi.getAdminNotices({
         keyword: searchTerm || undefined,
         size: 100
       });
 
-      console.log("API 응답:", response);
-
       // API 응답을 Notice 형식으로 변환
       const mappedNotices: Notice[] = (response.content || []).map((n: NoticeResponse) => {
-        console.log("원본 공지사항 데이터:", n);
-        console.log("isPriority 값:", n.isPriority);
         
         // 백엔드 카테고리를 프론트엔드 카테고리로 매핑
         let frontendCategory = '공지';
@@ -221,12 +208,9 @@ const NoticeManagement = () => {
           totalTargetCount: n.totalTargetCount || 0, // 백엔드에서 제공하는 실제 데이터 사용
         };
         
-        console.log("매핑된 공지사항 데이터:", mappedNotice);
-        console.log("isPinned 값:", mappedNotice.isPinned);
         return mappedNotice;
       });
 
-      console.log("최종 매핑된 공지사항 목록:", mappedNotices);
       setNotices(mappedNotices);
     } catch (error: any) {
       console.error("공지사항 로드 실패:", error);
@@ -309,17 +293,12 @@ const NoticeManagement = () => {
     
     // 기존 첨부파일 로드
     try {
-      console.log("=== 공지사항 상세 조회 (첨부파일 로드) ===");
-      console.log("공지사항 ID:", notice.id);
       
       const detailResponse = await noticesApi.getAdminNoticeDetail(notice.id);
-      console.log("상세 조회 결과:", detailResponse);
       
       if (detailResponse.attachments && detailResponse.attachments.length > 0) {
-        console.log("첨부파일 개수:", detailResponse.attachments.length);
         setUploadedFiles(detailResponse.attachments);
       } else {
-        console.log("첨부파일 없음");
         setUploadedFiles([]);
       }
     } catch (error: any) {
@@ -351,11 +330,8 @@ const NoticeManagement = () => {
     setIsReadStatusDialogOpen(true);
 
     try {
-      console.log("=== 읽음 현황 조회 시작 ===");
-      console.log("공지사항 ID:", notice.id);
       
       const confirmUsers = await noticesApi.getConfirmList(notice.id);
-      console.log("읽음 현황 데이터:", confirmUsers);
       
       setReadStatusData({
         confirmUsers: confirmUsers.map(user => ({
@@ -372,7 +348,6 @@ const NoticeManagement = () => {
       
       // 백엔드 API가 아직 구현되지 않은 경우 더미 데이터 사용
       if (error.response?.status === 404 || error.response?.status === 500) {
-        console.log("백엔드 API 미구현으로 더미 데이터 사용");
         const dummyUsers = [
           {
             userId: 1,
@@ -456,11 +431,6 @@ const NoticeManagement = () => {
         status: selectedNotice.status,
         attachments: [], // 보기 모드에서는 첨부파일 수정 불가 (현재는 빈 배열)
       };
-
-      console.log("=== handleViewSave API 요청 데이터 ===");
-      console.log("selectedNotice.isPinned:", selectedNotice.isPinned);
-      console.log("request.isPriority:", request.isPriority);
-      console.log("request:", JSON.stringify(request, null, 2));
 
       await noticesApi.updateNotice(selectedNotice.id, request);
       toast.success("공지사항이 수정되었습니다.");
@@ -622,16 +592,12 @@ const NoticeManagement = () => {
   const confirmDelete = async () => {
     if (selectedNotice) {
       try {
-        console.log("=== 공지사항 삭제 시작 ===");
-        console.log("삭제할 공지사항 ID:", selectedNotice.id);
         
         await noticesApi.deleteNotice(selectedNotice.id);
-        console.log("삭제 완료");
         
         // UI에서 해당 공지사항 제거 (Soft Delete이므로 목록에서만 제거)
         setNotices((prev) => prev.filter((n) => n.id !== selectedNotice.id));
         toast.success("공지사항이 삭제되었습니다.");
-        console.log("=== 공지사항 삭제 완료 ===");
       } catch (error: any) {
         console.error("=== 공지사항 삭제 실패 ===");
         console.error("error:", error);
@@ -674,9 +640,6 @@ const NoticeManagement = () => {
 
     try {
       setSubmitting(true);
-      console.log("=== 공지사항 저장 시작 ===");
-      console.log("isDraft:", isDraft);
-      console.log("formData:", formData);
 
       // 한글 카테고리 → 백엔드 enum 매핑
       const categoryMap: Record<string, 'NOTICE' | 'EVENT' | 'NEWS' | 'SYSTEM'> = {
@@ -737,22 +700,8 @@ const NoticeManagement = () => {
         request.popupEndAt = endDate.toISOString();
       }
 
-      console.log("=== API 요청 데이터 ===");
-      console.log("현재 formData 전체:", formData);
-      console.log("formData.isPinned:", formData.isPinned);
-      console.log("formData.category:", formData.category);
-      console.log("formData.status:", formData.status);
-      console.log("isDraft:", isDraft);
-      console.log("최종 finalStatus:", finalStatus);
-      console.log("request.isPriority:", request.isPriority);
-      console.log("request.status:", request.status);
-      console.log("request:", JSON.stringify(request, null, 2));
-
       if (isEditMode && selectedNotice) {
-        console.log("=== 공지사항 수정 ===");
-        console.log("noticeId:", selectedNotice.id);
         await noticesApi.updateNotice(selectedNotice.id, request);
-        console.log("수정 완료");
         
         if (isDraft) {
           toast.success("공지사항이 임시저장되었습니다.");
@@ -760,9 +709,7 @@ const NoticeManagement = () => {
           toast.success("공지사항이 수정되었습니다.");
         }
       } else {
-        console.log("=== 새 공지사항 생성 ===");
         const noticeId = await noticesApi.createNotice(request);
-        console.log("생성 완료, ID:", noticeId);
         
         if (isDraft) {
           toast.success("공지사항이 임시저장되었습니다.");
@@ -772,9 +719,7 @@ const NoticeManagement = () => {
         }
       }
       
-      console.log("=== 목록 새로고침 시작 ===");
       await fetchNotices();
-      console.log("=== 목록 새로고침 완료 ===");
       setIsDialogOpen(false);
     } catch (error: any) {
       console.error("=== 공지사항 저장 실패 ===");
@@ -977,13 +922,12 @@ const NoticeManagement = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12"></TableHead>
-                      <TableHead>제목</TableHead>
-                      <TableHead className="w-32">분류</TableHead>
-                      <TableHead className="w-28">대상</TableHead>
-                      <TableHead className="w-24">등록일</TableHead>
-                      <TableHead className="w-24">읽음현황</TableHead>
-                      <TableHead className="w-32">상태</TableHead>
-                      <TableHead className="text-right w-24">관리</TableHead>
+                      <TableHead className="max-w-md">제목</TableHead>
+                      <TableHead className="w-24">분류</TableHead>
+                      <TableHead className="w-32">대상</TableHead>
+                      <TableHead className="w-28">등록일</TableHead>
+                      <TableHead className="w-24">상태</TableHead>
+                      <TableHead className="text-right w-28">관리</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1036,31 +980,6 @@ const NoticeManagement = () => {
                         </TableCell>
                         <TableCell>{notice.createdAt}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleReadStatusClick(notice)}
-                            className="h-auto p-1 hover:bg-muted/50"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm">
-                                {notice.readCount || 0}
-                                {notice.totalTargetCount && (
-                                  <span className="text-muted-foreground">
-                                    /{notice.totalTargetCount}
-                                  </span>
-                                )}
-                              </span>
-                              {notice.readCount && notice.totalTargetCount && (
-                                <span className="text-xs text-muted-foreground">
-                                  ({Math.round((notice.readCount / notice.totalTargetCount) * 100)}%)
-                                </span>
-                              )}
-                            </div>
-                          </Button>
-                        </TableCell>
-                        <TableCell>
                           <Badge className={
                             notice.status === 'PUBLISHED' ? 'bg-success/10 text-success border-0' :
                             'bg-gray-100 text-gray-700 border-0'
@@ -1093,52 +1012,10 @@ const NoticeManagement = () => {
                           </div>
                         </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredNotices.map((notice) => (
-                        <TableRow key={notice.id}>
-                          <TableCell>
-                            {notice.isPinned && <Pin className="w-4 h-4 text-warning" />}
-                          </TableCell>
-                          <TableCell>
-                            <button
-                              onClick={() => handleView(notice)}
-                              className="font-medium line-clamp-1 text-left hover:text-primary hover:underline transition-colors"
-                            >
-                              {notice.title}
-                            </button>
-                          </TableCell>
-                          <TableCell>{getCategoryBadge(notice.category)}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{notice.targetRoles[0] || "전체"}</Badge>
-                          </TableCell>
-                          <TableCell>{notice.createdAt}</TableCell>
-                          <TableCell>
-                            {notice.isPublished ? (
-                              <Badge className="bg-success/10 text-success border-0">게시중</Badge>
-                            ) : (
-                              <Badge className="bg-muted text-muted-foreground border-0">비공개</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => handleView(notice)}>
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleEdit(notice)}>
-                                <Pencil className="w-4 h-4 text-blue-500" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleDelete(notice)}>
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -1214,7 +1091,7 @@ const NoticeManagement = () => {
               <div className="space-y-2">
                 <Label>대상 역할 선택 (복수 선택 가능)</Label>
                 <div className="grid grid-cols-2 gap-3 p-4 border rounded-lg bg-muted/30">
-                  {['보호자', '상담사', '어르신', '관리자'].map((role) => (
+                  {['보호자', '상담사', '어르신'].map((role) => (
                     <div key={role} className="flex items-center space-x-2">
                       <input
                         type="checkbox"
@@ -1287,9 +1164,6 @@ const NoticeManagement = () => {
               <Select
                 value={formData.status}
                 onValueChange={(value: "DRAFT" | "PUBLISHED") => {
-                  console.log("=== 게시 상태 변경 ===");
-                  console.log("이전 상태:", formData.status);
-                  console.log("새 상태:", value);
                   setFormData({ ...formData, status: value });
                 }}
               >
