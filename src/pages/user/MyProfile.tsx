@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { userApi } from "@/api/user";
 import { MyProfileResponse, UpdateMyProfileRequest } from "@/types/api";
-import { User, Smartphone, Mail, Shield, AlertCircle, ArrowLeft } from "lucide-react";
+import { User, Smartphone, Mail, Shield, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { adminNavItems } from "@/config/adminNavItems";
@@ -18,7 +17,6 @@ export default function MyProfile() {
     const [profile, setProfile] = useState<MyProfileResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const navigate = useNavigate();
 
     // Determine Nav Items based on Role
     const getNavItems = () => {
@@ -113,14 +111,7 @@ export default function MyProfile() {
             navItems={getNavItems()}
         >
             <div className="container mx-auto p-6 max-w-2xl">
-                <Button
-                    variant="ghost"
-                    onClick={() => navigate(-1)}
-                    className="mb-4 pl-0 hover:pl-2 transition-all"
-                >
-                    <ArrowLeft className="w-5 h-5 mr-2" />
-                    뒤로 가기
-                </Button>
+
                 <h1 className="text-3xl font-bold mb-8">내 프로필</h1>
 
                 <div className="grid gap-6">

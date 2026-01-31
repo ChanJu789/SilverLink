@@ -1,37 +1,42 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
-  ArrowLeft,
-  User,
   Phone,
+  Video,
   MapPin,
   Calendar,
+  Clock,
   Heart,
   Activity,
-  Pill,
   AlertTriangle,
-  Brain,
-  MessageSquare,
   FileText,
-  Clock,
+  ChevronLeft,
+  Settings,
+  MoreVertical,
+  Mic,
+  MessageCircle,
   TrendingUp,
-  TrendingDown,
-  Minus,
-  Save,
+  User,
   Plus,
-  CheckCircle,
-  Edit,
+  CheckCircle2
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   LineChart,
   Line,
@@ -47,6 +52,10 @@ import {
   Radar,
 } from "recharts";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import { useAuth } from "@/contexts/AuthContext";
+import elderlyApi from "@/api/elderly";
+import { ElderlySummaryResponse, HealthInfoResponse } from "@/types/api";
+import { Loader2 } from "lucide-react";
 
 // Mock data
 const seniorData = {
@@ -139,8 +148,15 @@ const radarData = [
 ];
 
 export default function SeniorDetail() {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
+  const numericId = Number(id);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<ElderlySummaryResponse | null>(null);
+  const [healthInfo, setHealthInfo] = useState<HealthInfoResponse | null>(null);
+
   const [activeTab, setActiveTab] = useState("overview");
   const [newRecord, setNewRecord] = useState({
     type: "정기 상담",
@@ -148,6 +164,36 @@ export default function SeniorDetail() {
     followUp: "",
   });
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!numericId) return;
+
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [profileData, healthData] = await Promise.all([
+          elderlyApi.getSummary(numericId),
+          elderlyApi.getHealthInfo(numericId),
+        ]);
+        setProfile(profileData);
+        setHealthInfo(healthData);
+      } catch (error) {
+        console.error("Failed to fetch elderly detail:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [numericId]);
+
+  // Mock data for charts (merged with real name)
+  const chartData = {
+    emotionTrend: seniorData.emotionTrend,
+    aiAnalysis: seniorData.aiAnalysis,
+    recentCalls: seniorData.recentCalls,
+    counselingRecords: seniorData.counselingRecords,
+  };
 
   const handleSaveRecord = () => {
     // Saving record...
@@ -175,344 +221,177 @@ export default function SeniorDetail() {
     return variants[level] || variants["보통"];
   };
 
+  if (isLoading) {
+    return (
+      <DashboardLayout
+        role="counselor"
+        userName={user?.name || "상담사"}
+        userAvatar=""
+        navItems={counselorNavItems}
+      >
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <DashboardLayout
+        role="counselor"
+        userName={user?.name || "상담사"}
+        userAvatar=""
+        navItems={counselorNavItems}
+      >
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">어르신 정보를 찾을 수 없습니다.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout
       role="counselor"
-      userName="이상담"
+      userName={user?.name || "상담사"}
       userAvatar=""
       navItems={counselorNavItems}
     >
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <Button variant="ghost" onClick={() => navigate("/counselor/seniors")} className="w-fit p-0 hover:bg-transparent text-muted-foreground hover:text-foreground">
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            목록으로 돌아가기
           </Button>
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">{seniorData.name}</h1>
-              <Badge className={getRiskBadge(seniorData.aiAnalysis.riskLevel)}>
-                위험도: {seniorData.aiAnalysis.riskLevel}
-              </Badge>
-            </div>
-            <p className="text-muted-foreground">
-              {seniorData.age}세 · {seniorData.gender} · {seniorData.address}
-            </p>
+          <div className="flex gap-2">
+            <Button variant="outline" className="gap-2">
+              <Phone className="w-4 h-4" />
+              전화 걸기
+            </Button>
+            <Button variant="outline" className="gap-2">
+              <Video className="w-4 h-4" />
+              영상 통화
+            </Button>
+            <Button className="gap-2">
+              <FileText className="w-4 h-4" />
+              상담 기록 작성
+            </Button>
           </div>
-          <Button variant="outline" className="gap-2">
-            <Phone className="h-4 w-4" />
-            긴급 연락
-          </Button>
         </div>
 
-        {/* Tabs */}
+        {/* Profile Card */}
+        <Card className="border-0 shadow-lg bg-gradient-to-r from-primary/5 via-background to-background">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              <div className="relative">
+                <Avatar className="w-24 h-24 border-4 border-background shadow-xl">
+                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.name}`} />
+                  <AvatarFallback>{profile.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="absolute -bottom-2 right-2 bg-green-500 w-5 h-5 rounded-full border-2 border-background" />
+              </div>
+
+              <div className="flex-1 space-y-4">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold">{profile.name}</h1>
+                    <Badge variant="secondary" className="text-base font-normal">
+                      {profile.age}세 / {profile.gender === "M" ? "남성" : "여성"}
+                    </Badge>
+                    <Badge className={getRiskBadge(chartData.aiAnalysis.riskLevel)}>
+                      위험도 {chartData.aiAnalysis.riskLevel}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      {profile.fullAddress || "-"}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      생년월일: {profile.birthDate || "-"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-background/50 rounded-xl border">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">보호자</p>
+                    <div className="font-medium flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      {profile.guardianName || "미지정"}
+                    </div>
+                    {/* <p className="text-sm text-muted-foreground mt-1">{seniorData.guardian.phone}</p> */}
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">최근 건강검진</p>
+                    <div className="font-medium flex items-center gap-2">
+                      <Activity className="w-4 h-4" />
+                      -
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      혈압 {healthInfo?.bloodPressure || "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">최근 감정상태</p>
+                    <div className="font-medium flex items-center gap-2">
+                      <Heart className="w-4 h-4" />
+                      {chartData.aiAnalysis.emotionState} ({chartData.aiAnalysis.overallScore}점)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="overview">기본 정보</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
+            <TabsTrigger value="overview">종합 분석</TabsTrigger>
             <TabsTrigger value="health">건강 정보</TabsTrigger>
-            <TabsTrigger value="ai">AI 분석</TabsTrigger>
             <TabsTrigger value="records">상담 기록</TabsTrigger>
+            <TabsTrigger value="settings">설정</TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Basic Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Emotion Trend Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-primary" />
-                    기본 정보
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                    감정 변화 추이
                   </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">이름</p>
-                      <p className="font-medium">{seniorData.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">나이</p>
-                      <p className="font-medium">{seniorData.age}세</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">성별</p>
-                      <p className="font-medium">{seniorData.gender}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">등록일</p>
-                      <p className="font-medium">{seniorData.registeredDate}</p>
-                    </div>
-                  </div>
-                  <Separator />
-                  <div>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Phone className="h-3 w-3" /> 연락처
-                    </p>
-                    <p className="font-medium">{seniorData.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <MapPin className="h-3 w-3" /> 주소
-                    </p>
-                    <p className="font-medium">{seniorData.address}</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Guardian Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Heart className="h-5 w-5 text-accent" />
-                    보호자 정보
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">이름</p>
-                      <p className="font-medium">{seniorData.guardian.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">관계</p>
-                      <p className="font-medium">{seniorData.guardian.relation}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">연락처</p>
-                    <p className="font-medium">{seniorData.guardian.phone}</p>
-                  </div>
-                  <Button variant="outline" className="w-full gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    보호자에게 메시지 보내기
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Calls */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-primary" />
-                  최근 통화 기록
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {seniorData.recentCalls.map((call, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="text-center">
-                          <p className="text-sm font-medium">{call.date}</p>
-                          <p className="text-xs text-muted-foreground">{call.duration}</p>
-                        </div>
-                        <Separator orientation="vertical" className="h-10" />
-                        <div>
-                          <Badge className={getEmotionBadge(call.emotion)}>{call.emotion}</Badge>
-                          <p className="text-sm mt-1">{call.summary}</p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="sm">
-                        상세보기
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Health Tab */}
-          <TabsContent value="health" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-full bg-red-100 dark:bg-red-900/30">
-                      <Activity className="h-5 w-5 text-red-600 dark:text-red-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">혈압</p>
-                      <p className="text-xl font-bold">{seniorData.healthInfo.bloodPressure}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                      <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">혈당</p>
-                      <p className="text-xl font-bold">{seniorData.healthInfo.bloodSugar} mg/dL</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
-                      <User className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">체중</p>
-                      <p className="text-xl font-bold">{seniorData.healthInfo.weight}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-full bg-purple-100 dark:bg-purple-900/30">
-                      <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">최근 검진</p>
-                      <p className="text-xl font-bold">{seniorData.healthInfo.lastCheckup}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Diseases */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-orange-500" />
-                    기저 질환
-                  </CardTitle>
+                  <CardDescription>최근 7일간의 감정 점수 변화입니다</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {seniorData.healthInfo.diseases.map((disease, index) => (
-                      <Badge key={index} variant="secondary" className="text-sm">
-                        {disease}
-                      </Badge>
-                    ))}
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData.emotionTrend}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="date" />
+                        <YAxis domain={[0, 100]} />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="score"
+                          stroke="#2563eb"
+                          strokeWidth={2}
+                          name="종합 점수"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="anxiety"
+                          stroke="#e11d48"
+                          strokeWidth={2}
+                          name="불안도"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
-                  <Separator className="my-4" />
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">알레르기</p>
-                    <div className="flex flex-wrap gap-2">
-                      {seniorData.healthInfo.allergies.map((allergy, index) => (
-                        <Badge key={index} variant="destructive" className="text-sm">
-                          {allergy}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Medications */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Pill className="h-5 w-5 text-primary" />
-                    복용 약물
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {seniorData.healthInfo.medications.map((med, index) => (
-                      <div key={index} className="p-3 rounded-lg bg-muted/50">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{med.name}</p>
-                          <Badge variant="outline">{med.dosage}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {med.frequency} · {med.time}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* AI Analysis Tab */}
-          <TabsContent value="ai" className="space-y-6">
-            {/* AI Summary Cards */}
-            <div className="grid gap-6 md:grid-cols-3">
-              <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                <CardContent className="pt-6 text-center">
-                  <div className="text-4xl font-bold text-primary mb-2">
-                    {seniorData.aiAnalysis.overallScore}
-                  </div>
-                  <p className="text-sm text-muted-foreground">종합 점수</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <Badge className={getEmotionBadge(seniorData.aiAnalysis.emotionState === "양호" ? "좋음" : "보통")} >
-                    {seniorData.aiAnalysis.emotionState}
-                  </Badge>
-                  <p className="text-sm text-muted-foreground mt-2">감정 상태</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <Badge className={getRiskBadge(seniorData.aiAnalysis.riskLevel)}>
-                    {seniorData.aiAnalysis.riskLevel}
-                  </Badge>
-                  <p className="text-sm text-muted-foreground mt-2">위험 수준</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Charts */}
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Emotion Trend */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    감정 추이 (최근 7일)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={seniorData.emotionTrend}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" className="text-xs" />
-                      <YAxis domain={[0, 100]} className="text-xs" />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="score"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth={2}
-                        dot={{ fill: "hsl(var(--primary))" }}
-                        name="감정 점수"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="anxiety"
-                        stroke="hsl(var(--destructive))"
-                        strokeWidth={2}
-                        strokeDasharray="5 5"
-                        name="불안 지수"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
                 </CardContent>
               </Card>
 
@@ -520,197 +399,258 @@ export default function SeniorDetail() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Brain className="h-5 w-5 text-primary" />
-                    음성 분석 결과
+                    <Mic className="w-5 h-5 text-primary" />
+                    음성 분석 리포트
                   </CardTitle>
+                  <CardDescription>최근 통화 음성 분석 결과입니다</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <RadarChart data={radarData}>
-                      <PolarGrid className="stroke-muted" />
-                      <PolarAngleAxis dataKey="subject" className="text-xs" />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                      <Radar
-                        name="분석 결과"
-                        dataKey="A"
-                        stroke="hsl(var(--primary))"
-                        fill="hsl(var(--primary))"
-                        fillOpacity={0.3}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Keywords & Concerns */}
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>주요 키워드</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {seniorData.aiAnalysis.keywords.map((keyword, index) => (
-                      <Badge key={index} variant="outline" className="text-sm px-3 py-1">
-                        #{keyword}
-                      </Badge>
-                    ))}
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                        <PolarGrid />
+                        <PolarAngleAxis dataKey="subject" />
+                        <PolarRadiusAxis domain={[0, 100]} />
+                        <Radar
+                          name="현재 상태"
+                          dataKey="A"
+                          stroke="#2563eb"
+                          fill="#2563eb"
+                          fillOpacity={0.6}
+                        />
+                        <Tooltip />
+                      </RadarChart>
+                    </ResponsiveContainer>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              {/* AI Key Insights */}
+              <Card className="md:col-span-2">
                 <CardHeader>
-                  <CardTitle>주의 사항</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary" />
+                    AI 주요 분석
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    {seniorData.aiAnalysis.concerns.map((concern, index) => (
-                      <div key={index} className="flex items-start gap-2 p-2 rounded-lg bg-muted/50">
-                        <Badge
-                          variant={concern.type === "경미" ? "secondary" : "outline"}
-                          className="shrink-0"
-                        >
-                          {concern.type}
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div className="space-y-4">
+                      <h4 className="font-semibold flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-warning" />
+                        주요 우려사항
+                      </h4>
+                      <div className="space-y-2">
+                        {chartData.aiAnalysis.concerns.map((item, idx) => (
+                          <div key={idx} className="flex gap-2 p-3 bg-muted/50 rounded-lg text-sm">
+                            <Badge variant="outline">{item.type}</Badge>
+                            <span>{item.content}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <h4 className="font-semibold flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-success" />
+                        추천 조치사항
+                      </h4>
+                      <ul className="space-y-2">
+                        {chartData.aiAnalysis.recommendations.map((item, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-sm p-3 bg-success/5 rounded-lg border border-success/10">
+                            <div className="w-1.5 h-1.5 rounded-full bg-success" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="space-y-4">
+                      <h4 className="font-semibold flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4 text-blue-500" />
+                        주요 키워드
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {chartData.aiAnalysis.keywords.map((keyword, idx) => (
+                          <Badge key={idx} variant="secondary" className="px-3 py-1">
+                            #{keyword}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Recent Calls List */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>최근 통화 기록</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {chartData.recentCalls.map((call, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-4 border rounded-xl hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Phone className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">{call.date}</span>
+                              <span className="text-sm text-muted-foreground">({call.duration})</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">{call.summary}</p>
+                          </div>
+                        </div>
+                        <Badge className={`${getEmotionBadge(call.emotion)} border-0`}>
+                          감정: {call.emotion}
                         </Badge>
-                        <p className="text-sm">{concern.content}</p>
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
 
-            {/* AI Recommendations */}
+          <TabsContent value="health">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  AI 권장 사항
-                </CardTitle>
+                <CardTitle>건강 상세 정보</CardTitle>
+                <CardDescription>보유 질환 및 복약 정보입니다</CardDescription>
               </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {seniorData.aiAnalysis.recommendations.map((rec, index) => (
-                    <li key={index} className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
-                      <span>{rec}</span>
-                    </li>
-                  ))}
-                </ul>
+              <CardContent className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <Activity className="w-5 h-5" />
+                      신체 계측 및 질환
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-muted/30 rounded-lg">
+                        <p className="text-sm text-muted-foreground">보유 질환</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {healthInfo?.diseases?.length ? healthInfo.diseases.map((d, i) => (
+                            <Badge key={i} variant="outline">{d}</Badge>
+                          )) : <span className="text-sm text-muted-foreground">-</span>}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-muted/30 rounded-lg">
+                        <p className="text-sm text-muted-foreground">알레르기 (정보 없음)</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {/* {seniorData.healthInfo.allergies.map((a, i) => (
+                            <Badge key={i} variant="destructive" className="bg-destructive/10 text-destructive border-0">{a}</Badge>
+                          ))} */}
+                          <span className="text-sm text-muted-foreground">-</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <Activity className="w-5 h-5" />
+                      복약 정보
+                    </h3>
+                    <div className="space-y-2">
+                      {healthInfo?.medications?.length ? healthInfo.medications.map((med, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div>
+                            <p className="font-medium">{med}</p>
+                            {/* <p className="text-xs text-muted-foreground">{med.time}</p> */}
+                          </div>
+                          {/* <Badge>{med.frequency}</Badge> */}
+                        </div>
+                      )) : <div className="p-3 bg-muted/30 rounded-lg text-sm text-muted-foreground">복약 정보가 없습니다.</div>}
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Counseling Records Tab */}
-          <TabsContent value="records" className="space-y-6">
-            {/* New Record Form */}
+          <TabsContent value="records">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-5 w-5 text-primary" />
-                  새 상담 기록 작성
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="type">상담 유형</Label>
-                    <select
-                      id="type"
-                      className="w-full p-2 rounded-md border border-input bg-background"
-                      value={newRecord.type}
-                      onChange={(e) => setNewRecord({ ...newRecord, type: e.target.value })}
-                    >
-                      <option value="정기 상담">정기 상담</option>
-                      <option value="건강 체크">건강 체크</option>
-                      <option value="긴급 상담">긴급 상담</option>
-                      <option value="가족 연계">가족 연계</option>
-                      <option value="복지 서비스">복지 서비스</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>작성일</Label>
-                    <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
-                  </div>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>상담 기록</CardTitle>
+                  <CardDescription>과거 상담 내역 및 조치사항</CardDescription>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="content">상담 내용</Label>
-                  <Textarea
-                    id="content"
-                    placeholder="상담 내용을 입력하세요..."
-                    rows={4}
-                    value={newRecord.content}
-                    onChange={(e) => setNewRecord({ ...newRecord, content: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="followUp">후속 조치</Label>
-                  <Textarea
-                    id="followUp"
-                    placeholder="후속 조치 사항을 입력하세요..."
-                    rows={2}
-                    value={newRecord.followUp}
-                    onChange={(e) => setNewRecord({ ...newRecord, followUp: e.target.value })}
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setNewRecord({ type: "정기 상담", content: "", followUp: "" })}>
-                    초기화
-                  </Button>
-                  <Button onClick={handleSaveRecord} className="gap-2">
-                    <Save className="h-4 w-4" />
-                    저장하기
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Past Records */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  상담 기록 이력
-                </CardTitle>
+                <Button onClick={() => setIsEditing(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  새 상담 기록
+                </Button>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[400px] pr-4">
-                  <div className="space-y-4">
-                    {seniorData.counselingRecords.map((record) => (
-                      <div key={record.id} className="p-4 rounded-lg border bg-card">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline">{record.type}</Badge>
-                            <span className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {record.date}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              담당: {record.counselor}
-                            </span>
-                          </div>
-                          <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">상담 내용</p>
-                            <p className="text-sm">{record.content}</p>
-                          </div>
-                          {record.followUp && (
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">후속 조치</p>
-                              <p className="text-sm text-primary">{record.followUp}</p>
-                            </div>
-                          )}
-                        </div>
+                {isEditing && (
+                  <Card className="mb-6 border-2 border-primary/20">
+                    <CardHeader>
+                      <CardTitle className="text-lg">새 상담 기록 작성</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>상담 유형</Label>
+                        <Select
+                          value={newRecord.type}
+                          onValueChange={(val) => setNewRecord({ ...newRecord, type: val })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="정기 상담">정기 상담</SelectItem>
+                            <SelectItem value="건강 체크">건강 체크</SelectItem>
+                            <SelectItem value="긴급 대응">긴급 대응</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                      <div className="space-y-2">
+                        <Label>상담 내용</Label>
+                        <Textarea
+                          value={newRecord.content}
+                          onChange={(e) => setNewRecord({ ...newRecord, content: e.target.value })}
+                          placeholder="상담 내용을 입력하세요..."
+                          rows={4}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>후속 조치</Label>
+                        <Input
+                          value={newRecord.followUp}
+                          onChange={(e) => setNewRecord({ ...newRecord, followUp: e.target.value })}
+                          placeholder="필요한 후속 조치를 입력하세요"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" onClick={() => setIsEditing(false)}>취소</Button>
+                        <Button onClick={handleSaveRecord}>저장</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div className="space-y-4">
+                  {chartData.counselingRecords.map((record, idx) => (
+                    <div key={idx} className="relative pl-8 pb-8 border-l last:pb-0">
+                      <div className="absolute left-[-5px] top-0 w-2.5 h-2.5 rounded-full bg-primary" />
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-lg">{record.date}</span>
+                          <Badge variant="outline">{record.type}</Badge>
+                        </div>
+                        <span className="text-sm text-muted-foreground">상담사: {record.counselor}</span>
+                      </div>
+                      <div className="p-4 bg-muted/30 rounded-lg space-y-3">
+                        <p className="text-foreground">{record.content}</p>
+                        {record.followUp && (
+                          <div className="flex items-start gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
+                            <CheckCircle2 className="w-4 h-4 mt-0.5" />
+                            <span>후속 조치: {record.followUp}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -719,3 +659,5 @@ export default function SeniorDetail() {
     </DashboardLayout>
   );
 }
+
+// Missing imports removed

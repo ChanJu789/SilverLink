@@ -15,7 +15,8 @@ import {
   Loader2,
   Pill,
   Plus,
-  Check
+  Check,
+  AlertCircle
 } from "lucide-react";
 import {
   Dialog,
@@ -27,12 +28,33 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import ocrApi from "@/api/ocr";
 import medicationsApi, { MedicationRequest } from "@/api/medications";
 import { getErrorMessage } from "@/utils/errorUtils";
+import { useAuth } from "@/contexts/AuthContext";
+
+// LLM 검증 결과 타입
+interface MedicationInfo {
+  medication_name: string;
+  dosage?: string;
+  times: string[];
+  instructions?: string;
+  confidence: number;
+}
+
+interface ValidationResult {
+  success: boolean;
+  medications: MedicationInfo[];
+  raw_ocr_text: string;
+  llm_analysis: string;
+  warnings: string[];
+  error_message?: string;
+}
 
 const SeniorOCR = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [image, setImage] = useState<string | null>(null);
@@ -40,11 +62,15 @@ const SeniorOCR = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
+  // LLM 검증 관련
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+
   // 복약 등록 관련
   const [showMedicationDialog, setShowMedicationDialog] = useState(false);
-  const [extractedMedications, setExtractedMedications] = useState<string[]>([]);
+  const [extractedMedications, setExtractedMedications] = useState<MedicationInfo[]>([]);
   const [selectedMedications, setSelectedMedications] = useState<Set<string>>(new Set());
-  const [selectedTimes, setSelectedTimes] = useState<Set<string>>(new Set(["morning", "evening"]));
+  const [selectedTimes, setSelectedTimes] = useState<Record<string, string[]>>({});
   const [isRegistering, setIsRegistering] = useState(false);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,18 +90,18 @@ const SeniorOCR = () => {
 
       // 라이브러리가 압축 및 EXIF 회전 보정을 자동 수행
       const compressedFile = await imageCompression(file, options);
-      
-      console.log(`📸 압축 완료: ${(file.size/1024/1024).toFixed(2)}MB -> ${(compressedFile.size/1024/1024).toFixed(2)}MB`);
+
+      console.log(`📸 압축 완료: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
 
       setSelectedFile(compressedFile);
-      
+
       // 압축된 파일로 미리보기 생성
       const reader = new FileReader();
       reader.onloadend = () => {
         setImage(reader.result as string);
       };
       reader.readAsDataURL(compressedFile);
-      
+
       // 압축된 파일로 OCR 처리
       processImage(compressedFile);
     } catch (error) {
@@ -93,27 +119,85 @@ const SeniorOCR = () => {
   const processImage = async (file: File) => {
     setIsProcessing(true);
     setExtractedText("");
+    setValidationResult(null);
 
     try {
+      // 1단계: Luxia OCR 호출
+      toast.info("약봉투를 분석하고 있어요...");
       const result = await ocrApi.analyzeDocument(file);
 
-      if (result.text) {
-        // 원본 텍스트 그대로 표시
-        setExtractedText(result.text);
-        toast.success("문서를 읽었어요!");
-
-        // 약 이름 추출 시도
-        const medications = extractMedicationNames(result.text);
-        if (medications.length > 0) {
-          setExtractedMedications(medications);
-        }
-      } else {
+      if (!result.text) {
         setExtractedText("문서에서 텍스트를 찾을 수 없었어요.");
         toast.warning("문서 인식이 어려워요. 다시 찍어보세요.");
+        return;
       }
+
+      // 원본 텍스트 저장
+      setExtractedText(result.text);
+      toast.success("문서를 읽었어요!");
+
+      // 2단계: LLM 검증 (Python AI 서버)
+      setIsValidating(true);
+      toast.info("약 정보를 검증하고 있어요...");
+
+      try {
+        const validationResponse = await validateMedicationOCR(result.text);
+        setValidationResult(validationResponse);
+
+        if (validationResponse.success && validationResponse.medications.length > 0) {
+          setExtractedMedications(validationResponse.medications);
+
+          // 경고 메시지 표시
+          if (validationResponse.warnings.length > 0) {
+            validationResponse.warnings.forEach(warning => {
+              toast.warning(warning, { duration: 5000 });
+            });
+          }
+
+          // 신뢰도 낮은 약 경고
+          const lowConfidenceMeds = validationResponse.medications.filter(m => m.confidence < 0.7);
+          if (lowConfidenceMeds.length > 0) {
+            toast.warning(
+              `일부 약 정보의 신뢰도가 낮습니다. 확인 후 수정해주세요.`,
+              { duration: 5000 }
+            );
+          }
+
+          toast.success(`${validationResponse.medications.length}개의 약을 찾았어요!`);
+        } else {
+          // 폴백: 기본 추출 로직
+          const medications = extractMedicationNames(result.text);
+          if (medications.length > 0) {
+            const fallbackMeds: MedicationInfo[] = medications.map(name => ({
+              medication_name: name,
+              times: ["morning", "evening"],
+              confidence: 0.5
+            }));
+            setExtractedMedications(fallbackMeds);
+            toast.info("기본 방식으로 약 정보를 추출했어요.");
+          }
+        }
+      } catch (validationError) {
+        console.error("LLM 검증 실패:", validationError);
+        toast.warning("AI 검증에 실패했어요. 기본 방식으로 추출합니다.");
+
+        // 폴백: 기본 추출 로직
+        const medications = extractMedicationNames(result.text);
+        if (medications.length > 0) {
+          const fallbackMeds: MedicationInfo[] = medications.map(name => ({
+            medication_name: name,
+            times: ["morning", "evening"],
+            confidence: 0.5
+          }));
+          setExtractedMedications(fallbackMeds);
+        }
+      } finally {
+        setIsValidating(false);
+      }
+
     } catch (error: any) {
       console.error("OCR 처리 실패:", error);
-      
+
       // 타임아웃 에러 처리
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         toast.error("처리 시간이 너무 오래 걸려요. 더 밝은 곳에서 다시 찍어보세요.");
@@ -121,9 +205,32 @@ const SeniorOCR = () => {
         toast.error(getErrorMessage(error, "문서를 읽는데 실패했어요."));
       }
       setExtractedText("");
+      setImage(null);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // LLM 검증 API 호출
+  const validateMedicationOCR = async (ocrText: string): Promise<ValidationResult> => {
+    const AI_API_BASE_URL = import.meta.env.VITE_AI_API_BASE_URL || 'http://localhost:8000';
+
+    const response = await fetch(`${AI_API_BASE_URL}/ocr/validate-medication`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ocr_text: ocrText,
+        elderly_user_id: user?.id || 0,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`LLM 검증 실패: ${response.statusText}`);
+    }
+
+    return response.json();
   };
 
   // OCR 텍스트 정제 함수
@@ -136,10 +243,10 @@ const SeniorOCR = () => {
     for (let line of lines) {
       line = line.trim();
       if (!line) continue;
-      
+
       // 마크다운 리스트 기호 제거
       line = line.replace(/^[-*+]\s+/, '');
-      
+
       // 불필요한 메타데이터 라인 필터링
       const skipPatterns = [
         /^환자정보/i,
@@ -163,31 +270,31 @@ const SeniorOCR = () => {
         /^만\d+세/,
         /^\(.*\)$/,
       ];
-      
+
       if (skipPatterns.some(pattern => pattern.test(line))) {
         continue;
       }
-      
+
       // 콜론이 포함된 라벨 라인 건너뛰기
       if (/^[가-힣\s]+:\s*$/.test(line) || /^[가-힣\s]+:$/.test(line)) {
         continue;
       }
-      
+
       // 너무 짧은 라인 건너뛰기
       if (line.length < 2) {
         continue;
       }
-      
+
       cleanedLines.push(line);
     }
 
     return cleanedLines.join('\n');
   };
 
-  // 약 이름 추출 (간단한 패턴 매칭)
+  // 약 이름 추출 (폴백용 - 간단한 패턴 매칭)
   const extractMedicationNames = (text: string): string[] => {
     const medications: string[] = [];
-    
+
     // 먼저 텍스트 정제
     const cleanedText = cleanOCRText(text);
 
@@ -215,8 +322,11 @@ const SeniorOCR = () => {
   };
 
   // 약 이름을 쉬운 표현으로 변환
-  const getMedicationCategory = (name: string): string => {
+  const getMedicationDisplayName = (med: MedicationInfo): string => {
+    const name = med.medication_name;
     const lower = name.toLowerCase();
+
+    // 카테고리 매핑
     if (lower.includes("혈압") || lower.includes("amlod") || lower.includes("losar")) return "혈압약";
     if (lower.includes("당뇨") || lower.includes("metfor") || lower.includes("glim")) return "당뇨약";
     if (lower.includes("감기") || lower.includes("타이레놀") || lower.includes("acetam")) return "감기약";
@@ -224,6 +334,7 @@ const SeniorOCR = () => {
     if (lower.includes("진통") || lower.includes("ibup") || lower.includes("aspir")) return "진통제";
     if (lower.includes("수면") || lower.includes("zolp")) return "수면제";
     if (lower.includes("비타민") || lower.includes("vitam")) return "비타민";
+
     return name;
   };
 
@@ -255,31 +366,46 @@ const SeniorOCR = () => {
     setIsSpeaking(false);
     setExtractedMedications([]);
     setSelectedMedications(new Set());
+    setValidationResult(null);
   };
 
   const handleOpenMedicationDialog = () => {
-    setSelectedMedications(new Set(extractedMedications));
+    // 모든 약을 기본 선택
+    const allMedNames = extractedMedications.map(m => m.medication_name);
+    setSelectedMedications(new Set(allMedNames));
+
+    // 각 약의 LLM 추천 시간을 기본값으로 설정
+    const initialTimes: Record<string, string[]> = {};
+    extractedMedications.forEach(med => {
+      initialTimes[med.medication_name] = med.times.length > 0
+        ? med.times
+        : ["morning", "evening"];
+    });
+    setSelectedTimes(initialTimes);
+
     setShowMedicationDialog(true);
   };
 
-  const handleToggleMedication = (med: string) => {
+  const handleToggleMedication = (medName: string) => {
     const newSet = new Set(selectedMedications);
-    if (newSet.has(med)) {
-      newSet.delete(med);
+    if (newSet.has(medName)) {
+      newSet.delete(medName);
     } else {
-      newSet.add(med);
+      newSet.add(medName);
     }
     setSelectedMedications(newSet);
   };
 
-  const handleToggleTime = (time: string) => {
-    const newSet = new Set(selectedTimes);
-    if (newSet.has(time)) {
-      newSet.delete(time);
-    } else {
-      newSet.add(time);
-    }
-    setSelectedTimes(newSet);
+  const handleToggleTime = (medName: string, time: string) => {
+    const currentTimes = selectedTimes[medName] || [];
+    const newTimes = currentTimes.includes(time)
+      ? currentTimes.filter(t => t !== time)
+      : [...currentTimes, time];
+
+    setSelectedTimes({
+      ...selectedTimes,
+      [medName]: newTimes
+    });
   };
 
   const handleRegisterMedications = async () => {
@@ -288,19 +414,25 @@ const SeniorOCR = () => {
       return;
     }
 
-    if (selectedTimes.size === 0) {
-      toast.error("복용 시간을 선택해주세요.");
-      return;
-    }
-
     setIsRegistering(true);
     let successCount = 0;
 
     try {
-      for (const med of selectedMedications) {
+      for (const medName of selectedMedications) {
+        const medication = extractedMedications.find(m => m.medication_name === medName);
+        if (!medication) continue;
+
+        const times = selectedTimes[medName] || ["morning", "evening"];
+        if (times.length === 0) {
+          toast.warning(`${getMedicationDisplayName(medication)}의 복용 시간을 선택해주세요.`);
+          continue;
+        }
+
         const request: MedicationRequest = {
-          medicationName: getMedicationCategory(med),
-          times: Array.from(selectedTimes),
+          medicationName: getMedicationDisplayName(medication),
+          dosageText: medication.dosage,
+          times: times,
+          instructions: medication.instructions,
           reminder: true,
         };
 
@@ -309,17 +441,21 @@ const SeniorOCR = () => {
         successCount++;
       }
 
-      toast.success(`${successCount}개 약이 등록되었어요!`);
-      setShowMedicationDialog(false);
-      navigate("/senior/medication");
+      if (successCount > 0) {
+        toast.success(`${successCount}개 약이 등록되었어요!`);
+        setShowMedicationDialog(false);
+        navigate("/senior/medication");
+      } else {
+        toast.error("등록된 약이 없습니다.");
+      }
     } catch (error: any) {
       console.error("Failed to register medications:", error);
       console.error("에러 응답:", error.response?.data);
-      
-      const errorMessage = error.response?.data?.message 
-        || error.response?.data?.error 
+
+      const errorMessage = error.response?.data?.message
+        || error.response?.data?.error
         || "약 등록에 실패했어요. 다시 시도해주세요.";
-      
+
       toast.error(errorMessage);
     } finally {
       setIsRegistering(false);
@@ -406,13 +542,15 @@ const SeniorOCR = () => {
         )}
 
         {/* Processing State */}
-        {isProcessing && (
+        {(isProcessing || isValidating) && (
           <Card>
             <CardContent className="p-12">
               <div className="text-center space-y-6">
                 <Loader2 className="w-16 h-16 mx-auto text-info animate-spin" />
                 <div>
-                  <p className="text-xl font-bold">약봉지를 읽고 있어요...</p>
+                  <p className="text-xl font-bold">
+                    {isValidating ? "약 정보를 검증하고 있어요..." : "약봉지를 읽고 있어요..."}
+                  </p>
                   <p className="text-muted-foreground mt-2">잠시만 기다려주세요</p>
                 </div>
               </div>
@@ -421,7 +559,7 @@ const SeniorOCR = () => {
         )}
 
         {/* Result Section */}
-        {image && extractedText && !isProcessing && (
+        {image && extractedText && !isProcessing && !isValidating && (
           <div className="space-y-6">
             {/* Image Preview */}
             <Card>
@@ -440,18 +578,65 @@ const SeniorOCR = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-4">
                     <Pill className="w-6 h-6 text-primary" />
-                    <span className="text-lg font-bold">찾은 약</span>
+                    <span className="text-lg font-bold">찾은 약 ({extractedMedications.length}개)</span>
                   </div>
-                  <div className="flex flex-wrap gap-2 mb-4">
+
+                  {/* LLM 분석 결과 */}
+                  {validationResult?.llm_analysis && (
+                    <div className="mb-4 p-3 bg-info/10 rounded-lg text-sm">
+                      <p className="text-info-foreground">{validationResult.llm_analysis}</p>
+                    </div>
+                  )}
+
+                  {/* 약 목록 */}
+                  <div className="space-y-2 mb-4">
                     {extractedMedications.map((med, idx) => (
-                      <span
+                      <div
                         key={idx}
-                        className="px-3 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium"
+                        className="p-3 bg-white rounded-lg border border-primary/20"
                       >
-                        {getMedicationCategory(med)}
-                      </span>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-bold text-base">
+                                {getMedicationDisplayName(med)}
+                              </span>
+                              {med.confidence < 0.7 && (
+                                <Badge variant="outline" className="text-xs">
+                                  <AlertCircle className="w-3 h-3 mr-1" />
+                                  확인 필요
+                                </Badge>
+                              )}
+                            </div>
+                            {med.dosage && (
+                              <p className="text-sm text-muted-foreground">
+                                용량: {med.dosage}
+                              </p>
+                            )}
+                            {med.instructions && (
+                              <p className="text-sm text-muted-foreground">
+                                복용법: {med.instructions}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {med.times.map(time => (
+                                <Badge key={time} variant="secondary" className="text-xs">
+                                  {timeLabels[time] || time}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          <Badge
+                            variant={med.confidence >= 0.8 ? "default" : "secondary"}
+                            className="ml-2"
+                          >
+                            {Math.round(med.confidence * 100)}%
+                          </Badge>
+                        </div>
+                      </div>
                     ))}
                   </div>
+
                   <Button
                     onClick={handleOpenMedicationDialog}
                     className="w-full h-16 text-lg font-bold rounded-2xl gap-3"
@@ -518,55 +703,82 @@ const SeniorOCR = () => {
 
       {/* Medication Registration Dialog */}
       <Dialog open={showMedicationDialog} onOpenChange={setShowMedicationDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl">복약 일정 등록</DialogTitle>
             <DialogDescription>
-              등록할 약과 복용 시간을 선택해주세요
+              등록할 약과 복용 시간을 확인하고 수정해주세요
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* 약 선택 */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">💊 등록할 약</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {extractedMedications.map((med) => (
-                  <div
-                    key={med}
-                    className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${selectedMedications.has(med)
-                        ? "bg-primary/10 border-primary"
-                        : "hover:bg-muted"
-                      }`}
-                    onClick={() => handleToggleMedication(med)}
-                  >
-                    <Checkbox checked={selectedMedications.has(med)} />
-                    <span className="text-sm font-medium">
-                      {getMedicationCategory(med)}
-                    </span>
+            {extractedMedications.map((med, idx) => (
+              <div key={idx} className="border rounded-lg p-4 space-y-3">
+                {/* 약 선택 */}
+                <div
+                  className={`flex items-start gap-3 cursor-pointer ${selectedMedications.has(med.medication_name)
+                      ? "opacity-100"
+                      : "opacity-50"
+                    }`}
+                  onClick={() => handleToggleMedication(med.medication_name)}
+                >
+                  <Checkbox
+                    checked={selectedMedications.has(med.medication_name)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-base">
+                        {getMedicationDisplayName(med)}
+                      </span>
+                      {med.confidence < 0.7 && (
+                        <Badge variant="outline" className="text-xs">
+                          <AlertCircle className="w-3 h-3 mr-1" />
+                          확인 필요
+                        </Badge>
+                      )}
+                      <Badge variant="secondary" className="text-xs">
+                        신뢰도 {Math.round(med.confidence * 100)}%
+                      </Badge>
+                    </div>
+                    {med.dosage && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        용량: {med.dosage}
+                      </p>
+                    )}
+                    {med.instructions && (
+                      <p className="text-sm text-muted-foreground">
+                        복용법: {med.instructions}
+                      </p>
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
 
-            {/* 시간 선택 */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">⏰ 복용 시간</Label>
-              <div className="grid grid-cols-4 gap-2">
-                {Object.entries(timeLabels).map(([key, label]) => (
-                  <div
-                    key={key}
-                    className={`text-center p-3 rounded-lg border cursor-pointer transition-colors ${selectedTimes.has(key)
-                        ? "bg-primary/10 border-primary"
-                        : "hover:bg-muted"
-                      }`}
-                    onClick={() => handleToggleTime(key)}
-                  >
-                    <span className="text-sm font-medium">{label}</span>
+                {/* 복용 시간 선택 */}
+                {selectedMedications.has(med.medication_name) && (
+                  <div className="ml-8 space-y-2">
+                    <Label className="text-sm font-semibold">⏰ 복용 시간</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {Object.entries(timeLabels).map(([key, label]) => {
+                        const isSelected = (selectedTimes[med.medication_name] || []).includes(key);
+                        return (
+                          <div
+                            key={key}
+                            className={`text-center p-2 rounded-lg border cursor-pointer transition-colors ${isSelected
+                                ? "bg-primary/10 border-primary"
+                                : "hover:bg-muted"
+                              }`}
+                            onClick={() => handleToggleTime(med.medication_name, key)}
+                          >
+                            <span className="text-sm font-medium">{label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
-            </div>
+            ))}
           </div>
 
           <DialogFooter className="gap-2">
@@ -587,7 +799,7 @@ const SeniorOCR = () => {
               ) : (
                 <Check className="w-4 h-4" />
               )}
-              등록하기
+              {selectedMedications.size}개 약 등록하기
             </Button>
           </DialogFooter>
         </DialogContent>

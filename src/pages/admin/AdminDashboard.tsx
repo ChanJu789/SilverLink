@@ -26,6 +26,7 @@ import { MyProfileResponse, AdminResponse, CounselorResponse, GuardianResponse, 
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useAuth } from "@/contexts/AuthContext";
 
 const dailyCallData = [
   { hour: "06시", calls: 12 },
@@ -39,6 +40,7 @@ const dailyCallData = [
 ];
 
 const AdminDashboard = () => {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
   const [stats, setStats] = useState({
@@ -93,7 +95,7 @@ const AdminDashboard = () => {
 
   if (isLoading) {
     return (
-      <DashboardLayout role="admin" userName="로딩중..." navItems={adminNavItems}>
+      <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -104,7 +106,7 @@ const AdminDashboard = () => {
   return (
     <DashboardLayout
       role="admin"
-      userName={userProfile?.name || "관리자"}
+      userName={user?.name || userProfile?.name || "관리자"}
       navItems={adminNavItems}
     >
       <div className="space-y-6">

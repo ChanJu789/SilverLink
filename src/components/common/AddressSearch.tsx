@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { MapPin } from 'lucide-react';
 
-// Daum 주소 검색 SDK 타입 정의
+// Daum 주소 검색 SDK 타입 정의.
 declare global {
     interface Window {
         daum: {

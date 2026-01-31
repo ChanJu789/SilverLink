@@ -20,8 +20,10 @@ import { toast } from "sonner";
 import inquiriesApi from "@/api/inquiries";
 import usersApi from "@/api/users";
 import { InquiryResponse, MyProfileResponse } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface InquiryWithMessages extends InquiryResponse {
+  authorName?: string;
   messages?: Array<{
     id: number;
     sender: 'guardian' | 'counselor';
@@ -37,30 +39,34 @@ const CounselorInquiries = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inquiries, setInquiries] = useState<InquiryWithMessages[]>([]);
-  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
-        const profile = await usersApi.getMyProfile();
-        setUserProfile(profile);
+        // const profile = await usersApi.getMyProfile(); (Removed)
+        // setUserProfile(profile); (Removed)
 
-        const response = await inquiriesApi.getInquiries({ size: 50 });
-        const inquiriesWithMessages = response.content.map(inquiry => ({
+        const response = await inquiriesApi.getInquiries();
+        // API returns InquiryResponse[] directly, not Page
+        const data = Array.isArray(response) ? response : (response as any).content || [];
+
+        const inquiriesWithMessages = data.map((inquiry: any) => ({
           ...inquiry,
+          authorName: inquiry.elderlyName || '알 수 없음',
           messages: [
             {
               id: 1,
               sender: 'guardian' as const,
-              content: inquiry.content,
+              content: inquiry.questionText,
               timestamp: inquiry.createdAt || ''
             },
-            ...(inquiry.answer ? [{
+            ...(inquiry.answerText ? [{
               id: 2,
               sender: 'counselor' as const,
-              content: inquiry.answer,
+              content: inquiry.answerText,
               timestamp: inquiry.answeredAt || ''
             }] : [])
           ]
@@ -85,21 +91,21 @@ const CounselorInquiries = () => {
     inquiry.authorName?.includes(searchTerm)
   );
 
-  const waitingCount = inquiries.filter(i => i.status === 'PENDING' || i.status === 'waiting').length;
-  const answeredCount = inquiries.filter(i => i.status === 'ANSWERED' || i.status === 'answered').length;
+  const waitingCount = inquiries.filter(i => i.status === 'PENDING').length;
+  const answeredCount = inquiries.filter(i => i.status === 'ANSWERED').length;
 
   const handleReply = async () => {
     if (!replyMessage.trim() || !selectedInquiry) return;
 
     try {
       setIsSubmitting(true);
-      await inquiriesApi.registerAnswer(selectedInquiry.id, { answer: replyMessage });
+      await inquiriesApi.registerAnswer(selectedInquiry.id, { answerText: replyMessage });
 
       // Update local state
       const updatedInquiry: InquiryWithMessages = {
         ...selectedInquiry,
         status: 'ANSWERED',
-        answer: replyMessage,
+        answerText: replyMessage,
         answeredAt: new Date().toISOString(),
         messages: [
           ...(selectedInquiry.messages || []),
@@ -134,12 +140,12 @@ const CounselorInquiries = () => {
     );
   }
 
-  const isAnswered = (status: string) => status === 'ANSWERED' || status === 'answered';
+  const isAnswered = (status: string) => status === 'ANSWERED';
 
   return (
     <DashboardLayout
       role="counselor"
-      userName={userProfile?.name || "상담사"}
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">
@@ -222,8 +228,8 @@ const CounselorInquiries = () => {
                       <div
                         key={inquiry.id}
                         className={`p-4 rounded-xl cursor-pointer transition-colors ${selectedInquiry?.id === inquiry.id
-                            ? "bg-primary/10 border border-primary/30"
-                            : "bg-secondary/30 hover:bg-secondary/50"
+                          ? "bg-primary/10 border border-primary/30"
+                          : "bg-secondary/30 hover:bg-secondary/50"
                           }`}
                         onClick={() => setSelectedInquiry(inquiry)}
                       >
@@ -286,8 +292,8 @@ const CounselorInquiries = () => {
                         >
                           <div
                             className={`max-w-[80%] p-4 rounded-2xl ${message.sender === "counselor"
-                                ? "bg-primary text-primary-foreground rounded-br-sm"
-                                : "bg-secondary rounded-bl-sm"
+                              ? "bg-primary text-primary-foreground rounded-br-sm"
+                              : "bg-secondary rounded-bl-sm"
                               }`}
                           >
                             <p className="text-sm">{message.content}</p>

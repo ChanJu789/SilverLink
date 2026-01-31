@@ -176,6 +176,7 @@ export interface GuardianResponse {
     phone: string;
     createdAt: string;
     elderlyCount: number;
+    elderlyName?: string;
 }
 
 export interface GuardianRequest {
@@ -256,7 +257,7 @@ export interface InquiryResponse {
     answerText?: string;
     answeredAt?: string;
     createdAt: string;
-    userName: string;
+    elderlyName: string;
 }
 
 // =====================
@@ -289,7 +290,8 @@ export interface AuditLogResponse {
 
 export interface InquiryRequest {
     title?: string;
-    questionText: string;
+    questionText?: string;
+    answerText?: string;
 }
 
 // =====================
@@ -319,6 +321,7 @@ export interface WelfareListResponse {
     jurMnofNm: string;     // 소관기관
     category: string;      // 카테고리
     servDgst: string;      // 요약
+    rprsCtadr?: string;    // 문의처 (목록 조회 시 추가)
 }
 
 export interface WelfareDetailResponse {
@@ -460,5 +463,36 @@ export interface WelfareFacilityRequest {
     phone?: string;
     operatingHours?: string;
     description?: string;
+
+// =====================
+// 상담 기록 관련 타입
+// =====================
+export interface CounselingRecordResponse {
+    id: number;
+    seniorId: number;
+    seniorName: string;
+    date: string; // YYYY-MM-DD
+    time: string; // HH:mm:ss
+    type: 'PHONE' | 'VISIT' | 'VIDEO';
+    category: string;
+    summary: string;
+    content: string;
+    result: string;
+    followUp: string;
+    status: 'COMPLETED' | 'IN_PROGRESS' | 'SCHEDULED';
 }
+
+export interface CounselingRecordRequest {
+    seniorId: number;
+    date: string; // YYYY-MM-DD
+    time: string; // HH:mm:ss
+    type: 'PHONE' | 'VISIT' | 'VIDEO';
+    category: string;
+    summary: string;
+    content: string;
+    result: string;
+    followUp: string;
+    status: 'COMPLETED' | 'IN_PROGRESS' | 'SCHEDULED';
+}
+
 
