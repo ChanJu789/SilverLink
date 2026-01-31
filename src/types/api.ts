@@ -206,13 +206,33 @@ export interface NoticeResponse {
     title: string;
     content: string;
     category: string;
-    isImportant: boolean;
-    isPopup: boolean;
+    categoryDescription?: string;
+    targetMode?: string;
     targetRoles: string[];
+    isPriority: boolean;  // isImportant에서 isPriority로 변경
+    isPopup: boolean;
+    popupStartAt?: string;
+    popupEndAt?: string;
+    status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED';
+    viewCount: number;
     createdAt: string;
     updatedAt?: string;
-    viewCount: number;
     isRead: boolean;
+    readCount?: number;
+    totalTargetCount?: number;
+    attachments?: Array<{
+        fileName: string;
+        originalFileName: string;
+        filePath: string;
+        fileSize: number;
+    }>;
+}
+
+// 읽음 현황 관련 타입
+export interface NoticeReadStatus {
+    userId: number;
+    userName: string;
+    readAt: string;
 }
 
 // =====================
@@ -430,9 +450,19 @@ export interface WelfareFacilityResponse {
     type: 'ELDERLY_WELFARE_CENTER' | 'DISABLED_WELFARE_CENTER' | 'CHILD_WELFARE_CENTER' | 'COMMUNITY_WELFARE_CENTER' | 'SENIOR_CENTER' | 'DAYCARE_CENTER' | 'HOME_CARE_SERVICE';
     phone?: string;
     operatingHours?: string;
+    description?: string;
     typeDescription?: string;
 }
 
+export interface WelfareFacilityRequest {
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    type: 'ELDERLY_WELFARE_CENTER' | 'DISABLED_WELFARE_CENTER' | 'CHILD_WELFARE_CENTER' | 'COMMUNITY_WELFARE_CENTER' | 'SENIOR_CENTER' | 'DAYCARE_CENTER' | 'HOME_CARE_SERVICE';
+    phone?: string;
+    operatingHours?: string;
+    description?: string;
 
 // =====================
 // 상담 기록 관련 타입

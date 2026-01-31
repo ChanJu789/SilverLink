@@ -49,7 +49,7 @@ export const DuplicateLoginDialog = ({
                 </ul>
               </div>
             </div>
-          </AlertDialogDescription>
+          </div>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel} disabled={isLoading}>

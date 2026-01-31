@@ -64,6 +64,17 @@ export const mapApi = {
      */
     deleteFacility: async (id: number): Promise<void> => {
         await apiClient.delete(`/api/map/facilities/${id}`);
+    },
+
+    /**
+     * 시설명 자동완성 검색
+     * GET /api/map/facilities/search
+     */
+    searchFacilities: async (query: string): Promise<WelfareFacilityResponse[]> => {
+        const response = await apiClient.get('/api/map/facilities/search', {
+            params: { q: query, limit: 10 }
+        });
+        return response.data;
     }
 };
 

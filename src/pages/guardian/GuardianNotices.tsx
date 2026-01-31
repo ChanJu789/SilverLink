@@ -40,7 +40,27 @@ const GuardianNotices = () => {
         setUserProfile(profile);
 
         // 공지사항 목록 조회
+        console.log("=== 보호자 공지사항 조회 시작 ===");
         const noticesResponse = await noticesApi.getNotices({ size: 50 });
+        console.log("공지사항 응답:", noticesResponse);
+        console.log("공지사항 개수:", noticesResponse.content?.length || 0);
+        console.log("공지사항 목록:", noticesResponse.content);
+        
+        // 각 공지사항의 상세 정보 로그
+        noticesResponse.content.forEach((notice, index) => {
+          console.log(`공지사항 ${index + 1}:`, {
+            id: notice.id,
+            title: notice.title,
+            content: notice.content,
+            category: notice.category,
+            targetMode: notice.targetMode,
+            targetRoles: notice.targetRoles,
+            isPriority: notice.isPriority,
+            isRead: notice.isRead,
+            createdAt: notice.createdAt
+          });
+        });
+        
         setNotices(noticesResponse.content);
       } catch (error) {
         console.error('Failed to fetch notices:', error);
@@ -70,19 +90,58 @@ const GuardianNotices = () => {
     }
   };
 
-  const filteredNotices = notices.filter((notice) =>
-    notice.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    notice.content?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredNotices = notices.filter((notice) => {
+    const matchesSearch = notice.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      notice.content?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    console.log("필터링 체크:", {
+      noticeId: notice.id,
+      title: notice.title,
+      content: notice.content?.substring(0, 50),
+      searchTerm,
+      matchesSearch
+    });
+    
+    return matchesSearch;
+  });
+
+  console.log("=== 필터링 결과 ===");
+  console.log("전체 공지사항 수:", notices.length);
+  console.log("필터링된 공지사항 수:", filteredNotices.length);
+  console.log("검색어:", searchTerm);
 
   const getCategoryBadge = (category: string) => {
+    console.log("getCategoryBadge 호출, category:", category, "타입:", typeof category);
+    
+    // 백엔드 enum을 한글로 변환
+    const categoryNameMap: Record<string, string> = {
+      "NOTICE": "공지",
+      "EVENT": "이벤트",
+      "SYSTEM": "시스템",
+      "NEWS": "소식",
+    };
+    
+    const displayName = categoryNameMap[category] || category;
+    
     const styles: Record<string, string> = {
+      "NOTICE": "bg-primary/10 text-primary border-0",
+      "EVENT": "bg-success/10 text-success border-0",
+      "SYSTEM": "bg-info/10 text-info border-0",
+      "NEWS": "bg-accent/10 text-accent border-0",
+      // 한글 카테고리도 지원 (하위 호환성)
       "운영안내": "bg-primary/10 text-primary border-0",
       "서비스": "bg-info/10 text-info border-0",
       "복지": "bg-success/10 text-success border-0",
       "안내": "bg-accent/10 text-accent border-0",
+      "공지": "bg-primary/10 text-primary border-0",
+      "이벤트": "bg-success/10 text-success border-0",
+      "시스템": "bg-info/10 text-info border-0",
+      "소식": "bg-accent/10 text-accent border-0",
     };
-    return styles[category] || "bg-muted text-muted-foreground";
+    
+    const style = styles[category] || styles[displayName] || "bg-muted text-muted-foreground";
+    console.log("적용할 스타일:", style, "표시명:", displayName);
+    return { style, displayName };
   };
 
   if (isLoading) {
@@ -95,7 +154,7 @@ const GuardianNotices = () => {
     );
   }
 
-  const importantCount = notices.filter(n => n.isImportant).length;
+  const importantCount = notices.filter(n => n.isPriority).length;
   const unreadCount = notices.filter(n => !n.isRead).length;
 
   return (
@@ -197,24 +256,34 @@ const GuardianNotices = () => {
               filteredNotices.map((notice) => (
                 <div
                   key={notice.id}
-                  className={`p-4 rounded-xl transition-colors cursor-pointer ${notice.isRead ? 'bg-secondary/30 hover:bg-secondary/50' : 'bg-primary/5 hover:bg-primary/10'
-                    }`}
+                  className={`p-4 rounded-xl transition-colors cursor-pointer ${
+                    notice.isPriority 
+                      ? 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100' 
+                      : notice.isRead 
+                        ? 'bg-secondary/30 hover:bg-secondary/50' 
+                        : 'bg-primary/5 hover:bg-primary/10'
+                  }`}
                   onClick={() => handleNoticeClick(notice)}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        {notice.isImportant && (
-                          <Badge variant="destructive" className="text-xs">중요</Badge>
+                        {notice.isPriority && (
+                          <Badge variant="destructive" className="text-xs font-semibold">📌 중요</Badge>
                         )}
                         {!notice.isRead && (
                           <Badge variant="default" className="text-xs">NEW</Badge>
                         )}
-                        <Badge className={getCategoryBadge(notice.category)}>
-                          {notice.category}
+                        <Badge className={getCategoryBadge(notice.category).style}>
+                          {getCategoryBadge(notice.category).displayName}
                         </Badge>
                       </div>
-                      <h3 className="font-medium text-foreground">{notice.title}</h3>
+                      <h3 className={`font-medium text-foreground ${
+                        notice.isPriority ? "text-red-800 font-semibold" : ""
+                      }`}>
+                        {notice.isPriority && "📌 "}
+                        {notice.title}
+                      </h3>
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
                         {notice.content}
                       </p>
@@ -236,11 +305,11 @@ const GuardianNotices = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <div className="flex items-center gap-2 mb-2">
-              {selectedNotice?.isImportant && (
+              {selectedNotice?.isPriority && (
                 <Badge variant="destructive" className="text-xs">중요</Badge>
               )}
-              <Badge className={getCategoryBadge(selectedNotice?.category || "")}>
-                {selectedNotice?.category}
+              <Badge className={getCategoryBadge(selectedNotice?.category || "").style}>
+                {getCategoryBadge(selectedNotice?.category || "").displayName}
               </Badge>
             </div>
             <DialogTitle>{selectedNotice?.title}</DialogTitle>
@@ -249,6 +318,49 @@ const GuardianNotices = () => {
           <div className="mt-4 whitespace-pre-wrap text-foreground">
             {selectedNotice?.content}
           </div>
+          
+          {/* 첨부파일 섹션 */}
+          {selectedNotice?.attachments && selectedNotice.attachments.length > 0 && (
+            <div className="mt-6 border-t pt-4">
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                첨부파일 ({selectedNotice.attachments.length})
+              </h4>
+              <div className="space-y-2">
+                {selectedNotice.attachments.map((file, index) => (
+                  <a
+                    key={index}
+                    href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}${file.filePath}`}
+                    download={file.originalFileName}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                          {file.originalFileName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <svg className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </DashboardLayout>

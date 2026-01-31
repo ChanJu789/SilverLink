@@ -19,6 +19,12 @@ export interface NoticeRequest {
     popupStartAt?: string;
     popupEndAt?: string;
     status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED';
+    attachments?: Array<{
+        fileName: string;
+        originalFileName: string;
+        filePath: string;
+        fileSize: number;
+    }>;
 }
 
 
@@ -114,7 +120,7 @@ export const confirmNotice = async (id: number): Promise<void> => {
 
 /**
  * 관리자: 공지사항 확인자 목록 조회
- * GET /api/notices/{id}/confirm-list
+ * GET /api/admin/notices/{id}/read-status
  */
 export interface NoticeConfirmUser {
     userId: number;
@@ -123,7 +129,22 @@ export interface NoticeConfirmUser {
 }
 
 export const getConfirmList = async (id: number): Promise<NoticeConfirmUser[]> => {
-    const response = await apiClient.get<NoticeConfirmUser[]>(`/api/notices/${id}/confirm-list`);
+    const response = await apiClient.get<NoticeConfirmUser[]>(`/api/admin/notices/${id}/read-status`);
+    return response.data;
+};
+
+/**
+ * 관리자: 공지사항 읽음 통계 조회
+ * GET /api/admin/notices/{id}/read-stats
+ */
+export interface NoticeReadStats {
+    readCount: number;
+    totalTargetCount: number;
+    readPercentage: number;
+}
+
+export const getNoticeReadStats = async (id: number): Promise<NoticeReadStats> => {
+    const response = await apiClient.get<NoticeReadStats>(`/api/admin/notices/${id}/read-stats`);
     return response.data;
 };
 
@@ -148,6 +169,7 @@ export default {
     deleteNotice,
     updateNotice,
     getConfirmList,
+    getNoticeReadStats,
     restoreNotice,
 };
 
