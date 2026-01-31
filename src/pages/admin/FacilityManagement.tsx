@@ -366,6 +366,7 @@ export default function FacilityManagement() {
 
     return (
         <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
+            <TooltipProvider>
             <div className="container mx-auto p-6">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">사회복지시설 관리</h1>
@@ -480,6 +481,6 @@ export default function FacilityManagement() {
                 </Dialog>
             </div>
             </TooltipProvider>
-        </DashboardLayout >
+        </DashboardLayout>
     );
 }

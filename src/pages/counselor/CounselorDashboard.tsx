@@ -27,7 +27,7 @@ import callReviewsApi from "@/api/callReviews";
 import noticesApi from "@/api/notices";
 import { MyProfileResponse, CounselorResponse, CallRecordSummaryResponse, UnreviewedCountResponse, NoticeResponse } from "@/types/api";
 import UnreadNoticeAlert from "@/components/notice/UnreadNoticeAlert";
-
+import { NoticePopup } from "@/components/notice/NoticePopup";
 // Mock data
 const stats = {
   totalSeniors: 45,
@@ -261,11 +261,13 @@ const CounselorDashboard = () => {
   }
 
   return (
-    <DashboardLayout
-      role="counselor"
-      userName={user?.name || "상담사"}
-      navItems={counselorNavItems}
-    >
+    <>
+      <NoticePopup userRole="COUNSELOR" />
+      <DashboardLayout
+        role="counselor"
+        userName={user?.name || "상담사"}
+        navItems={counselorNavItems}
+      >
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -466,6 +468,7 @@ const CounselorDashboard = () => {
         />
       )}
     </DashboardLayout>
+    </>
   );
 };
 
