@@ -90,18 +90,18 @@ const SeniorOCR = () => {
 
       // 라이브러리가 압축 및 EXIF 회전 보정을 자동 수행
       const compressedFile = await imageCompression(file, options);
-      
-      console.log(`📸 압축 완료: ${(file.size/1024/1024).toFixed(2)}MB -> ${(compressedFile.size/1024/1024).toFixed(2)}MB`);
+
+      console.log(`📸 압축 완료: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
 
       setSelectedFile(compressedFile);
-      
+
       // 압축된 파일로 미리보기 생성
       const reader = new FileReader();
       reader.onloadend = () => {
         setImage(reader.result as string);
       };
       reader.readAsDataURL(compressedFile);
-      
+
       // 압축된 파일로 OCR 처리
       processImage(compressedFile);
     } catch (error) {
@@ -139,14 +139,14 @@ const SeniorOCR = () => {
       // 2단계: LLM 검증 (Python AI 서버)
       setIsValidating(true);
       toast.info("약 정보를 검증하고 있어요...");
-      
+
       try {
         const validationResponse = await validateMedicationOCR(result.text);
         setValidationResult(validationResponse);
 
         if (validationResponse.success && validationResponse.medications.length > 0) {
           setExtractedMedications(validationResponse.medications);
-          
+
           // 경고 메시지 표시
           if (validationResponse.warnings.length > 0) {
             validationResponse.warnings.forEach(warning => {
@@ -180,7 +180,7 @@ const SeniorOCR = () => {
       } catch (validationError) {
         console.error("LLM 검증 실패:", validationError);
         toast.warning("AI 검증에 실패했어요. 기본 방식으로 추출합니다.");
-        
+
         // 폴백: 기본 추출 로직
         const medications = extractMedicationNames(result.text);
         if (medications.length > 0) {
@@ -197,7 +197,7 @@ const SeniorOCR = () => {
 
     } catch (error: any) {
       console.error("OCR 처리 실패:", error);
-      
+
       // 타임아웃 에러 처리
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         toast.error("처리 시간이 너무 오래 걸려요. 더 밝은 곳에서 다시 찍어보세요.");
@@ -205,6 +205,7 @@ const SeniorOCR = () => {
         toast.error(getErrorMessage(error, "문서를 읽는데 실패했어요."));
       }
       setExtractedText("");
+      setImage(null);
     } finally {
       setIsProcessing(false);
     }
@@ -213,7 +214,7 @@ const SeniorOCR = () => {
   // LLM 검증 API 호출
   const validateMedicationOCR = async (ocrText: string): Promise<ValidationResult> => {
     const AI_API_BASE_URL = import.meta.env.VITE_AI_API_BASE_URL || 'http://localhost:8000';
-    
+
     const response = await fetch(`${AI_API_BASE_URL}/ocr/validate-medication`, {
       method: 'POST',
       headers: {
@@ -242,10 +243,10 @@ const SeniorOCR = () => {
     for (let line of lines) {
       line = line.trim();
       if (!line) continue;
-      
+
       // 마크다운 리스트 기호 제거
       line = line.replace(/^[-*+]\s+/, '');
-      
+
       // 불필요한 메타데이터 라인 필터링
       const skipPatterns = [
         /^환자정보/i,
@@ -269,21 +270,21 @@ const SeniorOCR = () => {
         /^만\d+세/,
         /^\(.*\)$/,
       ];
-      
+
       if (skipPatterns.some(pattern => pattern.test(line))) {
         continue;
       }
-      
+
       // 콜론이 포함된 라벨 라인 건너뛰기
       if (/^[가-힣\s]+:\s*$/.test(line) || /^[가-힣\s]+:$/.test(line)) {
         continue;
       }
-      
+
       // 너무 짧은 라인 건너뛰기
       if (line.length < 2) {
         continue;
       }
-      
+
       cleanedLines.push(line);
     }
 
@@ -293,7 +294,7 @@ const SeniorOCR = () => {
   // 약 이름 추출 (폴백용 - 간단한 패턴 매칭)
   const extractMedicationNames = (text: string): string[] => {
     const medications: string[] = [];
-    
+
     // 먼저 텍스트 정제
     const cleanedText = cleanOCRText(text);
 
@@ -324,7 +325,7 @@ const SeniorOCR = () => {
   const getMedicationDisplayName = (med: MedicationInfo): string => {
     const name = med.medication_name;
     const lower = name.toLowerCase();
-    
+
     // 카테고리 매핑
     if (lower.includes("혈압") || lower.includes("amlod") || lower.includes("losar")) return "혈압약";
     if (lower.includes("당뇨") || lower.includes("metfor") || lower.includes("glim")) return "당뇨약";
@@ -333,7 +334,7 @@ const SeniorOCR = () => {
     if (lower.includes("진통") || lower.includes("ibup") || lower.includes("aspir")) return "진통제";
     if (lower.includes("수면") || lower.includes("zolp")) return "수면제";
     if (lower.includes("비타민") || lower.includes("vitam")) return "비타민";
-    
+
     return name;
   };
 
@@ -372,16 +373,16 @@ const SeniorOCR = () => {
     // 모든 약을 기본 선택
     const allMedNames = extractedMedications.map(m => m.medication_name);
     setSelectedMedications(new Set(allMedNames));
-    
+
     // 각 약의 LLM 추천 시간을 기본값으로 설정
     const initialTimes: Record<string, string[]> = {};
     extractedMedications.forEach(med => {
-      initialTimes[med.medication_name] = med.times.length > 0 
-        ? med.times 
+      initialTimes[med.medication_name] = med.times.length > 0
+        ? med.times
         : ["morning", "evening"];
     });
     setSelectedTimes(initialTimes);
-    
+
     setShowMedicationDialog(true);
   };
 
@@ -400,7 +401,7 @@ const SeniorOCR = () => {
     const newTimes = currentTimes.includes(time)
       ? currentTimes.filter(t => t !== time)
       : [...currentTimes, time];
-    
+
     setSelectedTimes({
       ...selectedTimes,
       [medName]: newTimes
@@ -450,11 +451,11 @@ const SeniorOCR = () => {
     } catch (error: any) {
       console.error("Failed to register medications:", error);
       console.error("에러 응답:", error.response?.data);
-      
-      const errorMessage = error.response?.data?.message 
-        || error.response?.data?.error 
+
+      const errorMessage = error.response?.data?.message
+        || error.response?.data?.error
         || "약 등록에 실패했어요. 다시 시도해주세요.";
-      
+
       toast.error(errorMessage);
     } finally {
       setIsRegistering(false);
@@ -579,14 +580,14 @@ const SeniorOCR = () => {
                     <Pill className="w-6 h-6 text-primary" />
                     <span className="text-lg font-bold">찾은 약 ({extractedMedications.length}개)</span>
                   </div>
-                  
+
                   {/* LLM 분석 결과 */}
                   {validationResult?.llm_analysis && (
                     <div className="mb-4 p-3 bg-info/10 rounded-lg text-sm">
                       <p className="text-info-foreground">{validationResult.llm_analysis}</p>
                     </div>
                   )}
-                  
+
                   {/* 약 목록 */}
                   <div className="space-y-2 mb-4">
                     {extractedMedications.map((med, idx) => (
@@ -625,7 +626,7 @@ const SeniorOCR = () => {
                               ))}
                             </div>
                           </div>
-                          <Badge 
+                          <Badge
                             variant={med.confidence >= 0.8 ? "default" : "secondary"}
                             className="ml-2"
                           >
@@ -635,7 +636,7 @@ const SeniorOCR = () => {
                       </div>
                     ))}
                   </div>
-                  
+
                   <Button
                     onClick={handleOpenMedicationDialog}
                     className="w-full h-16 text-lg font-bold rounded-2xl gap-3"
@@ -715,14 +716,13 @@ const SeniorOCR = () => {
               <div key={idx} className="border rounded-lg p-4 space-y-3">
                 {/* 약 선택 */}
                 <div
-                  className={`flex items-start gap-3 cursor-pointer ${
-                    selectedMedications.has(med.medication_name)
+                  className={`flex items-start gap-3 cursor-pointer ${selectedMedications.has(med.medication_name)
                       ? "opacity-100"
                       : "opacity-50"
-                  }`}
+                    }`}
                   onClick={() => handleToggleMedication(med.medication_name)}
                 >
-                  <Checkbox 
+                  <Checkbox
                     checked={selectedMedications.has(med.medication_name)}
                     className="mt-1"
                   />
@@ -764,11 +764,10 @@ const SeniorOCR = () => {
                         return (
                           <div
                             key={key}
-                            className={`text-center p-2 rounded-lg border cursor-pointer transition-colors ${
-                              isSelected
+                            className={`text-center p-2 rounded-lg border cursor-pointer transition-colors ${isSelected
                                 ? "bg-primary/10 border-primary"
                                 : "hover:bg-muted"
-                            }`}
+                              }`}
                             onClick={() => handleToggleTime(med.medication_name, key)}
                           >
                             <span className="text-sm font-medium">{label}</span>
