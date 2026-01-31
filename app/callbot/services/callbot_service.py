@@ -109,7 +109,7 @@ class CallbotService(BaseService):
         
         # If history doesn't start with system prompt, prepend it?
         # Or just construct messages locally.
-        messages = [system_prompt] + current_history[-10:] + [{"role": "user", "content": user_text}]
+        messages = [system_prompt] + current_history[-5:] + [{"role": "user", "content": user_text}]
 
         full_response = ""
         buffer = ""
