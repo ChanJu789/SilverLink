@@ -584,7 +584,7 @@ const MemberManagement = () => {
                                     <Badge variant="secondary" className="text-xs">
                                       {counselorAssignmentsMap.get(member.id)?.length}명
                                     </Badge>
-                                    {counselorAssignmentsMap.get(member.id)?.slice(0, 2).map((assignment, idx) => (
+                                    {(counselorAssignmentsMap.get(member.id) || []).slice(0, 2).map((assignment, idx) => (
                                       <Badge key={idx} variant="outline" className="text-xs">
                                         {assignment.elderlyName}
                                       </Badge>
@@ -811,11 +811,7 @@ const MemberManagement = () => {
                         </TableRow>
                       ) : (
                         filteredGuardians.map((guardian) => {
-                          const relatedElderlyNames = guardian.elderlyName
-                            ? [guardian.elderlyName]
-                            : elderly
-                              .filter((e) => e.guardianName === guardian.name)
-                              .map((e) => e.name);
+                          const guardianElderlyData = guardianElderlyMap.get(guardian.id);
 
                           return (
                             <TableRow
@@ -1041,7 +1037,7 @@ const MemberManagement = () => {
                 ) : (
                   <div className="space-y-2 max-h-[200px] overflow-y-auto">
                     {counselorElderly.map((assignment) => (
-                      <div key={assignment.assignmentId} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
+                      <div key={assignment.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
                         <Avatar className="w-8 h-8">
                           <AvatarFallback className="bg-info/10 text-info text-xs">
                             {assignment.elderlyName?.charAt(0)}

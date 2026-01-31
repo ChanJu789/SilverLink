@@ -176,6 +176,7 @@ export interface GuardianResponse {
     phone: string;
     createdAt: string;
     elderlyCount: number;
+    elderlyName?: string;
 }
 
 export interface GuardianRequest {
