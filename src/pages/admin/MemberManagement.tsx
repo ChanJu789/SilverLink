@@ -141,11 +141,16 @@ const MemberManagement = () => {
   const [guardians, setGuardians] = useState<GuardianResponse[]>([]);
   const [elderly, setElderly] = useState<ElderlySummaryResponse[]>([]);
 
+  // Relationship caches
+  const [guardianElderlyMap, setGuardianElderlyMap] = useState<Map<number, GuardianElderlyResponse>>(new Map());
+  const [counselorAssignmentsMap, setCounselorAssignmentsMap] = useState<Map<number, AssignmentResponse[]>>(new Map());
+  const [elderlyRelationsMap, setElderlyRelationsMap] = useState<Map<number, { assignment: AssignmentResponse | null, guardian: GuardianResponse | null }>>(new Map());
+
   // Detail dialog states
   const [selectedCounselor, setSelectedCounselor] = useState<CounselorResponse | null>(null);
   const [counselorElderly, setCounselorElderly] = useState<AssignmentResponse[]>([]);
   const [selectedGuardian, setSelectedGuardian] = useState<GuardianResponse | null>(null);
-  const [guardianElderly, setGuardianElderly] = useState<GuardianElderlyResponse | null>(null);
+  const [guardianElderly, setGuardianElderly] = useState<GuardianElderlyResponse[]>([]);
   const [selectedElderly, setSelectedElderly] = useState<ElderlySummaryResponse | null>(null);
   const [elderlyAssignment, setElderlyAssignment] = useState<AssignmentResponse | null>(null);
   const [elderlyGuardian, setElderlyGuardian] = useState<GuardianResponse | null>(null);
@@ -182,6 +187,82 @@ const MemberManagement = () => {
       setGuardians(guardianList);
       setElderly(elderlyList);
 
+      // Fetch guardian-elderly mappings for all guardians
+      const guardianElderlyPromises = guardianList.map(async (guardian) => {
+        try {
+          const elderlyData: GuardianElderlyResponse = await guardiansApi.getElderlyByGuardianForAdmin(guardian.id);
+          return { guardianId: guardian.id, data: elderlyData as GuardianElderlyResponse };
+        } catch (error) {
+          // 보호자에게 연결된 어르신이 없을 수 있음
+          return { guardianId: guardian.id, data: null as GuardianElderlyResponse | null };
+        }
+      });
+
+      const guardianElderlyResults = await Promise.all(guardianElderlyPromises);
+      const guardianMap = new Map<number, GuardianElderlyResponse>();
+      guardianElderlyResults.forEach(result => {
+        if (result.data) {
+          guardianMap.set(result.guardianId, result.data);
+        }
+      });
+      setGuardianElderlyMap(guardianMap);
+
+      // Fetch counselor assignments for all counselors
+      const counselorAssignmentPromises = counselorList.map(async (counselor) => {
+        try {
+          const assignments = await assignmentsApi.getCounselorAssignments(counselor.id);
+          return { counselorId: counselor.id, data: assignments };
+        } catch (error) {
+          return { counselorId: counselor.id, data: [] };
+        }
+      });
+
+      const counselorAssignmentResults = await Promise.all(counselorAssignmentPromises);
+      const counselorMap = new Map<number, AssignmentResponse[]>();
+      counselorAssignmentResults.forEach(result => {
+        counselorMap.set(result.counselorId, result.data);
+      });
+      setCounselorAssignmentsMap(counselorMap);
+
+      // Fetch elderly relations (counselor + guardian) for all elderly
+      // Suppress 400 errors as they indicate no data exists (expected)
+      const elderlyRelationPromises = elderlyList.map(async (elderlyMember) => {
+        let assignment: AssignmentResponse | null = null;
+        let guardian: GuardianResponse | null = null;
+
+        // Fetch assignment - suppress 400 errors
+        try {
+          assignment = await assignmentsApi.getElderlyAssignment(elderlyMember.userId);
+        } catch (error: any) {
+          // 400 means no assignment - this is normal, not an error
+          if (error?.response?.status !== 400 && error?.response?.status !== 404) {
+            console.error(`Failed to fetch assignment for elderly ${elderlyMember.userId}:`, error);
+          }
+        }
+
+        // Fetch guardian - suppress 400 errors
+        try {
+          guardian = await guardiansApi.getGuardianByElderlyForAdmin(elderlyMember.userId);
+        } catch (error: any) {
+          // 400 means no guardian - this is normal, not an error
+          if (error?.response?.status !== 400 && error?.response?.status !== 404) {
+            console.error(`Failed to fetch guardian for elderly ${elderlyMember.userId}:`, error);
+          }
+        }
+
+        return {
+          elderlyId: elderlyMember.userId,
+          data: { assignment, guardian }
+        };
+      });
+
+      const elderlyRelationResults = await Promise.all(elderlyRelationPromises);
+      const elderlyMap = new Map<number, { assignment: AssignmentResponse | null, guardian: GuardianResponse | null }>();
+      elderlyRelationResults.forEach(result => {
+        elderlyMap.set(result.elderlyId, result.data);
+      });
+      setElderlyRelationsMap(elderlyMap);
+
       // Update stats
       setStats({
         counselors: counselorList.length,
@@ -202,8 +283,14 @@ const MemberManagement = () => {
     setSelectedCounselor(counselor);
     setIsDetailLoading(true);
     try {
-      const assignments = await assignmentsApi.getCounselorAssignments(counselor.id);
-      setCounselorElderly(assignments);
+      // Use cached data if available
+      const cachedAssignments = counselorAssignmentsMap.get(counselor.id);
+      if (cachedAssignments) {
+        setCounselorElderly(cachedAssignments);
+      } else {
+        const assignments = await assignmentsApi.getCounselorAssignments(counselor.id);
+        setCounselorElderly(assignments);
+      }
     } catch (error) {
       console.error('Failed to fetch counselor assignments:', error);
       setCounselorElderly([]);
@@ -217,11 +304,17 @@ const MemberManagement = () => {
     setSelectedGuardian(guardian);
     setIsDetailLoading(true);
     try {
-      const elderlyData = await guardiansApi.getElderlyByGuardianForAdmin(guardian.id);
-      setGuardianElderly(elderlyData);
+      // Use cached data if available
+      const cachedElderly = guardianElderlyMap.get(guardian.id);
+      if (cachedElderly) {
+        setGuardianElderly(cachedElderly);
+      } else {
+        const elderlyData = await guardiansApi.getElderlyByGuardianForAdmin(guardian.id);
+        setGuardianElderly(elderlyData);
+      }
     } catch (error) {
       console.error('Failed to fetch guardian elderly:', error);
-      setGuardianElderly(null);
+      setGuardianElderly([]);
     } finally {
       setIsDetailLoading(false);
     }
@@ -231,21 +324,46 @@ const MemberManagement = () => {
   const handleElderlyClick = async (elderlyMember: ElderlySummaryResponse) => {
     setSelectedElderly(elderlyMember);
     setIsDetailLoading(true);
-    setElderlyAssignment(null);
-    setElderlyGuardian(null);
 
     try {
-      const [assignment, guardian] = await Promise.allSettled([
-        assignmentsApi.getElderlyAssignment(elderlyMember.userId),
-        guardiansApi.getGuardianByElderlyForAdmin(elderlyMember.userId)
-      ]);
+      // Check cache first
+      const cachedRelations = elderlyRelationsMap.get(elderlyMember.userId);
+      if (cachedRelations) {
+        setElderlyAssignment(cachedRelations.assignment);
+        setElderlyGuardian(cachedRelations.guardian);
+        setIsDetailLoading(false);
+        return;
+      }
 
-      if (assignment.status === 'fulfilled') {
-        setElderlyAssignment(assignment.value);
+      // Fetch detailed data only when clicked
+      setElderlyAssignment(null);
+      setElderlyGuardian(null);
+
+      // Fetch assignment (suppress 400 errors)
+      try {
+        const assignment = await assignmentsApi.getElderlyAssignment(elderlyMember.userId);
+        setElderlyAssignment(assignment);
+      } catch (error: any) {
+        if (error?.response?.status !== 400) {
+          console.error('Failed to fetch elderly assignment:', error);
+        }
       }
-      if (guardian.status === 'fulfilled') {
-        setElderlyGuardian(guardian.value);
+
+      // Fetch guardian (suppress 400 errors)
+      try {
+        const guardian = await guardiansApi.getGuardianByElderlyForAdmin(elderlyMember.userId);
+        setElderlyGuardian(guardian);
+      } catch (error: any) {
+        if (error?.response?.status !== 400) {
+          console.error('Failed to fetch elderly guardian:', error);
+        }
       }
+
+      // Cache the results
+      elderlyRelationsMap.set(elderlyMember.userId, {
+        assignment: elderlyAssignment,
+        guardian: elderlyGuardian
+      });
     } catch (error) {
       console.error('Failed to fetch elderly details:', error);
     } finally {
@@ -458,10 +576,66 @@ const MemberManagement = () => {
                             </TableCell>
                             <TableCell><RoleBadge role={member.role} /></TableCell>
                             <TableCell className="text-muted-foreground">{formatPhoneNumber(member.phone)}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground truncate">
-                              {member.role === 'COUNSELOR' ? `담당 ${member.assignedElderlyCount || 0}명` :
-                                member.role === 'GUARDIAN' ? `어르신 ${member.elderlyCount || 0}명` :
-                                  (member.counselorName ? `담당: ${member.counselorName}` : '미배정')}
+                            <TableCell className="text-sm">
+                              {member.role === 'COUNSELOR' ? (
+                                // 상담사: 담당 어르신 목록
+                                counselorAssignmentsMap.get(member.id)?.length ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {counselorAssignmentsMap.get(member.id)?.length}명
+                                    </Badge>
+                                    {counselorAssignmentsMap.get(member.id)?.slice(0, 2).map((assignment, idx) => (
+                                      <Badge key={idx} variant="outline" className="text-xs">
+                                        {assignment.elderlyName}
+                                      </Badge>
+                                    ))}
+                                    {(counselorAssignmentsMap.get(member.id)?.length || 0) > 2 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        +{(counselorAssignmentsMap.get(member.id)?.length || 0) - 2}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">담당 0명</span>
+                                )
+                              ) : member.role === 'GUARDIAN' ? (
+                                // 보호자: 담당 어르신 정보
+                                guardianElderlyMap.get(member.id) ? (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {guardianElderlyMap.get(member.id)?.elderlyName} ({guardianElderlyMap.get(member.id)?.relationType})
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">어르신 없음</span>
+                                )
+                              ) : (
+                                // 어르신: 담당 상담사 + 보호자
+                                <div className="flex flex-wrap gap-1">
+                                  {elderlyRelationsMap.get(member.id)?.assignment ? (
+                                    <Badge variant="secondary" className="text-xs">
+                                      상담사: {elderlyRelationsMap.get(member.id)?.assignment?.counselorName}
+                                    </Badge>
+                                  ) : member.counselorName ? (
+                                    <Badge variant="secondary" className="text-xs">
+                                      상담사: {member.counselorName}
+                                    </Badge>
+                                  ) : null}
+
+                                  {elderlyRelationsMap.get(member.id)?.guardian ? (
+                                    <Badge variant="outline" className="text-xs bg-accent/5 text-accent border-accent/20">
+                                      보호자: {elderlyRelationsMap.get(member.id)?.guardian?.name}
+                                    </Badge>
+                                  ) : member.guardianName ? (
+                                    <Badge variant="outline" className="text-xs bg-accent/5 text-accent border-accent/20">
+                                      보호자: {member.guardianName}
+                                    </Badge>
+                                  ) : null}
+
+                                  {!elderlyRelationsMap.get(member.id)?.assignment && !member.counselorName &&
+                                    !elderlyRelationsMap.get(member.id)?.guardian && !member.guardianName && (
+                                      <span className="text-muted-foreground">미배정</span>
+                                    )}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell className="text-muted-foreground">
                               {member.createdAt?.split('T')[0] || '-'}
@@ -530,59 +704,80 @@ const MemberManagement = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredCounselors.map((counselor) => (
-                          <TableRow
-                            key={counselor.id}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleCounselorClick(counselor)}
-                          >
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-3">
-                                <Avatar className="w-9 h-9">
-                                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                                    {counselor.name?.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium">{counselor.name}</p>
-                                  <p className="text-sm text-muted-foreground">{counselor.email}</p>
+                        filteredCounselors.map((counselor) => {
+                          // Get cached assignments
+                          const cachedAssignments = counselorAssignmentsMap.get(counselor.id) || [];
+
+                          return (
+                            <TableRow
+                              key={counselor.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => handleCounselorClick(counselor)}
+                            >
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="w-9 h-9">
+                                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                                      {counselor.name?.charAt(0)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium">{counselor.name}</p>
+                                    <p className="text-sm text-muted-foreground">{counselor.email}</p>
+                                  </div>
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell></TableCell>
-                            <TableCell className="text-muted-foreground">{formatPhoneNumber(counselor.phone)}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{counselor.assignedElderlyCount || 0}명</Badge>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {counselor.createdAt?.split('T')[0]}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreVertical className="w-4 h-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCounselorClick(counselor); }}>
-                                    <Eye className="w-4 h-4 mr-2" />
-                                    상세보기
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                                    <Pencil className="w-4 h-4 mr-2 text-blue-500" />
-                                    수정
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    삭제
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))
+                              </TableCell>
+                              <TableCell></TableCell>
+                              <TableCell className="text-muted-foreground">{formatPhoneNumber(counselor.phone)}</TableCell>
+                              <TableCell>
+                                {cachedAssignments.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    <Badge variant="secondary">{cachedAssignments.length}명</Badge>
+                                    {cachedAssignments.slice(0, 2).map((assignment, idx) => (
+                                      <Badge key={idx} variant="outline" className="text-xs">
+                                        {assignment.elderlyName}
+                                      </Badge>
+                                    ))}
+                                    {cachedAssignments.length > 2 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        +{cachedAssignments.length - 2}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <Badge variant="secondary">0명</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {counselor.createdAt?.split('T')[0]}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCounselorClick(counselor); }}>
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      상세보기
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                      <Pencil className="w-4 h-4 mr-2 text-blue-500" />
+                                      수정
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      삭제
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -644,12 +839,10 @@ const MemberManagement = () => {
                               <TableCell></TableCell>
                               <TableCell className="text-muted-foreground">{formatPhoneNumber(guardian.phone)}</TableCell>
                               <TableCell>
-                                {relatedElderlyNames.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {relatedElderlyNames.map((name, idx) => (
-                                      <Badge key={idx} variant="secondary">{name}</Badge>
-                                    ))}
-                                  </div>
+                                {guardianElderlyData ? (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {guardianElderlyData.elderlyName} ({guardianElderlyData.relationType})
+                                  </Badge>
                                 ) : (
                                   <span className="text-muted-foreground text-sm">-</span>
                                 )}
@@ -718,75 +911,88 @@ const MemberManagement = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredElderly.map((elderlyMember) => (
-                          <TableRow
-                            key={elderlyMember.userId}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleElderlyClick(elderlyMember)}
-                          >
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-3">
-                                <Avatar className="w-9 h-9">
-                                  <AvatarFallback className="bg-info/10 text-info text-sm">
-                                    {elderlyMember.name?.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium">{elderlyMember.name}</p>
+                        filteredElderly.map((elderlyMember) => {
+                          // Get cached relations
+                          const cachedRelations = elderlyRelationsMap.get(elderlyMember.userId);
+                          const guardianInfo = cachedRelations?.guardian;
+                          const assignmentInfo = cachedRelations?.assignment;
+
+                          return (
+                            <TableRow
+                              key={elderlyMember.userId}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => handleElderlyClick(elderlyMember)}
+                            >
+                              <TableCell className="font-medium">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="w-9 h-9">
+                                    <AvatarFallback className="bg-info/10 text-info text-sm">
+                                      {elderlyMember.name?.charAt(0)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium">{elderlyMember.name}</p>
+                                  </div>
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{elderlyMember.age}세</TableCell>
-                            <TableCell>
-                              {elderlyMember.gender === 'M' ? '남성' :
-                                elderlyMember.gender === 'F' ? '여성' : '-'}
-                            </TableCell>
-                            <TableCell>
-                              {elderlyMember.guardianName ? (
-                                <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20">
-                                  {elderlyMember.guardianName}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{formatPhoneNumber(elderlyMember.phone)}</TableCell>
-                            <TableCell className="text-muted-foreground max-w-[200px] truncate">
-                              {elderlyMember.fullAddress || elderlyMember.addressLine1}
-                            </TableCell>
-                            <TableCell>
-                              {elderlyMember.counselorName ? (
-                                <Badge variant="secondary">{elderlyMember.counselorName}</Badge>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">미배정</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreVertical className="w-4 h-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleElderlyClick(elderlyMember); }}>
-                                    <Eye className="w-4 h-4 mr-2" />
-                                    상세보기
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                                    <Pencil className="w-4 h-4 mr-2 text-blue-500" />
-                                    수정
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    삭제
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))
+                              </TableCell>
+                              <TableCell>{elderlyMember.age}세</TableCell>
+                              <TableCell>
+                                {elderlyMember.gender === 'M' ? '남성' :
+                                  elderlyMember.gender === 'F' ? '여성' : '-'}
+                              </TableCell>
+                              <TableCell>
+                                {guardianInfo ? (
+                                  <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20">
+                                    {guardianInfo.name}
+                                  </Badge>
+                                ) : elderlyMember.guardianName ? (
+                                  <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20">
+                                    {elderlyMember.guardianName}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">{formatPhoneNumber(elderlyMember.phone)}</TableCell>
+                              <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                                {elderlyMember.fullAddress || elderlyMember.addressLine1}
+                              </TableCell>
+                              <TableCell>
+                                {assignmentInfo ? (
+                                  <Badge variant="secondary">{assignmentInfo.counselorName}</Badge>
+                                ) : elderlyMember.counselorName ? (
+                                  <Badge variant="secondary">{elderlyMember.counselorName}</Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">미배정</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleElderlyClick(elderlyMember); }}>
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      상세보기
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                      <Pencil className="w-4 h-4 mr-2 text-blue-500" />
+                                      수정
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      삭제
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -894,19 +1100,17 @@ const MemberManagement = () => {
                 ) : !guardianElderly ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">연결된 어르신이 없습니다.</p>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-info/10 text-info text-xs">
-                          {guardianElderly.elderlyName?.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{guardianElderly.elderlyName}</p>
-                        <p className="text-xs text-muted-foreground">{formatPhoneNumber(guardianElderly.elderlyPhone)}</p>
-                      </div>
-                      <Badge variant="outline">{guardianElderly.relationType}</Badge>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <Avatar className="w-10 h-10">
+                      <AvatarFallback className="bg-info/10 text-info text-xs">
+                        {guardianElderly.elderlyName?.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{guardianElderly.elderlyName}</p>
+                      <p className="text-xs text-muted-foreground">{formatPhoneNumber(guardianElderly.elderlyPhone)}</p>
                     </div>
+                    <Badge variant="outline">{guardianElderly.relationType}</Badge>
                   </div>
                 )}
               </div>
