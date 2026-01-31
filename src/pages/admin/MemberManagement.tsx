@@ -616,9 +616,11 @@ const MemberManagement = () => {
                         </TableRow>
                       ) : (
                         filteredGuardians.map((guardian) => {
-                          const relatedElderlyNames = elderly
-                            .filter(e => e.guardianName === guardian.name)
-                            .map(e => e.name);
+                          const relatedElderlyNames = guardian.elderlyName
+                            ? [guardian.elderlyName]
+                            : elderly
+                              .filter((e) => e.guardianName === guardian.name)
+                              .map((e) => e.name);
 
                           return (
                             <TableRow
