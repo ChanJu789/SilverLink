@@ -28,7 +28,7 @@ import callReviewsApi from "@/api/callReviews";
 import usersApi from "@/api/users";
 import noticesApi from "@/api/notices";
 import { GuardianElderlyResponse, GuardianCallReviewResponse, MyProfileResponse, NoticeResponse } from "@/types/api";
-import PopupNoticeModal from "@/components/notice/PopupNoticeModal";
+import UnreadNoticeAlert from "@/components/notice/UnreadNoticeAlert";
 
 // EmotionIcon 컴포넌트
 
@@ -50,8 +50,8 @@ const GuardianDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
   const [elderlyData, setElderlyData] = useState<GuardianElderlyResponse | null>(null);
-  const [popupNotices, setPopupNotices] = useState<NoticeResponse[]>([]);
-  const [showPopupNotices, setShowPopupNotices] = useState(false);
+  const [unreadNotices, setUnreadNotices] = useState<NoticeResponse[]>([]);
+  const [showUnreadAlert, setShowUnreadAlert] = useState(false);
   const [recentCalls, setRecentCalls] = useState<GuardianCallReviewResponse[]>([]);
   const [emotionStats, setEmotionStats] = useState({ good: 0, neutral: 0, bad: 0 });
 
@@ -90,7 +90,7 @@ const GuardianDashboard = () => {
         }
 
         // 팝업 공지사항 조회 (보호자 대상)
-        await fetchPopupNotices();
+        await fetchUnreadNotices();
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -99,46 +99,61 @@ const GuardianDashboard = () => {
     };
 
     fetchData();
+
+    // 페이지가 다시 포커스될 때 공지사항 다시 확인
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log("페이지가 다시 활성화됨 - 공지사항 재확인");
+        fetchUnreadNotices();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
-  // 팝업 공지사항 조회
-  const fetchPopupNotices = async () => {
+  // 읽지 않은 공지사항 조회
+  const fetchUnreadNotices = async () => {
     try {
-      // 임시로 일반 공지사항에서 보호자 대상 공지를 가져옴
-      // 실제로는 noticesApi.getPopups() API를 사용해야 함
-      const response = await noticesApi.getNotices({ 
-        size: 10,
-        targetRole: 'GUARDIAN' // 보호자 대상 공지만
+      // 팝업 공지사항 조회 (보호자 대상)
+      const popupNotices = await noticesApi.getPopups();
+      
+      console.log("=== 팝업 공지사항 필터링 ===");
+      console.log("전체 팝업 공지사항 수:", popupNotices.length);
+      
+      // 읽지 않은 팝업 공지사항만 필터링
+      const unreadList = popupNotices.filter(notice => {
+        const isUnread = !notice.isRead; // 읽지 않은 공지
+        const isPopup = notice.isPopup; // 팝업 공지
+        const isPublished = notice.status === 'PUBLISHED'; // 게시중
+        
+        console.log(`공지 ${notice.id}: 읽지않음=${isUnread}, 팝업=${isPopup}, 게시중=${isPublished}, isRead=${notice.isRead}`);
+        
+        // 반드시 읽지 않은 팝업 공지사항만 표시
+        return isUnread && isPopup && isPublished;
       });
-      
-      // 팝업으로 표시할 공지사항 필터링 (최근 3일 이내, 중요 공지)
-      const threeDaysAgo = new Date();
-      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-      
-      const popupCandidates = response.content.filter(notice => 
-        notice.isImportant && // 중요 공지만
-        new Date(notice.createdAt) > threeDaysAgo && // 최근 3일 이내
-        notice.status === 'PUBLISHED' // 게시중인 공지만
-      );
 
-      if (popupCandidates.length > 0) {
-        setPopupNotices(popupCandidates);
-        setShowPopupNotices(true);
+      console.log("읽지 않은 팝업 공지사항 수:", unreadList.length);
+      console.log("읽지 않은 공지 목록:", unreadList.map(n => ({ id: n.id, title: n.title, isRead: n.isRead })));
+
+      if (unreadList.length > 0) {
+        setUnreadNotices(unreadList);
+        setShowUnreadAlert(true);
+      } else {
+        console.log("표시할 읽지 않은 팝업 공지사항이 없습니다.");
+        setShowUnreadAlert(false);
       }
     } catch (error) {
-      console.error('Failed to fetch popup notices:', error);
+      console.error('Failed to fetch unread notices:', error);
     }
   };
 
-  // 팝업 공지 닫기
-  const handleClosePopupNotices = () => {
-    setShowPopupNotices(false);
-  };
-
-  // 오늘 하루 보지 않기
-  const handleDontShowToday = (noticeIds: number[]) => {
-    console.log('오늘 하루 보지 않기:', noticeIds);
-    // 로컬 스토리지에 저장하는 로직은 PopupNoticeModal에서 처리
+  // 알림 닫기
+  const handleCloseUnreadAlert = () => {
+    setShowUnreadAlert(false);
   };
 
   // 로딩 중 표시
@@ -336,19 +351,16 @@ const GuardianDashboard = () => {
         </div>
       </div>
 
-      {/* 팝업 공지사항 모달 */}
-      {showPopupNotices && (
-        <PopupNoticeModal
-          notices={popupNotices.map(notice => ({
+      {/* 읽지 않은 공지사항 알림 */}
+      {showUnreadAlert && (
+        <UnreadNoticeAlert
+          notices={unreadNotices.map(notice => ({
             id: notice.id,
             title: notice.title,
-            content: notice.content || '',
-            createdAt: notice.createdAt,
-            priority: notice.isImportant ? "HIGH" : "NORMAL"
+            isPriority: notice.isPriority
           }))}
-          onClose={handleClosePopupNotices}
-          onDontShowToday={handleDontShowToday}
-          open={showPopupNotices}
+          onClose={handleCloseUnreadAlert}
+          noticesPath="/guardian/notices"
         />
       )}
     </DashboardLayout>

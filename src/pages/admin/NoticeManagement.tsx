@@ -22,13 +22,18 @@ import {
   Archive,
   Settings,
   Users,
-  CheckCircle2
+  CheckCircle2,
+  Upload,
+  File,
+  X
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import { Megaphone } from "lucide-react";
 import noticesApi from "@/api/notices";
 import type { NoticeRequest } from "@/api/notices";
 import { NoticeResponse } from "@/types/api";
+import filesApi from "@/api/files";
+import type { FileUploadResponse } from "@/api/files";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -83,10 +88,77 @@ const NoticeManagement = () => {
     content: "",
     category: "공지",
     target: "전체",
+    targetRoles: [] as string[], // 여러 역할 선택을 위한 배열
     isPinned: false,
     isPopup: false,
     status: "PUBLISHED" as "DRAFT" | "PUBLISHED",
   });
+
+  // 파일 업로드 상태 관리
+  const [uploadedFiles, setUploadedFiles] = useState<FileUploadResponse[]>([]);
+  const [fileUploading, setFileUploading] = useState(false);
+
+  // 파일 업로드 핸들러
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    // PDF 파일만 허용
+    const pdfFiles = Array.from(files).filter(file => file.type === 'application/pdf');
+    if (pdfFiles.length === 0) {
+      toast.error("PDF 파일만 업로드할 수 있습니다.");
+      return;
+    }
+
+    if (pdfFiles.length !== files.length) {
+      toast.error("PDF 파일만 업로드할 수 있습니다. PDF가 아닌 파일은 제외됩니다.");
+    }
+
+    try {
+      setFileUploading(true);
+      console.log("=== 파일 업로드 시작 ===");
+      console.log("업로드할 파일 수:", pdfFiles.length);
+
+      const uploadPromises = pdfFiles.map(file => 
+        filesApi.uploadFile(file, 'notices')
+      );
+
+      const uploadResults = await Promise.all(uploadPromises);
+      console.log("업로드 결과:", uploadResults);
+
+      setUploadedFiles(prev => [...prev, ...uploadResults]);
+      toast.success(`${uploadResults.length}개의 파일이 업로드되었습니다.`);
+    } catch (error: any) {
+      console.error("파일 업로드 실패:", error);
+      const errorMessage = error.response?.data?.message || error.message || "파일 업로드에 실패했습니다.";
+      toast.error(`파일 업로드 실패: ${errorMessage}`);
+    } finally {
+      setFileUploading(false);
+      // 파일 입력 초기화
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
+  // 파일 삭제 핸들러
+  const handleFileRemove = async (fileIndex: number) => {
+    const fileToRemove = uploadedFiles[fileIndex];
+    if (!fileToRemove) return;
+
+    try {
+      console.log("=== 파일 삭제 시작 ===");
+      console.log("삭제할 파일:", fileToRemove);
+
+      await filesApi.deleteFile(fileToRemove.filePath);
+      setUploadedFiles(prev => prev.filter((_, index) => index !== fileIndex));
+      toast.success("파일이 삭제되었습니다.");
+    } catch (error: any) {
+      console.error("파일 삭제 실패:", error);
+      const errorMessage = error.response?.data?.message || error.message || "파일 삭제에 실패했습니다.";
+      toast.error(`파일 삭제 실패: ${errorMessage}`);
+    }
+  };
 
   // 데이터 로드
   const fetchNotices = async () => {
@@ -112,14 +184,14 @@ const NoticeManagement = () => {
         
         // 백엔드 카테고리를 프론트엔드 카테고리로 매핑
         let frontendCategory = '공지';
-        if (n.category === 'NOTICE' && n.isPriority) {
-          frontendCategory = '긴급';
-        } else if (n.category === 'NOTICE') {
+        if (n.category === 'NOTICE') {
           frontendCategory = '공지';
         } else if (n.category === 'EVENT') {
           frontendCategory = '이벤트';
         } else if (n.category === 'SYSTEM') {
           frontendCategory = '업데이트';
+        } else if (n.category === 'NEWS') {
+          frontendCategory = '긴급';
         }
 
         // 백엔드 역할을 프론트엔드 역할로 매핑
@@ -195,25 +267,65 @@ const NoticeManagement = () => {
       content: "",
       category: "공지",
       target: "전체",
+      targetRoles: [],
       isPinned: false,
       isPopup: false,
       status: "PUBLISHED",
     });
+    setUploadedFiles([]); // 파일 목록 초기화
     setIsDialogOpen(true);
   };
 
-  const handleEdit = (notice: Notice) => {
+  const handleEdit = async (notice: Notice) => {
     setIsEditMode(true);
     setSelectedNotice(notice);
+    
+    // targetRoles 배열을 백엔드 형식으로 변환
+    const backendRoles = notice.targetRoles
+      .filter(role => role !== "전체")
+      .map(role => {
+        switch (role) {
+          case '보호자': return 'GUARDIAN';
+          case '상담사': return 'COUNSELOR';
+          case '어르신': return 'ELDERLY';
+          case '관리자': return 'ADMIN';
+          default: return '';
+        }
+      })
+      .filter(role => role !== '');
+    
     setFormData({
       title: notice.title,
       content: notice.content,
       category: notice.category,
-      target: notice.targetRoles[0] || "전체",
+      target: notice.targetRoles.includes("전체") ? "전체" : "선택",
+      targetRoles: notice.targetRoles.filter(role => role !== "전체"),
       isPinned: notice.isPinned,
       isPopup: false, // 기본값으로 설정
       status: notice.status,
     });
+    
+    // 기존 첨부파일 로드
+    try {
+      console.log("=== 공지사항 상세 조회 (첨부파일 로드) ===");
+      console.log("공지사항 ID:", notice.id);
+      
+      const detailResponse = await noticesApi.getAdminNoticeDetail(notice.id);
+      console.log("상세 조회 결과:", detailResponse);
+      
+      if (detailResponse.attachments && detailResponse.attachments.length > 0) {
+        console.log("첨부파일 개수:", detailResponse.attachments.length);
+        setUploadedFiles(detailResponse.attachments);
+      } else {
+        console.log("첨부파일 없음");
+        setUploadedFiles([]);
+      }
+    } catch (error: any) {
+      console.error("첨부파일 로드 실패:", error);
+      setUploadedFiles([]);
+      // 첨부파일 로드 실패는 치명적이지 않으므로 에러 토스트는 표시하지 않음
+    }
+    
     setIsDialogOpen(true);
   };
 
@@ -340,7 +452,7 @@ const NoticeManagement = () => {
         isPriority: selectedNotice.isPinned,
         isPopup: false, // 기본값
         status: selectedNotice.status,
-        attachments: [], // 현재는 빈 배열
+        attachments: [], // 보기 모드에서는 첨부파일 수정 불가 (현재는 빈 배열)
       };
 
       console.log("=== handleViewSave API 요청 데이터 ===");
@@ -552,6 +664,12 @@ const NoticeManagement = () => {
       return;
     }
 
+    // 역할 선택 모드일 때 최소 1개 이상 선택 확인
+    if (formData.target === "선택" && formData.targetRoles.length === 0) {
+      toast.error("최소 1개 이상의 대상 역할을 선택해주세요.");
+      return;
+    }
+
     try {
       setSubmitting(true);
       console.log("=== 공지사항 저장 시작 ===");
@@ -561,7 +679,7 @@ const NoticeManagement = () => {
       // 한글 카테고리 → 백엔드 enum 매핑
       const categoryMap: Record<string, 'NOTICE' | 'EVENT' | 'NEWS' | 'SYSTEM'> = {
         '공지': 'NOTICE',
-        '긴급': 'NOTICE',
+        '긴급': 'NEWS',
         '업데이트': 'SYSTEM',
         '이벤트': 'EVENT',
       };
@@ -576,23 +694,37 @@ const NoticeManagement = () => {
 
       // targetRoles 배열 생성 (백엔드에서 배열로 처리)
       let targetRoles: ('ADMIN' | 'COUNSELOR' | 'GUARDIAN' | 'ELDERLY')[] | undefined;
-      if (formData.target !== "전체") {
+      if (formData.target === "선택" && formData.targetRoles.length > 0) {
+        // 여러 역할 선택
+        targetRoles = formData.targetRoles
+          .map(role => roleMap[role])
+          .filter(role => role !== undefined) as ('ADMIN' | 'COUNSELOR' | 'GUARDIAN' | 'ELDERLY')[];
+      } else if (formData.target !== "전체" && formData.target !== "선택") {
+        // 단일 역할 선택 (하위 호환성)
         const mappedRole = roleMap[formData.target];
         if (mappedRole) {
           targetRoles = [mappedRole];
         }
       }
 
+      // 상태 결정: 임시저장이면 DRAFT, 아니면 사용자가 선택한 상태
+      const finalStatus = isDraft ? 'DRAFT' : formData.status;
+
       const request: NoticeRequest = {
         title: formData.title.trim(),
         content: formData.content.trim(),
         category: categoryMap[formData.category] || 'NOTICE',
         targetMode: formData.target === "전체" ? 'ALL' : 'ROLE_SET',
-        targetRoles: targetRoles,
+        targetRoles: targetRoles && targetRoles.length > 0 ? targetRoles : undefined,
         isPriority: formData.isPinned, // 카테고리와 관계없이 isPinned 값만 사용
         isPopup: formData.isPopup || false,
-        status: isDraft ? 'DRAFT' : 'PUBLISHED',
-        attachments: [], // 현재는 빈 배열 (첨부파일 기능 미구현)
+        status: finalStatus, // 임시저장이면 DRAFT, 아니면 사용자 선택 상태
+        attachments: uploadedFiles.map(file => ({
+          fileName: file.fileName,
+          originalFileName: file.originalFileName,
+          filePath: file.filePath,
+          fileSize: file.fileSize,
+        })), // 업로드된 파일들을 첨부파일로 추가
       };
 
       // 팝업 설정이 있는 경우 시간 설정 (현재는 기본값)
@@ -607,7 +739,11 @@ const NoticeManagement = () => {
       console.log("현재 formData 전체:", formData);
       console.log("formData.isPinned:", formData.isPinned);
       console.log("formData.category:", formData.category);
+      console.log("formData.status:", formData.status);
+      console.log("isDraft:", isDraft);
+      console.log("최종 finalStatus:", finalStatus);
       console.log("request.isPriority:", request.isPriority);
+      console.log("request.status:", request.status);
       console.log("request:", JSON.stringify(request, null, 2));
 
       if (isEditMode && selectedNotice) {
@@ -615,12 +751,23 @@ const NoticeManagement = () => {
         console.log("noticeId:", selectedNotice.id);
         await noticesApi.updateNotice(selectedNotice.id, request);
         console.log("수정 완료");
-        toast.success(isDraft ? "공지사항이 임시저장되었습니다." : "공지사항이 수정되었습니다.");
+        
+        if (isDraft) {
+          toast.success("공지사항이 임시저장되었습니다.");
+        } else {
+          toast.success("공지사항이 수정되었습니다.");
+        }
       } else {
         console.log("=== 새 공지사항 생성 ===");
         const noticeId = await noticesApi.createNotice(request);
         console.log("생성 완료, ID:", noticeId);
-        toast.success(isDraft ? "공지사항이 임시저장되었습니다." : "새 공지사항이 등록되었습니다.");
+        
+        if (isDraft) {
+          toast.success("공지사항이 임시저장되었습니다.");
+        } else {
+          const statusMessage = finalStatus === "PUBLISHED" ? "게시되었습니다" : "비공개로 저장되었습니다";
+          toast.success(`새 공지사항이 ${statusMessage}.`);
+        }
       }
       
       console.log("=== 목록 새로고침 시작 ===");
@@ -877,9 +1024,13 @@ const NoticeManagement = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">
-                            {notice.targetRoles[0] || "전체"}
-                          </Badge>
+                          <div className="flex flex-wrap gap-1">
+                            {notice.targetRoles.map((role, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {role}
+                              </Badge>
+                            ))}
+                          </div>
                         </TableCell>
                         <TableCell>{notice.createdAt}</TableCell>
                         <TableCell>
@@ -973,7 +1124,12 @@ const NoticeManagement = () => {
                 <Label>분류</Label>
                 <Select
                   value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  onValueChange={(value) => {
+                    setFormData({ 
+                      ...formData, 
+                      category: value
+                    });
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -990,20 +1146,70 @@ const NoticeManagement = () => {
                 <Label>대상</Label>
                 <Select
                   value={formData.target}
-                  onValueChange={(value) => setFormData({ ...formData, target: value })}
+                  onValueChange={(value) => {
+                    if (value === "전체") {
+                      setFormData({ ...formData, target: value, targetRoles: [] });
+                    } else {
+                      setFormData({ ...formData, target: value });
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="전체">전체</SelectItem>
-                    <SelectItem value="보호자">보호자</SelectItem>
-                    <SelectItem value="상담사">상담사</SelectItem>
-                    <SelectItem value="어르신">어르신</SelectItem>
+                    <SelectItem value="선택">역할 선택</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+            
+            {/* 역할 선택 UI */}
+            {formData.target === "선택" && (
+              <div className="space-y-2">
+                <Label>대상 역할 선택 (복수 선택 가능)</Label>
+                <div className="grid grid-cols-2 gap-3 p-4 border rounded-lg bg-muted/30">
+                  {['보호자', '상담사', '어르신', '관리자'].map((role) => (
+                    <div key={role} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`role-${role}`}
+                        checked={formData.targetRoles.includes(role)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({
+                              ...formData,
+                              targetRoles: [...formData.targetRoles, role]
+                            });
+                          } else {
+                            setFormData({
+                              ...formData,
+                              targetRoles: formData.targetRoles.filter(r => r !== role)
+                            });
+                          }
+                        }}
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                      />
+                      <label
+                        htmlFor={`role-${role}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {role}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                {formData.targetRoles.length === 0 && (
+                  <p className="text-xs text-destructive">최소 1개 이상의 역할을 선택해주세요.</p>
+                )}
+                {formData.targetRoles.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    선택된 역할: {formData.targetRoles.join(', ')}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label>내용</Label>
               <Textarea
@@ -1014,22 +1220,16 @@ const NoticeManagement = () => {
               />
             </div>
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-              <span>상단 고정</span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  현재: {formData.isPinned ? "ON" : "OFF"}
-                </span>
-                <Switch
-                  checked={formData.isPinned}
-                  onCheckedChange={(checked) => {
-                    console.log("=== 스위치 클릭 ===");
-                    console.log("이전 값:", formData.isPinned);
-                    console.log("새로운 값:", checked);
-                    setFormData({ ...formData, isPinned: checked });
-                    console.log("상태 업데이트 완료");
-                  }}
-                />
+              <div className="flex flex-col">
+                <span>상단 고정</span>
+                <span className="text-xs text-muted-foreground">중요한 공지사항을 목록 상단에 고정합니다</span>
               </div>
+              <Switch
+                checked={formData.isPinned}
+                onCheckedChange={(checked) => {
+                  setFormData({ ...formData, isPinned: checked });
+                }}
+              />
             </div>
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
               <span>팝업 공지</span>
@@ -1037,6 +1237,118 @@ const NoticeManagement = () => {
                 checked={formData.isPopup || false}
                 onCheckedChange={(checked) => setFormData({ ...formData, isPopup: checked })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>게시 상태</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value: "DRAFT" | "PUBLISHED") => {
+                  console.log("=== 게시 상태 변경 ===");
+                  console.log("이전 상태:", formData.status);
+                  console.log("새 상태:", value);
+                  setFormData({ ...formData, status: value });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PUBLISHED">게시중</SelectItem>
+                  <SelectItem value="DRAFT">비공개</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {formData.status === "PUBLISHED" 
+                  ? "공지사항이 즉시 게시되어 사용자들이 볼 수 있습니다." 
+                  : "공지사항이 비공개 상태로 저장되어 사용자들이 볼 수 없습니다."
+                }
+                <br />
+                <span className="text-blue-600">💡 임시저장 버튼을 사용하면 작성 중인 내용을 안전하게 보관할 수 있습니다.</span>
+              </p>
+            </div>
+
+            {/* 파일 첨부 섹션 */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <File className="w-4 h-4" />
+                PDF 파일 첨부
+              </Label>
+              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Upload className="w-5 h-5" />
+                    <span className="text-sm">PDF 파일을 선택하거나 드래그하여 업로드</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    multiple
+                    onChange={handleFileUpload}
+                    disabled={fileUploading}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    disabled={fileUploading}
+                    className="gap-2"
+                  >
+                    {fileUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        업로드 중...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        파일 선택
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    PDF 파일만 업로드 가능합니다. (최대 10MB)
+                  </p>
+                </div>
+
+                {/* 업로드된 파일 목록 */}
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <div className="text-sm font-medium text-foreground">
+                      첨부된 파일 ({uploadedFiles.length}개)
+                    </div>
+                    {uploadedFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-2 bg-muted/50 rounded border"
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <File className="w-4 h-4 text-red-500 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {file.originalFileName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleFileRemove(index)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -1053,7 +1365,9 @@ const NoticeManagement = () => {
             </Button>
             <Button onClick={() => handleSubmit(false)} disabled={submitting}>
               {submitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              {isEditMode ? "수정 완료" : "등록"}
+              {isEditMode ? "수정 완료" : 
+                (formData.status === "PUBLISHED" ? "게시하기" : "비공개로 저장")
+              }
             </Button>
           </DialogFooter>
         </DialogContent>

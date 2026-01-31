@@ -23,7 +23,9 @@ import { counselorNavItems } from "@/config/counselorNavItems";
 import usersApi from "@/api/users";
 import counselorsApi from "@/api/counselors";
 import callReviewsApi from "@/api/callReviews";
-import { MyProfileResponse, CounselorResponse, CallRecordSummaryResponse, UnreviewedCountResponse } from "@/types/api";
+import noticesApi from "@/api/notices";
+import { MyProfileResponse, CounselorResponse, CallRecordSummaryResponse, UnreviewedCountResponse, NoticeResponse } from "@/types/api";
+import UnreadNoticeAlert from "@/components/notice/UnreadNoticeAlert";
 
 // Mock data
 const stats = {
@@ -135,6 +137,8 @@ const CounselorDashboard = () => {
   const [counselorInfo, setCounselorInfo] = useState<CounselorResponse | null>(null);
   const [callRecords, setCallRecords] = useState<CallRecordSummaryResponse[]>([]);
   const [unreviewedCount, setUnreviewedCount] = useState(0);
+  const [unreadNotices, setUnreadNotices] = useState<NoticeResponse[]>([]);
+  const [showUnreadAlert, setShowUnreadAlert] = useState(false);
   const [stats, setStats] = useState({
     totalSeniors: 0,
     todayCalls: 0,
@@ -170,6 +174,9 @@ const CounselorDashboard = () => {
           pendingReviews: unreviewedResponse.count,
           urgentAlerts: callsResponse.content.filter(c => c.emotion === 'BAD').length,
         });
+
+        // 읽지 않은 공지사항 조회
+        await fetchUnreadNotices();
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -178,7 +185,61 @@ const CounselorDashboard = () => {
     };
 
     fetchData();
+
+    // 페이지가 다시 포커스될 때 공지사항 다시 확인
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log("페이지가 다시 활성화됨 - 공지사항 재확인");
+        fetchUnreadNotices();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
+
+  // 읽지 않은 공지사항 조회
+  const fetchUnreadNotices = async () => {
+    try {
+      // 팝업 공지사항 조회
+      const popupNotices = await noticesApi.getPopups();
+      
+      console.log("=== 팝업 공지사항 필터링 (상담사) ===");
+      console.log("전체 팝업 공지사항 수:", popupNotices.length);
+      
+      // 읽지 않은 팝업 공지사항만 필터링
+      const unreadList = popupNotices.filter(notice => {
+        const isUnread = !notice.isRead; // 읽지 않은 공지
+        const isPopup = notice.isPopup; // 팝업 공지
+        const isPublished = notice.status === 'PUBLISHED'; // 게시중
+        
+        console.log(`공지 ${notice.id}: 읽지않음=${isUnread}, 팝업=${isPopup}, 게시중=${isPublished}, isRead=${notice.isRead}`);
+        
+        // 반드시 읽지 않은 팝업 공지사항만 표시
+        return isUnread && isPopup && isPublished;
+      });
+      
+      console.log("읽지 않은 팝업 공지사항 수:", unreadList.length);
+      console.log("읽지 않은 공지 목록:", unreadList.map(n => ({ id: n.id, title: n.title, isRead: n.isRead })));
+      
+      if (unreadList.length > 0) {
+        setUnreadNotices(unreadList);
+        setShowUnreadAlert(true);
+      } else {
+        console.log("표시할 읽지 않은 팝업 공지사항이 없습니다.");
+        setShowUnreadAlert(false);
+      }
+    } catch (error) {
+      console.error('Failed to fetch unread notices:', error);
+    }
+  };
+
+  const handleCloseUnreadAlert = () => {
+    setShowUnreadAlert(false);
+  };
 
   const handleViewAll = () => {
     navigate("/counselor/calls");
@@ -390,6 +451,19 @@ const CounselorDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* 읽지 않은 공지사항 알림 */}
+      {showUnreadAlert && (
+        <UnreadNoticeAlert
+          notices={unreadNotices.map(notice => ({
+            id: notice.id,
+            title: notice.title,
+            isPriority: notice.isPriority
+          }))}
+          onClose={handleCloseUnreadAlert}
+          noticesPath="/counselor/notices"
+        />
+      )}
     </DashboardLayout>
   );
 };

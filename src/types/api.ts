@@ -219,6 +219,12 @@ export interface NoticeResponse {
     isRead: boolean;
     readCount?: number;
     totalTargetCount?: number;
+    attachments?: Array<{
+        fileName: string;
+        originalFileName: string;
+        filePath: string;
+        fileSize: number;
+    }>;
 }
 
 // 읽음 현황 관련 타입
