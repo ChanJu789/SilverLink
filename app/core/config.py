@@ -52,6 +52,7 @@ class Configs(BaseSettings):
 
     # Spring Boot backend
     SPRING_BOOT_URL: str = os.getenv("SPRING_BOOT_URL", "http://localhost:8080")
+    SPRING_BOOT_API_TOKEN: str = os.getenv("SPRING_BOOT_API_TOKEN", "")
 
     # database
     # DB: str = os.getenv("DB", "postgresql")
