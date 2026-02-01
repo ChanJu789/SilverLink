@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Bell, X, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import noticesApi from "@/api/notices";
 
 export interface UnreadNotice {
     id: number;
@@ -17,7 +16,7 @@ interface UnreadNoticeAlertProps {
     noticesPath: string; // 공지사항 페이지 경로
 }
 
-const STORAGE_KEY = "unread_notice_alert_hidden_until";
+const STORAGE_KEY = "hidden_popup_notices";
 
 /**
  * 읽지 않은 팝업 공지사항 알림
@@ -25,6 +24,7 @@ const STORAGE_KEY = "unread_notice_alert_hidden_until";
  * - 제목만 간단히 표시
  * - 클릭 시 공지사항 페이지로 이동
  * - 팝업 공지로 설정된 공지사항만 표시
+ * - "오늘 하루 보지 않기" 기능 제공
  */
 const UnreadNoticeAlert = ({
     notices,
@@ -32,45 +32,31 @@ const UnreadNoticeAlert = ({
     noticesPath,
 }: UnreadNoticeAlertProps) => {
     const navigate = useNavigate();
-    const [isVisible, setIsVisible] = useState(false);
-
-    useEffect(() => {
-        // 오늘 하루 보지 않기 체크
-        const hiddenUntil = localStorage.getItem(STORAGE_KEY);
-        if (hiddenUntil) {
-            const hiddenDate = new Date(hiddenUntil);
-            if (hiddenDate > new Date()) {
-                setIsVisible(false);
-                return;
-            }
-        }
-        setIsVisible(notices.length > 0);
-    }, [notices]);
+    const [isVisible, setIsVisible] = useState(true);
 
     const handleClose = () => {
-        // 오늘 자정까지 숨기기
-        const tomorrow = new Date();
-        tomorrow.setHours(24, 0, 0, 0);
-        localStorage.setItem(STORAGE_KEY, tomorrow.toISOString());
+        setIsVisible(false);
+        onClose();
+    };
+
+    const handleDontShowToday = () => {
+        // 오늘 하루 보지 않기 설정
+        const today = new Date().toDateString();
+        const noticeIds = notices.map(n => n.id);
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            date: today,
+            noticeIds: noticeIds
+        }));
+        
+        console.log("오늘 하루 보지 않기 설정:", noticeIds);
+        
+        // 알림 닫기
         setIsVisible(false);
         onClose();
     };
 
     const handleClick = () => {
-        // 공지사항 페이지로 이동하기 전에 모든 공지를 읽음 처리
-        notices.forEach(async (notice) => {
-            try {
-                await noticesApi.markAsRead(notice.id);
-                console.log(`공지사항 ${notice.id} 읽음 처리 완료`);
-            } catch (error) {
-                console.error(`공지사항 ${notice.id} 읽음 처리 실패:`, error);
-            }
-        });
-        
-        // 알림 닫기
-        setIsVisible(false);
-        onClose();
-        
         // 공지사항 페이지로 이동
         navigate(noticesPath);
     };
@@ -118,6 +104,14 @@ const UnreadNoticeAlert = ({
 
                     {/* 버튼들 */}
                     <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleDontShowToday}
+                            className="text-primary-foreground hover:bg-primary-foreground/20 h-8 px-3"
+                        >
+                            <span className="text-xs">오늘 그만 보기</span>
+                        </Button>
                         <Button
                             variant="ghost"
                             size="sm"
