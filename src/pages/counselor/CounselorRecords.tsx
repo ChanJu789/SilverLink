@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,105 +23,77 @@ import {
   FileText
 } from "lucide-react";
 import { counselorNavItems } from "@/config/counselorNavItems";
+import { useAuth } from "@/contexts/AuthContext";
+import assignmentsApi, { AssignmentResponse } from "@/api/assignments";
 
-interface CounselingRecord {
-  id: string;
-  seniorName: string;
-  seniorId: string;
-  date: string;
-  time: string;
-  type: "phone" | "visit" | "video";
-  category: string;
-  summary: string;
-  content: string;
-  result: string;
-  followUp: string;
-  status: "완료" | "진행중" | "예정";
-}
 
-const mockRecords: CounselingRecord[] = [
-  {
-    id: "1",
-    seniorName: "김순자",
-    seniorId: "S001",
-    date: "2024-01-15",
-    time: "10:30",
-    type: "phone",
-    category: "안부확인",
-    summary: "정기 안부 전화 상담",
-    content: "어르신 건강 상태 양호. 최근 혈압 관리 잘 하고 계심. 손녀분과 주말에 외출 예정이라 기분이 좋으신 상태.",
-    result: "정상",
-    followUp: "다음 주 화요일 정기 전화 예정",
-    status: "완료",
-  },
-  {
-    id: "2",
-    seniorName: "박영호",
-    seniorId: "S002",
-    date: "2024-01-15",
-    time: "14:00",
-    type: "visit",
-    category: "건강상담",
-    summary: "고혈압 관련 건강 상담",
-    content: "최근 혈압이 높아지는 경향이 있어 걱정되심. 병원 방문 권유드림.",
-    result: "주의필요",
-    followUp: "내일 병원 방문 여부 확인 전화",
-    status: "완료",
-  },
-  {
-    id: "3",
-    seniorName: "이영자",
-    seniorId: "S003",
-    date: "2024-01-16",
-    time: "09:00",
-    type: "phone",
-    category: "정서지원",
-    summary: "우울감 호소 상담",
-    content: "최근 외로움을 많이 느끼신다고 함. 주민센터 프로그램 참여 권유.",
-    result: "지속관찰",
-    followUp: "주 2회 전화 상담으로 변경",
-    status: "진행중",
-  },
-  {
-    id: "4",
-    seniorName: "정복순",
-    seniorId: "S004",
-    date: "2024-01-17",
-    time: "11:00",
-    type: "video",
-    category: "안부확인",
-    summary: "정기 영상 통화",
-    content: "",
-    result: "",
-    followUp: "",
-    status: "예정",
-  },
-];
+
+import counselingApi from "@/api/counseling";
+import { CounselingRecordResponse, CounselingRecordRequest } from "@/types/api";
 
 const CounselorRecords = () => {
-  const [records, setRecords] = useState<CounselingRecord[]>(mockRecords);
+  const { user } = useAuth();
+  const [records, setRecords] = useState<CounselingRecordResponse[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<CounselingRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<CounselingRecordResponse | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState({
+    seniorId: "",
     seniorName: "",
     date: "",
     time: "",
-    type: "phone" as "phone" | "visit" | "video",
+    type: "PHONE" as "PHONE" | "VISIT" | "VIDEO",
     category: "",
     summary: "",
     content: "",
     result: "",
     followUp: "",
+    status: "COMPLETED" as "COMPLETED" | "IN_PROGRESS" | "SCHEDULED",
   });
 
+  // Fetch assignments on mount
+  useEffect(() => {
+    fetchAssignments();
+    fetchRecords();
+  }, []);
+
+  const fetchAssignments = async () => {
+    setLoadingAssignments(true);
+    try {
+      const data = await assignmentsApi.getMyAssignments();
+      setAssignments(data.filter(a => a.status === 'ACTIVE'));
+    } catch (error) {
+      console.error("Failed to fetch assignments:", error);
+      toast.error("어르신 목록을 불러오는데 실패했습니다.");
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  const fetchRecords = async () => {
+    try {
+      const data = await counselingApi.getMyRecords();
+      setRecords(data);
+    } catch (error) {
+      console.error("Failed to fetch records:", error);
+      toast.error("상담 기록을 불러오는데 실패했습니다.");
+    }
+  };
+  // Wait, I should add useEffect to imports in a separate chunk or just use React.useEffect if I don't want to mess up imports.
+  // Actually, useState is not useEffect. I need to add useEffect import.
+  // Let me check if useEffect is imported.
+  // Line 1: import { useState } from "react";
+  // I need to update line 1.
+
   const filteredRecords = records.filter((record) => {
-    const matchesSearch = record.seniorName.includes(searchTerm) || 
-                          record.summary.includes(searchTerm);
+    const matchesSearch = record.seniorName.includes(searchTerm) ||
+      record.summary.includes(searchTerm);
     const matchesType = filterType === "all" || record.type === filterType;
     const matchesStatus = filterStatus === "all" || record.status === filterStatus;
     return matchesSearch && matchesType && matchesStatus;
@@ -130,80 +102,97 @@ const CounselorRecords = () => {
   const handleCreateRecord = () => {
     setIsEditMode(false);
     setFormData({
+      seniorId: "",
       seniorName: "",
       date: new Date().toISOString().split("T")[0],
       time: new Date().toTimeString().slice(0, 5),
-      type: "phone",
+      type: "PHONE",
       category: "",
       summary: "",
       content: "",
       result: "",
       followUp: "",
+      status: "COMPLETED",
     });
     setIsDialogOpen(true);
   };
 
-  const handleEditRecord = (record: CounselingRecord) => {
+  const handleEditRecord = (record: CounselingRecordResponse) => {
     setIsEditMode(true);
     setSelectedRecord(record);
     setFormData({
+      seniorId: String(record.seniorId),
       seniorName: record.seniorName,
       date: record.date,
-      time: record.time,
+      time: String(record.time),
       type: record.type,
       category: record.category,
       summary: record.summary,
       content: record.content,
       result: record.result,
       followUp: record.followUp,
+      status: record.status,
     });
     setIsDialogOpen(true);
   };
 
-  const handleViewRecord = (record: CounselingRecord) => {
+  const handleViewRecord = (record: CounselingRecordResponse) => {
     setSelectedRecord(record);
     setIsViewDialogOpen(true);
   };
 
-  const handleSubmit = () => {
-    if (isEditMode && selectedRecord) {
-      setRecords((prev) =>
-        prev.map((r) =>
-          r.id === selectedRecord.id
-            ? { ...r, ...formData, status: "완료" as const }
-            : r
-        )
-      );
-      toast.success("상담 기록이 수정되었습니다.");
-    } else {
-      const newRecord: CounselingRecord = {
-        id: String(records.length + 1),
-        seniorId: `S00${records.length + 1}`,
-        ...formData,
-        status: "완료",
+  const handleSubmit = async () => {
+    try {
+      if (!formData.seniorId) {
+        toast.error("어르신을 선택해주세요.");
+        return;
+      }
+
+      const requestData: CounselingRecordRequest = {
+        seniorId: Number(formData.seniorId),
+        date: formData.date,
+        time: formData.time.length === 5 ? `${formData.time}:00` : formData.time,
+        type: formData.type as any,
+        category: formData.category,
+        summary: formData.summary,
+        content: formData.content,
+        result: formData.result,
+        followUp: formData.followUp,
+        status: (formData.status || "COMPLETED") as any
       };
-      setRecords((prev) => [newRecord, ...prev]);
-      toast.success("새 상담 기록이 등록되었습니다.");
+
+      if (isEditMode && selectedRecord) {
+        await counselingApi.updateRecord(selectedRecord.id, requestData);
+        toast.success("상담 기록이 수정되었습니다.");
+      } else {
+        await counselingApi.createRecord(requestData);
+        toast.success("새 상담 기록이 등록되었습니다.");
+      }
+
+      fetchRecords(); // Refresh list
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to save record:", error);
+      toast.error("상담 기록 저장에 실패했습니다.");
     }
-    setIsDialogOpen(false);
   };
 
   const getTypeLabel = (type: string) => {
     switch (type) {
-      case "phone": return "전화";
-      case "visit": return "방문";
-      case "video": return "영상";
+      case "PHONE": return "전화";
+      case "VISIT": return "방문";
+      case "VIDEO": return "영상";
       default: return type;
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "완료":
+      case "COMPLETED":
         return <Badge className="bg-success/10 text-success border-0">완료</Badge>;
-      case "진행중":
+      case "IN_PROGRESS":
         return <Badge className="bg-warning/10 text-warning border-0">진행중</Badge>;
-      case "예정":
+      case "SCHEDULED":
         return <Badge className="bg-info/10 text-info border-0">예정</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
@@ -226,7 +215,7 @@ const CounselorRecords = () => {
   return (
     <DashboardLayout
       role="counselor"
-      userName="김상담"
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">
@@ -265,7 +254,7 @@ const CounselorRecords = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">완료</p>
-                  <p className="text-xl font-bold">{records.filter((r) => r.status === "완료").length}</p>
+                  <p className="text-xl font-bold">{records.filter((r) => r.status === "COMPLETED").length}</p>
                 </div>
               </div>
             </CardContent>
@@ -278,7 +267,7 @@ const CounselorRecords = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">진행중</p>
-                  <p className="text-xl font-bold">{records.filter((r) => r.status === "진행중").length}</p>
+                  <p className="text-xl font-bold">{records.filter((r) => r.status === "IN_PROGRESS").length}</p>
                 </div>
               </div>
             </CardContent>
@@ -291,7 +280,7 @@ const CounselorRecords = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">예정</p>
-                  <p className="text-xl font-bold">{records.filter((r) => r.status === "예정").length}</p>
+                  <p className="text-xl font-bold">{records.filter((r) => r.status === "SCHEDULED").length}</p>
                 </div>
               </div>
             </CardContent>
@@ -317,9 +306,9 @@ const CounselorRecords = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체 유형</SelectItem>
-                  <SelectItem value="phone">전화</SelectItem>
-                  <SelectItem value="visit">방문</SelectItem>
-                  <SelectItem value="video">영상</SelectItem>
+                  <SelectItem value="PHONE">전화</SelectItem>
+                  <SelectItem value="VISIT">방문</SelectItem>
+                  <SelectItem value="VIDEO">영상</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -328,9 +317,9 @@ const CounselorRecords = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체 상태</SelectItem>
-                  <SelectItem value="완료">완료</SelectItem>
-                  <SelectItem value="진행중">진행중</SelectItem>
-                  <SelectItem value="예정">예정</SelectItem>
+                  <SelectItem value="COMPLETED">완료</SelectItem>
+                  <SelectItem value="IN_PROGRESS">진행중</SelectItem>
+                  <SelectItem value="SCHEDULED">예정</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -422,17 +411,36 @@ const CounselorRecords = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>어르신 이름</Label>
-                <Input
-                  value={formData.seniorName}
-                  onChange={(e) => setFormData({ ...formData, seniorName: e.target.value })}
-                  placeholder="어르신 이름"
-                />
+                <Select
+                  value={formData.seniorId}
+                  onValueChange={(value) => {
+                    const selected = assignments.find(a => String(a.elderlyId) === value);
+                    if (selected) {
+                      setFormData({
+                        ...formData,
+                        seniorId: String(selected.elderlyId),
+                        seniorName: selected.elderlyName
+                      });
+                    }
+                  }}
+                  disabled={loadingAssignments}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingAssignments ? "로딩 중..." : "어르신 선택"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {assignments.map((assignment) => (
+                      <SelectItem key={assignment.elderlyId} value={String(assignment.elderlyId)}>
+                        {assignment.elderlyName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>상담 유형</Label>
                 <Select
-                  value={formData.type}
-                  onValueChange={(value: "phone" | "visit" | "video") =>
+                  onValueChange={(value: "PHONE" | "VISIT" | "VIDEO") =>
                     setFormData({ ...formData, type: value })
                   }
                 >
@@ -440,9 +448,9 @@ const CounselorRecords = () => {
                     <SelectValue placeholder="유형 선택" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="phone">전화</SelectItem>
-                    <SelectItem value="visit">방문</SelectItem>
-                    <SelectItem value="video">영상</SelectItem>
+                    <SelectItem value="PHONE">전화</SelectItem>
+                    <SelectItem value="VISIT">방문</SelectItem>
+                    <SelectItem value="VIDEO">영상</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -32,8 +32,10 @@ import {
 } from "lucide-react";
 import { counselorNavItems } from "@/config/counselorNavItems";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import assignmentsApi, { AssignmentResponse } from "@/api/assignments";
 import counselorsApi from "@/api/counselors";
+import elderlyApi from "@/api/elderly";
 
 interface Senior {
   id: string;
@@ -49,13 +51,14 @@ interface Senior {
 }
 
 export default function SeniorList() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [riskFilter, setRiskFilter] = useState("all");
   const [emotionFilter, setEmotionFilter] = useState("all");
   const [seniors, setSeniors] = useState<Senior[]>([]);
   const [loading, setLoading] = useState(true);
-  const [counselorName, setCounselorName] = useState("상담사");
+  const [counselorName, setCounselorName] = useState(user?.name || "상담사");
 
   // 데이터 로드
   useEffect(() => {
@@ -63,27 +66,47 @@ export default function SeniorList() {
       try {
         setLoading(true);
 
-        // 상담사 정보 조회
-        try {
-          const counselorInfo = await counselorsApi.getMyInfo();
-          setCounselorName(counselorInfo.name);
-        } catch (e) {
-          // console.error("상담사 정보 조회 실패:", e);
-        }
+        // 상담사 정보 조회 (Deleted)
+
 
         // 배정된 어르신 목록 조회
         const assignments = await assignmentsApi.getMyAssignments();
 
-        // 배정 데이터를 Senior 형식으로 변환
-        const seniorList: Senior[] = assignments
-          .filter(a => a.status === 'ACTIVE')
-          .map(assignment => ({
-            id: String(assignment.elderlyId),
-            name: assignment.elderlyName,
-            emotionState: "보통",  // 이 정보는 별도 API에서 가져와야 함
-            riskLevel: "낮음",     // 이 정보는 별도 API에서 가져와야 함
-          }));
+        // 배정된 어르신 상세 정보 조회
+        const activeAssignments = assignments.filter(a => a.status === 'ACTIVE');
+        const seniorPromises = activeAssignments.map(async (assignment) => {
+          try {
+            const summary = await elderlyApi.getSummary(assignment.elderlyId);
+            return {
+              id: String(assignment.elderlyId),
+              name: summary.name,
+              age: summary.age,
+              gender: summary.gender === 'M' ? '남성' : '여성',
+              phone: summary.phone,
+              address: summary.fullAddress || (summary.sidoName ? `${summary.sidoName} ${summary.sigunguName}` : '-'),
+              guardian: summary.guardianName || '-',
+              lastCall: '-',
+              emotionState: "보통",
+              riskLevel: "낮음",
+            };
+          } catch (e) {
+            console.error(`Failed to fetch summary for elderly ${assignment.elderlyId}`, e);
+            return {
+              id: String(assignment.elderlyId),
+              name: assignment.elderlyName,
+              emotionState: "보통",
+              riskLevel: "낮음",
+              age: undefined,
+              gender: undefined,
+              phone: undefined,
+              address: undefined,
+              guardian: undefined,
+              lastCall: undefined
+            };
+          }
+        });
 
+        const seniorList = await Promise.all(seniorPromises);
         setSeniors(seniorList);
       } catch (error) {
         console.error("데이터 로드 실패:", error);
@@ -133,7 +156,7 @@ export default function SeniorList() {
     return (
       <DashboardLayout
         role="counselor"
-        userName={counselorName}
+        userName={user?.name || "상담사"}
         userAvatar=""
         navItems={counselorNavItems}
       >
@@ -147,7 +170,7 @@ export default function SeniorList() {
   return (
     <DashboardLayout
       role="counselor"
-      userName={counselorName}
+      userName={user?.name || "상담사"}
       userAvatar=""
       navItems={counselorNavItems}
     >

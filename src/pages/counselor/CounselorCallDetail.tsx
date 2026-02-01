@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -18,7 +18,8 @@ import {
   FileText,
   MessageSquare,
   User,
-  Loader2
+  Loader2,
+  Radio
 } from "lucide-react";
 import { counselorNavItems } from "@/config/counselorNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -29,6 +30,7 @@ import { Separator } from "@/components/ui/separator";
 import callReviewsApi from "@/api/callReviews";
 import usersApi from "@/api/users";
 import { CounselorCallRecordResponse, MyProfileResponse } from "@/types/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 const EmotionDisplay = ({ emotion, score }: { emotion: string; score: number }) => {
   const config: Record<string, { icon: typeof Smile; color: string; bg: string; label: string }> = {
@@ -57,13 +59,27 @@ const EmotionDisplay = ({ emotion, score }: { emotion: string; score: number }) 
   );
 };
 
+interface LiveMessage {
+  id: number;
+  type: 'PROMPT' | 'REPLY';
+  content: string;
+  timestamp: Date;
+}
+
 const CounselorCallDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [callDetail, setCallDetail] = useState<CounselorCallRecordResponse | null>(null);
-  const [userProfile, setUserProfile] = useState<MyProfileResponse | null>(null);
+  const { user } = useAuth();
+  
+  // 실시간 모니터링 상태
+  const [isLiveMonitoring, setIsLiveMonitoring] = useState(false);
+  const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([]);
+  const [sseConnected, setSseConnected] = useState(false);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const liveScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,8 +88,8 @@ const CounselorCallDetail = () => {
       try {
         setIsLoading(true);
 
-        const profile = await usersApi.getMyProfile();
-        setUserProfile(profile);
+        // const profile = await usersApi.getMyProfile(); (Removed)
+        // setUserProfile(profile); (Removed)
 
         const detail = await callReviewsApi.getCallRecordDetail(parseInt(id));
         setCallDetail(detail);
@@ -87,6 +103,86 @@ const CounselorCallDetail = () => {
     fetchData();
   }, [id]);
 
+  // 실시간 모니터링 시작/종료
+  useEffect(() => {
+    if (!id || !isLiveMonitoring) {
+      // 연결 종료
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+        setSseConnected(false);
+      }
+      return;
+    }
+
+    // 1. 기존 로그 가져오기
+    fetch(`/api/internal/callbot/calls/${id}/logs`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const historyLogs: LiveMessage[] = data.data.map((item: any) => ({
+            id: item.id,
+            type: item.type,
+            content: item.content,
+            timestamp: new Date(item.timestamp)
+          }));
+          setLiveMessages(historyLogs);
+        }
+      })
+      .catch(err => console.error("Failed to fetch logs", err));
+
+    // 2. SSE 연결
+    const eventSource = new EventSource(`/api/internal/callbot/calls/${id}/sse`);
+    eventSourceRef.current = eventSource;
+
+    eventSource.onopen = () => {
+      console.log('SSE Connected');
+      setSseConnected(true);
+    };
+
+    eventSource.addEventListener('connect', () => {
+      console.log('SSE Connection confirmed');
+    });
+
+    eventSource.addEventListener('prompt', (e: MessageEvent) => {
+      const newLog: LiveMessage = {
+        id: Date.now(),
+        type: 'PROMPT',
+        content: e.data,
+        timestamp: new Date()
+      };
+      setLiveMessages(prev => [...prev, newLog]);
+    });
+
+    eventSource.addEventListener('reply', (e: MessageEvent) => {
+      const newLog: LiveMessage = {
+        id: Date.now(),
+        type: 'REPLY',
+        content: e.data,
+        timestamp: new Date()
+      };
+      setLiveMessages(prev => [...prev, newLog]);
+    });
+
+    eventSource.onerror = (e) => {
+      console.error('SSE Error', e);
+      setSseConnected(false);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+      setSseConnected(false);
+    };
+  }, [id, isLiveMonitoring]);
+
+  // 실시간 메시지 자동 스크롤
+  useEffect(() => {
+    if (liveScrollRef.current && isLiveMonitoring) {
+      liveScrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [liveMessages, isLiveMonitoring]);
+
   if (isLoading) {
     return (
       <DashboardLayout role="counselor" userName="로딩중..." navItems={counselorNavItems}>
@@ -99,7 +195,7 @@ const CounselorCallDetail = () => {
 
   if (!callDetail) {
     return (
-      <DashboardLayout role="counselor" userName={userProfile?.name || "상담사"} navItems={counselorNavItems}>
+      <DashboardLayout role="counselor" userName={user?.name || "상담사"} navItems={counselorNavItems}>
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <p className="text-muted-foreground">통화 기록을 찾을 수 없습니다.</p>
           <Button onClick={() => navigate("/counselor/calls")}>
@@ -117,7 +213,7 @@ const CounselorCallDetail = () => {
   return (
     <DashboardLayout
       role="counselor"
-      userName={userProfile?.name || "상담사"}
+      userName={user?.name || "상담사"}
       navItems={counselorNavItems}
     >
       <div className="space-y-6">
@@ -158,6 +254,71 @@ const CounselorCallDetail = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
+            {/* 실시간 모니터링 카드 */}
+            <Card className="shadow-card border-0">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Radio className="w-5 h-5 text-primary" />
+                    실시간 통화 모니터링
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    {sseConnected && (
+                      <Badge variant="outline" className="animate-pulse text-green-600 border-green-600">
+                        ● Live
+                      </Badge>
+                    )}
+                    <Button
+                      variant={isLiveMonitoring ? "destructive" : "default"}
+                      size="sm"
+                      onClick={() => setIsLiveMonitoring(!isLiveMonitoring)}
+                    >
+                      {isLiveMonitoring ? "모니터링 중지" : "모니터링 시작"}
+                    </Button>
+                  </div>
+                </div>
+                <CardDescription>
+                  {isLiveMonitoring 
+                    ? "실시간으로 통화 내용을 확인하고 있습니다" 
+                    : "버튼을 클릭하여 실시간 모니터링을 시작하세요"}
+                </CardDescription>
+              </CardHeader>
+              {isLiveMonitoring && (
+                <CardContent>
+                  <div className="bg-secondary/30 rounded-xl p-4 h-[400px] overflow-y-auto">
+                    <div className="space-y-3">
+                      {liveMessages.length === 0 ? (
+                        <div className="flex h-full items-center justify-center text-muted-foreground">
+                          대화 내용을 기다리고 있습니다...
+                        </div>
+                      ) : (
+                        liveMessages.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
+                          >
+                            <div
+                              className={`max-w-[80%] rounded-lg p-3 ${
+                                msg.type === 'PROMPT'
+                                  ? 'bg-primary/10 text-foreground'
+                                  : 'bg-primary text-primary-foreground'
+                              }`}
+                            >
+                              <div className="text-xs opacity-70 mb-1">
+                                {msg.type === 'PROMPT' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString()}
+                              </div>
+                              <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      <div ref={liveScrollRef} />
+                    </div>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+
             {/* Summary Card */}
             <Card className="shadow-card border-0">
               <CardHeader>

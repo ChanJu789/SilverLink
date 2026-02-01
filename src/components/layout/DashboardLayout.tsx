@@ -10,7 +10,6 @@ import {
   LogOut,
   Menu,
   X,
-  Bell,
   User,
   Settings,
   ChevronRight
@@ -32,6 +31,7 @@ import { getRoleHomePath } from "@/contexts/AuthContext";
 import { SessionTimer } from "@/components/auth/SessionTimer";
 import { toast } from "sonner";
 import ChatbotWidget from "@/components/chatbot/ChatbotWidget";
+import NotificationDropdown from "@/components/notification/NotificationDropdown";
 
 interface NavItem {
   title: string;
@@ -104,16 +104,16 @@ const DashboardLayout = ({
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - 화면 전체 높이 고정 */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-sidebar text-sidebar-foreground transform transition-transform duration-300 ease-in-out lg:transform-none",
+          "fixed lg:sticky top-0 left-0 z-50 w-72 h-screen bg-sidebar text-sidebar-foreground transform transition-transform duration-300 ease-in-out lg:transform-none",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="p-6 border-b border-sidebar-border">
+          <div className="p-6 border-b border-sidebar-border flex-shrink-0">
             <div className="flex items-center justify-between">
               <button
                 onClick={handleLogoClick}
@@ -137,7 +137,7 @@ const DashboardLayout = ({
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 p-4 space-y-1 min-h-0 pb-12 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {navItems.map((item) => {
               const isActive = location.pathname === item.href;
               return (
@@ -164,8 +164,8 @@ const DashboardLayout = ({
             })}
           </nav>
 
-          {/* User Section */}
-          <div className="p-4 border-t border-sidebar-border">
+          {/* User Section - 항상 하단 고정 */}
+          <div className="p-4 pt-3 border-t border-sidebar-border flex-shrink-0">
             <div className="flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent/30">
               <Avatar className="w-10 h-10">
                 <AvatarImage src={userAvatar} />
@@ -193,7 +193,7 @@ const DashboardLayout = ({
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen lg:ml-0">
         {/* Header */}
         <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
           <div className="flex items-center justify-between px-4 lg:px-6 h-16">
@@ -208,21 +208,7 @@ const DashboardLayout = ({
 
             <div className="flex items-center gap-2">
               {/* Notifications */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel>알림</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    새로운 알림이 없습니다
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <NotificationDropdown role={role} />
 
               {/* User Menu */}
               <DropdownMenu>
@@ -259,7 +245,7 @@ const DashboardLayout = ({
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6">
+        <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
           {children}
         </main>
       </div>

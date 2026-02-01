@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import {
   Search,
   Plus,
-  Edit,
+  Pencil,
   Trash2,
   Eye,
   Pin,
@@ -37,6 +37,7 @@ import type { FileUploadResponse } from "@/api/files";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Notice {
   id: number;
@@ -53,6 +54,7 @@ interface Notice {
 }
 
 const NoticeManagement = () => {
+  const { user } = useAuth();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -852,7 +854,7 @@ const NoticeManagement = () => {
 
   if (loading) {
     return (
-      <DashboardLayout role="admin" userName="관리자" navItems={adminNavItems}>
+      <DashboardLayout role="admin" userName={user?.name || "관리자"} navItems={adminNavItems}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -863,7 +865,7 @@ const NoticeManagement = () => {
   return (
     <DashboardLayout
       role="admin"
-      userName="관리자"
+      userName={user?.name || "관리자"}
       navItems={adminNavItems}
     >
       <TooltipProvider>
@@ -1112,10 +1114,52 @@ const NoticeManagement = () => {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredNotices.map((notice) => (
+                        <TableRow key={notice.id}>
+                          <TableCell>
+                            {notice.isPinned && <Pin className="w-4 h-4 text-warning" />}
+                          </TableCell>
+                          <TableCell>
+                            <button
+                              onClick={() => handleView(notice)}
+                              className="font-medium line-clamp-1 text-left hover:text-primary hover:underline transition-colors"
+                            >
+                              {notice.title}
+                            </button>
+                          </TableCell>
+                          <TableCell>{getCategoryBadge(notice.category)}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{notice.targetRoles[0] || "전체"}</Badge>
+                          </TableCell>
+                          <TableCell>{notice.createdAt}</TableCell>
+                          <TableCell>
+                            {notice.isPublished ? (
+                              <Badge className="bg-success/10 text-success border-0">게시중</Badge>
+                            ) : (
+                              <Badge className="bg-muted text-muted-foreground border-0">비공개</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => handleView(notice)}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(notice)}>
+                                <Pencil className="w-4 h-4 text-blue-500" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDelete(notice)}>
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
