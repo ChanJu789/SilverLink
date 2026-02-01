@@ -21,14 +21,18 @@ import {
   AlertTriangle,
   FileText,
   ChevronLeft,
-  Settings,
-  MoreVertical,
   Mic,
   MessageCircle,
   TrendingUp,
   User,
   Plus,
-  CheckCircle2
+  CheckCircle2,
+  Pill,
+  Sunrise,
+  Sun,
+  Sunset,
+  Moon,
+  Loader2
 } from "lucide-react";
 import {
   Select,
@@ -54,8 +58,8 @@ import {
 import { counselorNavItems } from "@/config/counselorNavItems";
 import { useAuth } from "@/contexts/AuthContext";
 import elderlyApi from "@/api/elderly";
+import medicationsApi, { MedicationResponse } from "@/api/medications";
 import { ElderlySummaryResponse, HealthInfoResponse } from "@/types/api";
-import { Loader2 } from "lucide-react";
 
 // Mock data
 const seniorData = {
@@ -156,6 +160,7 @@ export default function SeniorDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [profile, setProfile] = useState<ElderlySummaryResponse | null>(null);
   const [healthInfo, setHealthInfo] = useState<HealthInfoResponse | null>(null);
+  const [medications, setMedications] = useState<MedicationResponse[]>([]);
 
   const [activeTab, setActiveTab] = useState("overview");
   const [newRecord, setNewRecord] = useState({
@@ -171,12 +176,27 @@ export default function SeniorDetail() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const [profileData, healthData] = await Promise.all([
-          elderlyApi.getSummary(numericId),
-          elderlyApi.getHealthInfo(numericId),
-        ]);
+        
+        // 프로필 정보는 필수
+        const profileData = await elderlyApi.getSummary(numericId);
         setProfile(profileData);
-        setHealthInfo(healthData);
+        
+        // 건강 정보와 복약 정보는 선택적 (에러 발생해도 계속 진행)
+        try {
+          const healthData = await elderlyApi.getHealthInfo(numericId);
+          setHealthInfo(healthData);
+        } catch (error) {
+          console.warn("건강 정보 조회 실패 (권한 없음 또는 데이터 없음):", error);
+          setHealthInfo(null);
+        }
+        
+        try {
+          const medicationData = await medicationsApi.getMedicationsByElderly(numericId);
+          setMedications(medicationData);
+        } catch (error) {
+          console.warn("복약 정보 조회 실패:", error);
+          setMedications([]);
+        }
       } catch (error) {
         console.error("Failed to fetch elderly detail:", error);
       } finally {
@@ -548,19 +568,71 @@ export default function SeniorDetail() {
 
                   <div className="space-y-4">
                     <h3 className="font-semibold text-lg flex items-center gap-2">
-                      <Activity className="w-5 h-5" />
+                      <Pill className="w-5 h-5" />
                       복약 정보
                     </h3>
-                    <div className="space-y-2">
-                      {healthInfo?.medications?.length ? healthInfo.medications.map((med, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                          <div>
-                            <p className="font-medium">{med}</p>
-                            {/* <p className="text-xs text-muted-foreground">{med.time}</p> */}
+                    <div className="space-y-3">
+                      {medications.length > 0 ? medications.map((med) => (
+                        <div key={med.id} className="p-4 bg-muted/30 rounded-lg space-y-3 border border-muted">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <Pill className="w-4 h-4 text-primary" />
+                                <p className="font-semibold text-base">{med.name}</p>
+                              </div>
+                              {med.dosage && (
+                                <p className="text-sm text-muted-foreground mt-1 ml-6">{med.dosage}</p>
+                              )}
+                            </div>
+                            <Badge variant={med.reminder ? "default" : "secondary"} className="gap-1">
+                              <Clock className="w-3 h-3" />
+                              {med.reminder ? "알림 ON" : "알림 OFF"}
+                            </Badge>
                           </div>
-                          {/* <Badge>{med.frequency}</Badge> */}
+                          
+                          {/* 복용 시간 */}
+                          <div className="flex flex-wrap gap-2 ml-6">
+                            {med.times.map((time) => {
+                              const timeConfig = {
+                                morning: { icon: Sunrise, label: "아침", time: "08:00" },
+                                noon: { icon: Sun, label: "점심", time: "12:00" },
+                                evening: { icon: Sunset, label: "저녁", time: "18:00" },
+                                night: { icon: Moon, label: "취침전", time: "22:00" },
+                              }[time] || { icon: Clock, label: time, time: "-" };
+                              
+                              const Icon = timeConfig.icon;
+                              
+                              return (
+                                <Badge key={time} variant="outline" className="gap-1.5 py-1 px-3">
+                                  <Icon className="w-3.5 h-3.5" />
+                                  {timeConfig.label} ({timeConfig.time})
+                                </Badge>
+                              );
+                            })}
+                          </div>
+
+                          {/* 복용 방법 */}
+                          {med.instructions && (
+                            <div className="ml-6 text-sm text-muted-foreground bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
+                              💊 {med.instructions}
+                            </div>
+                          )}
+
+                          {/* 복용 기간 */}
+                          {(med.startDate || med.endDate) && (
+                            <div className="ml-6 text-xs text-muted-foreground flex items-center gap-2">
+                              <Calendar className="w-3 h-3" />
+                              {med.startDate && <span>시작: {med.startDate}</span>}
+                              {med.endDate && <span>~ 종료: {med.endDate}</span>}
+                            </div>
+                          )}
                         </div>
-                      )) : <div className="p-3 bg-muted/30 rounded-lg text-sm text-muted-foreground">복약 정보가 없습니다.</div>}
+                      )) : (
+                        <div className="p-6 bg-muted/30 rounded-lg text-center">
+                          <Pill className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-sm text-muted-foreground">등록된 복약 정보가 없습니다.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
