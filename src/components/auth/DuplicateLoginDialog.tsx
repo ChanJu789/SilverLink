@@ -17,11 +17,11 @@ interface DuplicateLoginDialogProps {
   isLoading?: boolean;
 }
 
-export const DuplicateLoginDialog = ({ 
-  open, 
-  onConfirm, 
+export const DuplicateLoginDialog = ({
+  open,
+  onConfirm,
   onCancel,
-  isLoading = false 
+  isLoading = false
 }: DuplicateLoginDialogProps) => {
   return (
     <AlertDialog open={open} onOpenChange={(open) => !open && onCancel()}>
@@ -70,3 +70,5 @@ export const DuplicateLoginDialog = ({
     </AlertDialog>
   );
 };
+
+//ㅇㅇㅇㅇㅇㅇ
