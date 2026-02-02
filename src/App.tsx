@@ -28,6 +28,7 @@ const GuardianInquiry = lazy(() => import("./pages/guardian/GuardianInquiry"));
 const GuardianComplaint = lazy(() => import("./pages/guardian/GuardianComplaint"));
 const GuardianNotices = lazy(() => import("./pages/guardian/GuardianNotices"));
 const GuardianProfile = lazy(() => import("./pages/guardian/GuardianProfile"));
+const GuardianSensitiveInfo = lazy(() => import("./pages/guardian/GuardianSensitiveInfo"));
 
 const CounselorDashboard = lazy(() => import("./pages/counselor/CounselorDashboard"));
 const SeniorList = lazy(() => import("./pages/counselor/SeniorList"));
@@ -112,6 +113,7 @@ const App = () => (
                       <Route path="/guardian/complaint" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianComplaint /></ProtectedRoute>} />
                       <Route path="/guardian/notices" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianNotices /></ProtectedRoute>} />
                       <Route path="/guardian/profile" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianProfile /></ProtectedRoute>} />
+                      <Route path="/guardian/sensitive-info" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianSensitiveInfo /></ProtectedRoute>} />
                       <Route path="/guardian/faq" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><FAQPage /></ProtectedRoute>} />
 
                       {/* Counselor Routes - COUNSELOR role only */}
