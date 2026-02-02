@@ -4,7 +4,7 @@ Unit Tests for SQS Queue Module
 SQS 클라이언트, 메시지 스키마, 워커의 단위 테스트
 """
 import pytest
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
+from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 import json
 

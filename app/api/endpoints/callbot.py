@@ -7,6 +7,7 @@ import uuid
 import urllib.parse
 from dependency_injector.wiring import Provide
 from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import BackgroundTasks, Form
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -98,7 +99,7 @@ def get_call(
         
         message_id = sqs_client.publish(message)
         if message_id:
-            logger.info(f"✅ [POST /callbot/schedule-call] SQS 발행 성공")
+            logger.info("✅ [POST /callbot/schedule-call] SQS 발행 성공")
             logger.info("="*50)
         #####################################################
         result = service.make_call(request.elderly_id,request.phone_number,request.elderly_name)
@@ -146,7 +147,7 @@ async def voice(
         
     except Exception as e:
         logger.error("="*50)
-        logger.error(f"❌ [POST /callbot/voice] 에러 발생!")
+        logger.error("❌ [POST /callbot/voice] 에러 발생!")
         logger.error(f"에러 타입: {type(e).__name__}")
         logger.error(f"에러 메시지: {e}")
         logger.error(f"스택 트레이스:\n{traceback.format_exc()}")
@@ -186,7 +187,6 @@ async def stream_response(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
     
-from fastapi import BackgroundTasks, Form
 
 @router.post("/s3-upload")
 @inject_callbot
@@ -260,7 +260,7 @@ async def gather(
 
         # 쿼리 파라미터에서 데이터 추출 (elderly_id, elderly_name)
         elderly_id = request.query_params.get("elderly_id")
-        elderly_name = request.query_params.get("elderly_name")
+        # elderly_name = request.query_params.get("elderly_name")
         
         logger.info(f"🎤 사용자 발화: {speech_result}")
         

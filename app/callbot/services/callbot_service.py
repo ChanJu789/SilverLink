@@ -18,7 +18,6 @@ from datetime import datetime
 os.environ["MEM0_TELEMETRY"] = "false"
 
 from pydantic import BaseModel, Field
-from openai import AsyncOpenAI
 from huggingface_hub import hf_hub_download
 from llama_cpp import Llama, LlamaGrammar
 
@@ -227,7 +226,7 @@ class CallbotService(BaseService):
                 # 안전하게 await로 저장 후 진행하거나, create_task로 던짐.
                 # 에러 메시지("연결할 발화 없음")를 피하려면 어르신 답변보다 이게 먼저 DB에 들어가야 함.
                 await self._send_message_to_backend(call_id, "CALLBOT", greeting)
-                print(f"✅ [Call Start] Saved initial greeting to backend.")
+                print("✅ [Call Start] Saved initial greeting to backend.")
             except Exception as e:
                 print(f"⚠️ [Call Start] Failed to save greeting: {e}")
 
@@ -290,7 +289,7 @@ class CallbotService(BaseService):
         
         # 401 Unauthorized Error Handling
         if res and isinstance(res, dict) and res.get("error") == "UNAUTHORIZED_401":
-            print(f"⚠️ [Backend] Token expired (401). Retrying login...")
+            print("⚠️ [Backend] Token expired (401). Retrying login...")
             configs.SPRING_BOOT_API_TOKEN = None # Clear token
             await self._login_backend() # Re-login
             
@@ -319,7 +318,8 @@ class CallbotService(BaseService):
 
     async def _send_message_to_backend(self, call_id: int, speaker: str, content: str, danger: bool = False, danger_reason: str = None):
         """대화 메시지 저장 API 호출 (CALLBOT 또는 ELDERLY)"""
-        if not call_id: return
+        if not call_id: 
+            return
         url = f"{configs.SPRING_BOOT_URL}/api/internal/callbot/calls/{call_id}/messages"
         payload = {
             "speaker": speaker,
@@ -333,7 +333,8 @@ class CallbotService(BaseService):
 
     async def _send_end_call_to_backend(self, call_id: int, duration: int, summary: str, emotion: str, daily_status: dict, recording_url: str = None):
         """통화 종료 API 호출 (EndCallRequest DTO 일치)"""
-        if not call_id: return
+        if not call_id: 
+            return
         url = f"{configs.SPRING_BOOT_URL}/api/internal/callbot/calls/{call_id}/end"
         
         # 제공해주신 EndCallRequest DTO 구조와 100% 일치시킴
@@ -385,7 +386,8 @@ class CallbotService(BaseService):
 
     async def get_intent_async(self, text: str) -> str:
         clean_text = text.strip()
-        if len(clean_text) <= 5: return "GENERAL"
+        if len(clean_text) <= 5: 
+            return "GENERAL"
         
         emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어"]
         if any(k in clean_text for k in emergency_keywords):
@@ -466,7 +468,8 @@ Output:<|im_end|>
             final_response = "어르신, 지금 바로 119에 도움을 요청하겠습니다! 잠시만 기다려주세요."
             
             # Update History for Emergency
-            if "history" not in session: session["history"] = []
+            if "history" not in session: 
+                session["history"] = []
             session["history"].append({"user": user_input, "ai": final_response})
             
             timeouts['total_processing'] = time.time() - start_total
@@ -594,7 +597,8 @@ Output:<|im_end|>
 
     async def _summarize_conversation(self, history: List[Dict]) -> str:
         """Generates a concise summary of the conversation using OpenAI."""
-        if not history: return "대화 내용 없음."
+        if not history: 
+            return "대화 내용 없음."
         
         conversation_text = "\n".join([f"User: {turn['user']}\nAI: {turn['ai']}" for turn in history])
         
@@ -620,7 +624,8 @@ Output:<|im_end|>
 
     async def _analyze_sentiment_with_llm(self, text: str) -> str:
         """Analyzes sentiment (GOOD, BAD, NORMAL) using LLM."""
-        if not text: return "NORMAL"
+        if not text: 
+            return "NORMAL"
         
         prompt = f"""
         Analyze the sentiment of the following text regarding health or sleep condition.
@@ -638,8 +643,10 @@ Output:<|im_end|>
                 temperature=0.0
             )
             result = response.choices[0].message.content.strip().upper()
-            if "GOOD" in result: return "GOOD"
-            if "BAD" in result: return "BAD"
+            if "GOOD" in result: 
+                return "GOOD"
+            if "BAD" in result: 
+                return "BAD"
             return "NORMAL"
         except Exception as e:
             print(f"Sentiment Analysis Error: {e}")
@@ -647,7 +654,8 @@ Output:<|im_end|>
 
     async def _analyze_meal_status_with_llm(self, text: str) -> bool:
         """Analyzes meal status (True/False) using LLM."""
-        if not text: return False
+        if not text: 
+            return False
         
         prompt = f"""
         Determine if the user has eaten a meal based on the text.
@@ -692,7 +700,8 @@ Output:<|im_end|>
 
     async def _analyze_overall_emotion(self, history: List[Dict]) -> str:
         """Infers overall emotion from conversation history using LLM"""
-        if not history: return "NORMAL"
+        if not history: 
+            return "NORMAL"
         
         conversation_text = "\n".join([f"User: {turn['user']}\nAI: {turn['ai']}" for turn in history])
         
@@ -836,7 +845,7 @@ Output:<|im_end|>
             if session.get("analysis_ready"):
                 await self._perform_final_backend_update(call_sid, session)
             else:
-                print(f"⏳ [Callback Upload] Recording ready, waiting for analysis to complete...")
+                print("⏳ [Callback Upload] Recording ready, waiting for analysis to complete...")
         
         return s3_uri
 
@@ -849,7 +858,7 @@ Output:<|im_end|>
         print(f"🏁 [Finalize Call] Sid: {call_sid}, CallID: {call_id}, History: {len(history)} turns")
 
         if not call_id:
-            print(f"⚠️ [Finalize Call] No call_id found. Clearing session.")
+            print("⚠️ [Finalize Call] No call_id found. Clearing session.")
             CallSession.clear_session(call_sid)
             return
 
@@ -875,8 +884,10 @@ Output:<|im_end|>
         
         # 콜백에서 아직 정확한 시간이 안 왔거나 현재 저장된 시간이 0인 경우에만 업데이트
         new_duration = 0
-        try: new_duration = int(duration)
-        except: pass
+        try: 
+            new_duration = int(duration)
+        except Exception: 
+            pass
         
         if (session.get("final_duration") or 0) == 0 and new_duration > 0:
             session["final_duration"] = new_duration
@@ -886,19 +897,20 @@ Output:<|im_end|>
         if session.get("recording_ready"):
             await self._perform_final_backend_update(call_sid, session)
         else:
-            print(f"⏳ [Finalize Call] Analysis ready, waiting for Twilio Recording Callback...")
+            print("⏳ [Finalize Call] Analysis ready, waiting for Twilio Recording Callback...")
             # 안전장치: 만약 30초 내에 녹음 콜백이 안 오면 분석 결과만이라도 전송하도록 예약 가능 (생략 가능)
             async def _safety_fallback():
                 await asyncio.sleep(30)
                 active_session = CallSession.get_session(call_sid)
                 if active_session.get("analysis_ready") and not active_session.get("recording_ready"):
-                    print(f"🚨 [Safety Fallback] Recording callback timed out. Sending analysis only.")
+                    print("🚨 [Safety Fallback] Recording callback timed out. Sending analysis only.")
                     await self._perform_final_backend_update(call_sid, active_session)
             asyncio.create_task(_safety_fallback())
 
     async def _save_full_history_async(self, user_id: str, history: List[Dict]):
         """Helper to save full history to Mem0 in background"""
-        if not orchestrator_engine.memory: return
+        if not orchestrator_engine.memory: 
+            return
         
         def _batch_save():
             for turn in history:
@@ -949,7 +961,8 @@ Output:<|im_end|>
         """
         Sentence-level TTS Streaming: Splits text and streams audio for each sentence immediately.
         """
-        if not text: return
+        if not text: 
+            return
         
         try:
             sentences = re.split(r'(?<=[.!?])\s*', text)
