@@ -115,30 +115,63 @@ const GuardianDashboard = () => {
     };
   }, []);
 
-  // 읽지 않은 공지사항 조회
+  // 팝업 공지사항 조회
   const fetchUnreadNotices = async () => {
     try {
       // 팝업 공지사항 조회 (보호자 대상)
       const popupNotices = await noticesApi.getPopups();
       
-      // 읽지 않은 팝업 공지사항만 필터링
-      const unreadList = popupNotices.filter(notice => {
-        const isUnread = !notice.isRead; // 읽지 않은 공지
+      console.log("=== 팝업 공지사항 필터링 ===");
+      console.log("전체 팝업 공지사항 수:", popupNotices.length);
+      
+      // 오늘 하루 보지 않기로 설정한 공지 확인
+      const hiddenNotices = getHiddenNotices();
+      
+      // 게시중인 팝업 공지사항 필터링 (읽음 여부 무관)
+      const visibleList = popupNotices.filter(notice => {
         const isPopup = notice.isPopup; // 팝업 공지
         const isPublished = notice.status === 'PUBLISHED'; // 게시중
+        const isHidden = hiddenNotices.includes(notice.id); // 오늘 하루 보지 않기 설정됨
         
-        // 반드시 읽지 않은 팝업 공지사항만 표시
-        return isUnread && isPopup && isPublished;
+        console.log(`공지 ${notice.id}: 팝업=${isPopup}, 게시중=${isPublished}, 숨김=${isHidden}`);
+        
+        // 팝업 공지이고 게시중이며 숨김 처리되지 않은 것만
+        return isPopup && isPublished && !isHidden;
       });
 
-      if (unreadList.length > 0) {
-        setUnreadNotices(unreadList);
+      console.log("표시할 팝업 공지사항 수:", visibleList.length);
+      console.log("팝업 공지 목록:", visibleList.map(n => ({ id: n.id, title: n.title })));
+
+      if (visibleList.length > 0) {
+        setUnreadNotices(visibleList);
         setShowUnreadAlert(true);
       } else {
+        console.log("표시할 팝업 공지사항이 없습니다.");
         setShowUnreadAlert(false);
       }
     } catch (error) {
-      console.error('Failed to fetch unread notices:', error);
+      console.error('Failed to fetch popup notices:', error);
+    }
+  };
+
+  // 오늘 하루 보지 않기로 설정한 공지 목록 가져오기
+  const getHiddenNotices = (): number[] => {
+    const stored = localStorage.getItem('hidden_popup_notices');
+    if (!stored) return [];
+    
+    try {
+      const data = JSON.parse(stored);
+      const today = new Date().toDateString();
+      
+      // 오늘 날짜가 아니면 초기화
+      if (data.date !== today) {
+        localStorage.removeItem('hidden_popup_notices');
+        return [];
+      }
+      
+      return data.noticeIds || [];
+    } catch {
+      return [];
     }
   };
 

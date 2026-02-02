@@ -106,21 +106,44 @@ const NoticeManagement = () => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    // PDF 파일만 허용
-    const pdfFiles = Array.from(files).filter(file => file.type === 'application/pdf');
-    if (pdfFiles.length === 0) {
-      toast.error("PDF 파일만 업로드할 수 있습니다.");
+    // 허용된 파일 형식
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword', // .doc
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/vnd.ms-excel', // .xls
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+    ];
+
+    const allowedFiles = Array.from(files).filter(file => allowedTypes.includes(file.type));
+    
+    if (allowedFiles.length === 0) {
+      toast.error("지원하지 않는 파일 형식입니다. PDF, Word, Excel, 이미지 파일만 업로드 가능합니다.");
       return;
     }
 
-    if (pdfFiles.length !== files.length) {
-      toast.error("PDF 파일만 업로드할 수 있습니다. PDF가 아닌 파일은 제외됩니다.");
+    if (allowedFiles.length !== files.length) {
+      toast.error("일부 파일은 지원하지 않는 형식이어서 제외되었습니다.");
+    }
+
+    // 파일 크기 체크 (10MB)
+    const maxSize = 10 * 1024 * 1024;
+    const oversizedFiles = allowedFiles.filter(file => file.size > maxSize);
+    if (oversizedFiles.length > 0) {
+      toast.error(`파일 크기는 10MB를 초과할 수 없습니다. (${oversizedFiles.map(f => f.name).join(', ')})`);
+      return;
     }
 
     try {
       setFileUploading(true);
+      console.log("=== 파일 업로드 시작 ===");
+      console.log("업로드할 파일 수:", allowedFiles.length);
 
-      const uploadPromises = pdfFiles.map(file => 
+      const uploadPromises = allowedFiles.map(file => 
         filesApi.uploadFile(file, 'notices')
       );
 
@@ -183,16 +206,17 @@ const NoticeManagement = () => {
           frontendCategory = '긴급';
         }
 
-        // 백엔드 역할을 프론트엔드 역할로 매핑
-        const frontendRoles = (n.targetRoles || []).map(role => {
-          switch (role) {
-            case 'ADMIN': return '관리자';
-            case 'COUNSELOR': return '상담사';
-            case 'GUARDIAN': return '보호자';
-            case 'ELDERLY': return '어르신';
-            default: return '전체';
-          }
-        });
+        // 백엔드 역할을 프론트엔드 역할로 매핑 (관리자 제외)
+        const frontendRoles = (n.targetRoles || [])
+          .filter(role => role !== 'ADMIN') // 관리자 제외
+          .map(role => {
+            switch (role) {
+              case 'COUNSELOR': return '상담사';
+              case 'GUARDIAN': return '보호자';
+              case 'ELDERLY': return '어르신';
+              default: return '전체';
+            }
+          });
 
         const mappedNotice = {
           id: n.id,
@@ -266,15 +290,14 @@ const NoticeManagement = () => {
     setIsEditMode(true);
     setSelectedNotice(notice);
     
-    // targetRoles 배열을 백엔드 형식으로 변환
+    // targetRoles 배열을 백엔드 형식으로 변환 (관리자 제외)
     const backendRoles = notice.targetRoles
-      .filter(role => role !== "전체")
+      .filter(role => role !== "전체" && role !== "관리자") // 관리자 제외
       .map(role => {
         switch (role) {
           case '보호자': return 'GUARDIAN';
           case '상담사': return 'COUNSELOR';
           case '어르신': return 'ELDERLY';
-          case '관리자': return 'ADMIN';
           default: return '';
         }
       })
@@ -285,7 +308,7 @@ const NoticeManagement = () => {
       content: notice.content,
       category: notice.category,
       target: notice.targetRoles.includes("전체") ? "전체" : "선택",
-      targetRoles: notice.targetRoles.filter(role => role !== "전체"),
+      targetRoles: notice.targetRoles.filter(role => role !== "전체" && role !== "관리자"), // 관리자 제외
       isPinned: notice.isPinned,
       isPopup: false, // 기본값으로 설정
       status: notice.status,
@@ -1189,17 +1212,17 @@ const NoticeManagement = () => {
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <File className="w-4 h-4" />
-                PDF 파일 첨부
+                파일 첨부
               </Label>
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
                 <div className="flex flex-col items-center gap-3">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Upload className="w-5 h-5" />
-                    <span className="text-sm">PDF 파일을 선택하거나 드래그하여 업로드</span>
+                    <span className="text-sm">파일을 선택하거나 드래그하여 업로드</span>
                   </div>
                   <input
                     type="file"
-                    accept=".pdf,application/pdf"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
                     multiple
                     onChange={handleFileUpload}
                     disabled={fileUploading}
@@ -1227,7 +1250,7 @@ const NoticeManagement = () => {
                     )}
                   </Button>
                   <p className="text-xs text-muted-foreground text-center">
-                    PDF 파일만 업로드 가능합니다. (최대 10MB)
+                    PDF, Word, Excel, 이미지 파일 업로드 가능 (최대 10MB)
                   </p>
                 </div>
 
@@ -1237,33 +1260,45 @@ const NoticeManagement = () => {
                     <div className="text-sm font-medium text-foreground">
                       첨부된 파일 ({uploadedFiles.length}개)
                     </div>
-                    {uploadedFiles.map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-2 bg-muted/50 rounded border"
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <File className="w-4 h-4 text-red-500 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {file.originalFileName}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {(file.fileSize / 1024 / 1024).toFixed(2)} MB
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleFileRemove(index)}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                    {uploadedFiles.map((file, index) => {
+                      // 파일 확장자에 따른 아이콘 색상
+                      const getFileColor = (fileName: string) => {
+                        const ext = fileName.split('.').pop()?.toLowerCase();
+                        if (ext === 'pdf') return 'text-red-500';
+                        if (ext === 'doc' || ext === 'docx') return 'text-blue-500';
+                        if (ext === 'xls' || ext === 'xlsx') return 'text-green-500';
+                        if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) return 'text-purple-500';
+                        return 'text-gray-500';
+                      };
+
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-muted/50 rounded border"
                         >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <File className={`w-4 h-4 ${getFileColor(file.originalFileName)} flex-shrink-0`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {file.originalFileName}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleFileRemove(index)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

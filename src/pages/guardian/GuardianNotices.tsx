@@ -296,13 +296,38 @@ const GuardianNotices = () => {
               </h4>
               <div className="space-y-2">
                 {selectedNotice.attachments.map((file, index) => (
-                  <a
+                  <button
                     key={index}
-                    href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}${file.filePath}`}
-                    download={file.originalFileName}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors group"
+                    onClick={async () => {
+                      try {
+                        // fetch로 파일 다운로드 (원본 파일명 유지)
+                        const downloadUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/files/download?filePath=${encodeURIComponent(file.filePath)}&originalFileName=${encodeURIComponent(file.originalFileName)}`;
+                        
+                        const response = await fetch(downloadUrl);
+                        if (!response.ok) {
+                          throw new Error('파일 다운로드 실패');
+                        }
+                        
+                        // Blob으로 변환
+                        const blob = await response.blob();
+                        
+                        // Blob URL 생성 및 다운로드
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = file.originalFileName;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // Blob URL 해제
+                        window.URL.revokeObjectURL(blobUrl);
+                      } catch (error) {
+                        console.error('파일 다운로드 실패:', error);
+                        alert('파일을 다운로드할 수 없습니다.');
+                      }
+                    }}
+                    className="w-full flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors group"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
@@ -310,7 +335,7 @@ const GuardianNotices = () => {
                           <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 text-left">
                         <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
                           {file.originalFileName}
                         </p>
@@ -322,7 +347,7 @@ const GuardianNotices = () => {
                     <svg className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>
