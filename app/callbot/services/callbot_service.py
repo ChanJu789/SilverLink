@@ -9,6 +9,9 @@ import urllib.parse
 import wave
 import io
 import traceback
+import boto3
+import requests
+from twilio.rest import Client as TwilioClient
 from datetime import datetime
 
 # Disable Mem0 Telemetry to prevent PostHog connection errors
@@ -323,14 +326,14 @@ class CallbotService(BaseService):
         print(f"📤 [_send_message_to_backend] Sending to {url}...")
         await self._call_backend_api(url, payload)
 
-    async def _send_end_call_to_backend(self, call_id: int, duration: int, summary: str, emotion: str, daily_status: dict):
+    async def _send_end_call_to_backend(self, call_id: int, duration: int, summary: str, emotion: str, daily_status: dict, recording_url: str = None):
         """통화 종료 API 호출 (종합 데이터 포함)"""
         if not call_id: return
         url = f"{configs.SPRING_BOOT_URL}/api/internal/callbot/calls/{call_id}/end"
         
         payload = {
             "callTimeSec": duration,
-            "recordingUrl": None,
+            "recordingUrl": recording_url,
             "summary": {"content": summary},
             "emotion": {"emotionLevel": emotion},
             "dailyStatus": daily_status
@@ -709,11 +712,59 @@ Output:<|im_end|>
             print(f"Emotion Analysis Error: {e}")
             return "NORMAL"
 
+    async def _upload_recordings(self, call_sid: str) -> Optional[str]:
+        def _sync_upload():
+            try:
+                twilio_client = TwilioClient(configs.TWILIO_SID, configs.TWILIO_TOKEN)
+                recordings = twilio_client.recordings.list(call_sid=call_sid, limit=1)
+                
+                if not recordings:
+                    print(f"⚠️ [Recording] No recordings found for {call_sid}")
+                    return None
+
+                record = recordings[0]
+                recording_sid = record.sid
+                media_url = f"https://api.twilio.com/2010-04-01/Accounts/{configs.TWILIO_SID}/Recordings/{recording_sid}.mp3"
+                
+                print(f"📥 [Recording] Downloading {media_url}...")
+                response = requests.get(media_url, auth=(configs.TWILIO_SID, configs.TWILIO_TOKEN))
+                
+                if response.status_code == 200:
+                    s3_client = boto3.client(
+                        "s3",
+                        region_name=configs.AWS_REGION,
+                        aws_access_key_id=configs.AWS_ACCESS_KEY_ID,
+                        aws_secret_access_key=configs.AWS_SECRET_ACCESS_KEY
+                    )
+                    file_key = f"private/voice/{recording_sid}.mp3"
+                    print(f"📤 [Recording] Uploading to S3: {configs.AWS_S3_BUCKET_NAME}/{file_key}")
+                    
+                    s3_client.put_object(
+                        Bucket=configs.AWS_S3_BUCKET_NAME,
+                        Key=file_key,
+                        Body=response.content,
+                        ContentType="audio/mpeg"
+                    )
+                    print(f"✅ [Recording] Upload success: {file_key}")
+                    return file_key
+                else:
+                    print(f"❌ [Recording] Failed to download: {response.status_code}")
+                    return None
+            except Exception as e:
+                print(f"❌ [Recording] Error uploading: {e}")
+                traceback.print_exc()
+                return None
+        
+        return await asyncio.to_thread(_sync_upload)
+
     async def finalize_call(self, call_sid: str, duration: str = "0"):
         """Called when Twilio call status is 'completed' to save history."""
         session = CallSession.get_session(call_sid)
         history = session.get("history", [])
         call_id = session.get("call_id")
+        
+        # [New] Upload Recording
+        recording_key = await self._upload_recordings(call_sid)
         
         if history:
             # 1. Save to Long-term Memory (Mem0)
@@ -731,7 +782,7 @@ Output:<|im_end|>
                 try: duration_sec = int(duration)
                 except: duration_sec = 0
                 
-                await self._send_end_call_to_backend(call_id, duration_sec, summary, emotion, daily_status)
+                await self._send_end_call_to_backend(call_id, duration_sec, summary, emotion, daily_status, recording_key)
                 print("✅ [Backend] Call Finalized successfully.")
         
         # Finally clear the session

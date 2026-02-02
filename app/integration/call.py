@@ -28,6 +28,7 @@ class CALL:
             from_=self.silverlink_number,    # Twilio 발신 번호
             url=my_server_url,        # 우리가 만든 AI 서버 주소
             status_callback=f"{self.url}/api/callbot/status",
-            status_callback_event=["completed"]
+            status_callback_event=["completed"],
+            record=True
         )
         
