@@ -57,6 +57,7 @@ const AdminProfile = lazy(() => import("./pages/admin/AdminProfile"));
 const PolicyManagement = lazy(() => import("./pages/admin/PolicyManagement"));
 
 const FAQPage = lazy(() => import("./pages/faq/FAQPage"));
+const NotificationHistory = lazy(() => import("./pages/common/NotificationHistory"));
 
 const SeniorDashboard = lazy(() => import("./pages/senior/SeniorDashboard"));
 const SeniorLogin = lazy(() => import("./pages/senior/SeniorLogin"));
@@ -102,6 +103,7 @@ const App = () => (
 
                       {/* Common Protected Routes */}
                       <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
+                      <Route path="/notifications" element={<ProtectedRoute><NotificationHistory /></ProtectedRoute>} />
 
                       {/* Guardian Routes - GUARDIAN role only */}
                       <Route path="/guardian" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianDashboard /></ProtectedRoute>} />
@@ -125,6 +127,7 @@ const App = () => (
                       <Route path="/counselor/records" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorRecords /></ProtectedRoute>} />
                       <Route path="/counselor/inquiries" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorInquiries /></ProtectedRoute>} />
                       <Route path="/counselor/alerts" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorAlerts /></ProtectedRoute>} />
+                      <Route path="/counselor/notifications" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><NotificationHistory /></ProtectedRoute>} />
                       <Route path="/counselor/notices" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorNotices /></ProtectedRoute>} />
                       <Route path="/counselor/sensitive-info" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorSensitiveInfo /></ProtectedRoute>} />
                       <Route path="/counselor/schedule-requests" element={<ProtectedRoute allowedRoles={["COUNSELOR"]}><CounselorScheduleRequests /></ProtectedRoute>} />
@@ -139,6 +142,7 @@ const App = () => (
                       <Route path="/admin/complaints" element={<ProtectedRoute allowedRoles={["ADMIN"]}><ComplaintManagement /></ProtectedRoute>} />
                       <Route path="/admin/sensitive-info" element={<ProtectedRoute allowedRoles={["ADMIN"]}><SensitiveInfoManagement /></ProtectedRoute>} />
                       <Route path="/admin/notices" element={<ProtectedRoute allowedRoles={["ADMIN"]}><NoticeManagement /></ProtectedRoute>} />
+                      <Route path="/admin/notifications" element={<ProtectedRoute allowedRoles={["ADMIN"]}><NotificationHistory /></ProtectedRoute>} />
                       <Route path="/admin/policies" element={<ProtectedRoute allowedRoles={["ADMIN"]}><PolicyManagement /></ProtectedRoute>} />
                       <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={["ADMIN"]}><SystemSettings /></ProtectedRoute>} />
                       <Route path="/admin/register" element={<ProtectedRoute allowedRoles={["ADMIN"]}><MemberRegistration /></ProtectedRoute>} />

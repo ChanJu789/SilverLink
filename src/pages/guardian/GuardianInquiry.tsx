@@ -24,6 +24,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import inquiriesApi from "@/api/inquiries";
 import usersApi from "@/api/users";
 import { InquiryResponse, MyProfileResponse } from "@/types/api";
@@ -210,101 +216,82 @@ const GuardianInquiry = () => {
         </div>
 
         {/* Inquiry List */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <Card className="shadow-card border-0">
-              <CardHeader>
-                <CardTitle className="text-lg">문의 목록</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-border">
-                  {inquiries.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      등록된 문의가 없습니다.
-                    </div>
-                  ) : (
-                    inquiries.map((inquiry) => (
-                      <div
-                        key={inquiry.id}
-                        className={`p-4 cursor-pointer hover:bg-muted/30 transition-colors ${selectedInquiry?.id === inquiry.id ? 'bg-muted/50' : ''
-                          }`}
-                        onClick={() => setSelectedInquiry(inquiry)}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <StatusBadge status={inquiry.status} />
-                          <span className="text-xs text-muted-foreground">
-                            {inquiry.createdAt?.split('T')[0]}
-                          </span>
-                        </div>
-                        <h3 className="font-medium line-clamp-1">{inquiry.title}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-1 mt-1">
-                          {inquiry.questionText}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="lg:col-span-2">
-            {selectedInquiry ? (
-              <Card className="shadow-card border-0 h-full flex flex-col">
-                <CardHeader className="border-b">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <StatusBadge status={selectedInquiry.status} />
-                      </div>
-                      <CardTitle className="text-lg">{selectedInquiry.title}</CardTitle>
-                      <CardDescription>작성자: {selectedInquiry.userName}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-1 p-4 overflow-y-auto">
-                  <div className="space-y-4">
-                    {/* 문의 내용 */}
-                    <div className="flex justify-end">
-                      <div className="max-w-[80%] p-4 rounded-2xl bg-primary text-primary-foreground rounded-br-none">
-                        <p className="text-sm">{selectedInquiry.questionText}</p>
-                        <p className="text-xs mt-2 text-primary-foreground/70">
-                          {selectedInquiry.createdAt?.split('T')[0]}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* 답변 */}
-                    {selectedInquiry.answerText && (
-                      <div className="flex justify-start">
-                        <div className="max-w-[80%] p-4 rounded-2xl bg-secondary rounded-bl-none">
-                          <p className="text-sm">{selectedInquiry.answerText}</p>
-                          <p className="text-xs mt-2 text-muted-foreground">
-                            {selectedInquiry.answeredAt?.split('T')[0]}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-                {selectedInquiry.status === 'PENDING' && (
-                  <div className="p-4 border-t">
-                    <p className="text-sm text-muted-foreground text-center">
-                      상담사의 답변을 기다리고 있습니다.
-                    </p>
-                  </div>
-                )}
-              </Card>
+        <Card className="shadow-card border-0">
+          <CardHeader>
+            <CardTitle className="text-lg">문의 목록</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {inquiries.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                등록된 문의가 없습니다.
+              </div>
             ) : (
-              <Card className="shadow-card border-0 h-full flex items-center justify-center">
-                <CardContent className="text-center py-12">
-                  <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">문의를 선택하면 상세 내용을 확인할 수 있습니다</p>
-                </CardContent>
-              </Card>
+              <Accordion type="single" collapsible className="w-full">
+                {inquiries.map((inquiry) => (
+                  <AccordionItem key={inquiry.id} value={inquiry.id.toString()}>
+                    <AccordionTrigger className="hover:no-underline py-4 px-2">
+                      <div className="flex items-center gap-4 w-full pr-4 text-left">
+                        <StatusBadge status={inquiry.status} />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium truncate text-base">{inquiry.title}</h3>
+                        </div>
+                        <div className="text-right text-xs text-muted-foreground whitespace-nowrap hidden sm:block">
+                          <p>{inquiry.elderlyName} 어르신</p>
+                          <p>{inquiry.createdAt?.split('T')[0]}</p>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-6 bg-muted/5 border-t">
+                      <div className="space-y-6 pt-4">
+                        {/* 문의 내용 (Question) */}
+                        <div className="flex gap-4">
+                          <div className="font-bold text-lg text-muted-foreground w-6">Q.</div>
+                          <div className="flex-1 space-y-2">
+                            <h4 className="font-medium text-base">{inquiry.title}</h4>
+                            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                              {inquiry.questionText}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* 구분선 */}
+                        {inquiry.answerText && <div className="h-px w-full bg-border/50" />}
+
+                        {/* 답변 (Answer) */}
+                        {inquiry.answerText ? (
+                          <div className="flex gap-4">
+                            <div className="text-muted-foreground w-6 flex justify-center">
+                              <div className="w-4 h-4 border-l-2 border-b-2 border-muted-foreground/30 translate-y-2 translate-x-1" />
+                            </div>
+                            <div className="flex-1 bg-muted/30 rounded-lg p-6">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Badge className="bg-primary hover:bg-primary">답변</Badge>
+                                <span className="font-medium text-sm">상담사</span>
+                                <span className="text-xs text-muted-foreground ml-auto">
+                                  {inquiry.answeredAt?.split('T')[0]}
+                                </span>
+                              </div>
+                              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                                {inquiry.answerText}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-4 opacity-50">
+                            <div className="w-6"></div>
+                            <div className="flex-1 p-4 bg-muted/10 rounded-lg border border-dashed border-muted text-sm text-muted-foreground">
+                              아직 답변이 등록되지 않았습니다.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

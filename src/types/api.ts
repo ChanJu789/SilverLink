@@ -352,10 +352,14 @@ export interface CallRecordSummaryResponse {
     elderlyId: number;
     elderlyName: string;
     callAt: string;
-    duration: number;
-    emotion: 'GOOD' | 'NEUTRAL' | 'BAD';
-    hasReview: boolean;
-    summary?: string;
+    duration: string; // Changed from number to string ("분:초")
+    state: string;
+    stateKorean: string;
+    emotionLevel: 'GOOD' | 'NEUTRAL' | 'BAD' | null;
+    emotionLevelKorean: string | null;
+    hasDangerResponse: boolean;
+    reviewed: boolean;
+    summaryPreview?: string;
 }
 
 export interface CallRecordDetailResponse extends CallRecordSummaryResponse {
@@ -463,6 +467,7 @@ export interface WelfareFacilityRequest {
     phone?: string;
     operatingHours?: string;
     description?: string;
+}
 
 // =====================
 // 상담 기록 관련 타입
