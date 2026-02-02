@@ -186,6 +186,28 @@ async def stream_response(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
     
+from fastapi import BackgroundTasks, Form
+
+@router.post("/s3-upload")
+@inject_callbot
+async def s3_upload_callback(
+    background_tasks: BackgroundTasks,
+    CallSid: str = Form(...),
+    RecordingUrl: str = Form(...),
+    RecordingSid: str = Form(...),
+    RecordingStatus: str = Form(...),
+    RecordingDuration: int = Form(None), # Twilio에서 보내주는 녹음 시간(초)
+    service: CallbotService = Depends(Provide[Container.callbot_service])
+):
+    """Twilio Recording Status Callback Handler"""
+    logger.info(f"📼 [S3 Upload] Callback received for Call: {CallSid}, Duration: {RecordingDuration}s, Status: {RecordingStatus}")
+    
+    if RecordingStatus == 'completed':
+        background_tasks.add_task(service.upload_recording_from_url, RecordingUrl, RecordingSid, CallSid, RecordingDuration)
+        return {"message": "Upload task started"}
+    
+    return {"message": "Recording not completed"}
+
 @router.post("/status")
 @inject_callbot
 async def call_status(
@@ -197,12 +219,13 @@ async def call_status(
         form_data = await request.form()
         call_sid = form_data.get("CallSid")
         call_status = form_data.get("CallStatus")
+        call_duration = form_data.get("CallDuration", "0") # 통화 시간(초) 추출
         
-        logger.info(f"📞 [Status] {call_sid} -> {call_status}")
+        logger.info(f"📞 [Status] {call_sid} -> {call_status} (Duration: {call_duration}s)")
         
         # 통화가 종료된 경우 정리 작업 수행
         if call_status in ["completed", "failed", "busy", "no-answer", "canceled"]:
-            await service.finalize_call(call_sid)
+            await service.finalize_call(call_sid, call_duration)
             
         return Response(status_code=200)
     except Exception as e:
