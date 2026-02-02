@@ -352,20 +352,103 @@ export interface CallRecordSummaryResponse {
     elderlyId: number;
     elderlyName: string;
     callAt: string;
-    duration: number;
-    emotion: 'GOOD' | 'NEUTRAL' | 'BAD';
-    hasReview: boolean;
+    duration: string;  // "분:초" 형식
+    state: string;
+    stateKorean: string;
+    emotionLevel: string | null;
+    emotionLevelKorean: string | null;
+    hasDangerResponse: boolean;
+    reviewed: boolean;
+    summaryPreview?: string;
+    // 프론트엔드 호환용 (deprecated)
+    emotion?: string;
+    hasReview?: boolean;
     summary?: string;
 }
 
-export interface CallRecordDetailResponse extends CallRecordSummaryResponse {
-    transcript: string;
-    emotionAnalysis: {
-        overall: string;
-        details: string;
-    };
-    aiSummary: string;
-    review?: ReviewResponse;
+// 통화 상세 정보의 어르신 정보
+export interface CallElderlyInfo {
+    id: number;
+    name: string;
+    phone: string;
+    age: number;
+    gender: string;
+}
+
+// 어르신 응답 (대화 내용)
+export interface CallResponseItem {
+    responseId: number;
+    content: string;
+    respondedAt: string;
+    danger: boolean;
+    dangerReason?: string;
+}
+
+// AI 발화 (LLM 모델 프롬프트)
+export interface CallPromptItem {
+    promptId: number;
+    content: string;
+    createdAt: string;
+}
+
+// 요약 정보
+export interface CallSummaryItem {
+    summaryId: number;
+    content: string;
+    createdAt: string;
+}
+
+// 감정 분석 정보
+export interface CallEmotionItem {
+    emotionId: number;
+    emotionLevel: string;
+    emotionLevelKorean: string;
+    createdAt: string;
+}
+
+// 상담사 리뷰 정보
+export interface CallReviewInfo {
+    reviewId: number;
+    counselorId: number;
+    counselorName: string;
+    reviewedAt: string;
+    comment: string;
+    urgent: boolean;
+}
+
+export interface CallRecordDetailResponse {
+    callId: number;
+    elderly: CallElderlyInfo;
+    callAt: string;
+    duration: string;
+    callTimeSec: number;
+    state: string;
+    stateKorean: string;
+    recordingUrl?: string;  // 녹음 파일 URL
+    responses: CallResponseItem[];
+    prompts?: CallPromptItem[];
+    summaries: CallSummaryItem[];
+    emotions: CallEmotionItem[];
+    review?: CallReviewInfo;
+}
+
+// 상담사용 통화 상세 응답 (CounselorCallDetail에서 사용)
+export interface CounselorCallRecordResponse {
+    callId: number;
+    elderlyId: number;
+    elderlyName: string;
+    callDate: string;
+    callTime: string;
+    duration: string;
+    summary?: string;
+    transcript?: string;
+    emotion: string;
+    emotionScore: number;
+    riskLevel: string;
+    isReviewed: boolean;
+    counselorNote?: string;
+    responses: CallResponseItem[];
+    prompts?: CallPromptItem[];
 }
 
 export interface ReviewResponse {
@@ -463,6 +546,7 @@ export interface WelfareFacilityRequest {
     phone?: string;
     operatingHours?: string;
     description?: string;
+}
 
 // =====================
 // 상담 기록 관련 타입

@@ -29,10 +29,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import callReviewsApi from "@/api/callReviews";
 import usersApi from "@/api/users";
-import { CounselorCallRecordResponse, MyProfileResponse } from "@/types/api";
+import { CallRecordDetailResponse, CallResponseItem, CallPromptItem } from "@/types/api";
 import { useAuth } from "@/contexts/AuthContext";
 
-const EmotionDisplay = ({ emotion, score }: { emotion: string; score: number }) => {
+const EmotionDisplay = ({ emotion, emotionKorean }: { emotion: string; emotionKorean?: string }) => {
   const config: Record<string, { icon: typeof Smile; color: string; bg: string; label: string }> = {
     POSITIVE: { icon: Smile, color: "text-success", bg: "bg-success/10", label: "좋음" },
     good: { icon: Smile, color: "text-success", bg: "bg-success/10", label: "좋음" },
@@ -42,6 +42,7 @@ const EmotionDisplay = ({ emotion, score }: { emotion: string; score: number }) 
     bad: { icon: Frown, color: "text-destructive", bg: "bg-destructive/10", label: "주의" },
   };
   const { icon: Icon, color, bg, label } = config[emotion] || config.NEUTRAL;
+  const displayLabel = emotionKorean || label;
 
   return (
     <div className={`p-6 rounded-2xl ${bg}`}>
@@ -51,8 +52,7 @@ const EmotionDisplay = ({ emotion, score }: { emotion: string; score: number }) 
         </div>
         <div>
           <p className="text-sm text-muted-foreground">감정 상태</p>
-          <p className={`text-2xl font-bold ${color}`}>{label}</p>
-          <p className="text-sm text-muted-foreground">점수: {score}/100</p>
+          <p className={`text-2xl font-bold ${color}`}>{displayLabel}</p>
         </div>
       </div>
     </div>
@@ -71,9 +71,9 @@ const CounselorCallDetail = () => {
   const navigate = useNavigate();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [callDetail, setCallDetail] = useState<CounselorCallRecordResponse | null>(null);
+  const [callDetail, setCallDetail] = useState<CallRecordDetailResponse | null>(null);
   const { user } = useAuth();
-  
+
   // 실시간 모니터링 상태
   const [isLiveMonitoring, setIsLiveMonitoring] = useState(false);
   const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([]);
@@ -88,10 +88,7 @@ const CounselorCallDetail = () => {
       try {
         setIsLoading(true);
 
-        // const profile = await usersApi.getMyProfile(); (Removed)
-        // setUserProfile(profile); (Removed)
-
-        const detail = await callReviewsApi.getCallRecordDetail(parseInt(id));
+        const detail = await callReviewsApi.getCallRecordDetail(parseInt(id)) as unknown as CallRecordDetailResponse;
         setCallDetail(detail);
       } catch (error) {
         console.error('Failed to fetch call detail:', error);
@@ -207,8 +204,48 @@ const CounselorCallDetail = () => {
     );
   }
 
-  const emotionScore = callDetail.emotionScore || 60;
-  const emotion = callDetail.emotion || 'NEUTRAL';
+  const emotionScore = callDetail.emotions?.[0] ? 60 : 60; // 감정 점수 계산 로직
+  const emotion = callDetail.emotions?.[0]?.emotionLevel || 'NEUTRAL';
+  const emotionKorean = callDetail.emotions?.[0]?.emotionLevelKorean || '보통';
+
+  // prompts와 responses를 시간순으로 정렬하여 대화 내역 구성
+  interface ConversationMessage {
+    id: number;
+    type: 'prompt' | 'response';
+    content: string;
+    timestamp: Date;
+    isDanger?: boolean;
+    dangerReason?: string;
+  }
+
+  const conversationMessages: ConversationMessage[] = [
+    ...(callDetail.prompts || []).map(p => ({
+      id: p.promptId,
+      type: 'prompt' as const,
+      content: p.content,
+      timestamp: new Date(p.createdAt)
+    })),
+    ...(callDetail.responses || []).map(r => ({
+      id: r.responseId,
+      type: 'response' as const,
+      content: r.content,
+      timestamp: new Date(r.respondedAt),
+      isDanger: r.danger,
+      dangerReason: r.dangerReason
+    }))
+  ].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+  // 요약 정보
+  const latestSummary = callDetail.summaries?.[0]?.content || null;
+
+  // 날짜/시간 포맷팅
+  const callAt = new Date(callDetail.callAt);
+  const callDate = callAt.toLocaleDateString('ko-KR');
+  const callTime = callAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+
+  // 리뷰 여부
+  const isReviewed = !!callDetail.review;
+  const riskLevel = callDetail.responses?.some(r => r.danger) ? 'HIGH' : 'LOW';
 
   return (
     <DashboardLayout
@@ -233,17 +270,17 @@ const CounselorCallDetail = () => {
                 <h1 className="text-2xl font-bold text-foreground">통화 상세 기록</h1>
                 <Badge variant="outline" className="text-sm">
                   <User className="w-3 h-3 mr-1" />
-                  {callDetail.elderlyName}
+                  {callDetail.elderly?.name}
                 </Badge>
               </div>
               <div className="flex items-center gap-4 mt-2 text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
-                  {callDetail.callDate}
+                  {callDate}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
-                  {callDetail.callTime}
+                  {callTime}
                 </span>
                 <Badge variant="secondary">{callDetail.duration}</Badge>
               </div>
@@ -278,8 +315,8 @@ const CounselorCallDetail = () => {
                   </div>
                 </div>
                 <CardDescription>
-                  {isLiveMonitoring 
-                    ? "실시간으로 통화 내용을 확인하고 있습니다" 
+                  {isLiveMonitoring
+                    ? "실시간으로 통화 내용을 확인하고 있습니다"
                     : "버튼을 클릭하여 실시간 모니터링을 시작하세요"}
                 </CardDescription>
               </CardHeader>
@@ -298,11 +335,10 @@ const CounselorCallDetail = () => {
                             className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
                           >
                             <div
-                              className={`max-w-[80%] rounded-lg p-3 ${
-                                msg.type === 'PROMPT'
-                                  ? 'bg-primary/10 text-foreground'
-                                  : 'bg-primary text-primary-foreground'
-                              }`}
+                              className={`max-w-[80%] rounded-lg p-3 ${msg.type === 'PROMPT'
+                                ? 'bg-primary/10 text-foreground'
+                                : 'bg-primary text-primary-foreground'
+                                }`}
                             >
                               <div className="text-xs opacity-70 mb-1">
                                 {msg.type === 'PROMPT' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString()}
@@ -329,7 +365,7 @@ const CounselorCallDetail = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-foreground leading-relaxed">
-                  {callDetail.summary || "요약 정보가 없습니다."}
+                  {latestSummary || "요약 정보가 없습니다."}
                 </p>
               </CardContent>
             </Card>
@@ -344,35 +380,25 @@ const CounselorCallDetail = () => {
                 <CardDescription>AI 안부 전화 녹음을 들어보세요</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="bg-secondary/50 rounded-xl p-4">
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="default"
-                      size="icon"
-                      className="w-12 h-12 rounded-full"
-                      onClick={() => setIsPlaying(!isPlaying)}
+                {callDetail.recordingUrl ? (
+                  <div className="bg-secondary/50 rounded-xl p-4">
+                    <audio
+                      controls
+                      className="w-full"
+                      src={callDetail.recordingUrl}
                     >
-                      {isPlaying ? (
-                        <Pause className="w-5 h-5" />
-                      ) : (
-                        <Play className="w-5 h-5 ml-0.5" />
-                      )}
-                    </Button>
-                    <div className="flex-1">
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full w-1/3 bg-primary rounded-full" />
-                      </div>
-                      <div className="flex justify-between mt-1 text-xs text-muted-foreground">
-                        <span>00:00</span>
-                        <span>{callDetail.duration}</span>
-                      </div>
-                    </div>
+                      Your browser does not support the audio element.
+                    </audio>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-secondary/50 rounded-xl p-4 text-center text-muted-foreground">
+                    녹음 파일이 없습니다.
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Transcript */}
+            {/* Transcript - 대화 내용 */}
             <Card className="shadow-card border-0">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -382,15 +408,40 @@ const CounselorCallDetail = () => {
                 <CardDescription>AI와 어르신의 대화 기록입니다</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {callDetail.transcript ? (
-                    <div className="p-4 bg-secondary/50 rounded-xl">
-                      <p className="text-sm whitespace-pre-wrap">{callDetail.transcript}</p>
-                    </div>
-                  ) : (
+                <div className="bg-secondary/30 rounded-xl p-4 max-h-[500px] overflow-y-auto">
+                  {conversationMessages.length === 0 ? (
                     <p className="text-muted-foreground text-center py-4">
                       대화 내용이 없습니다.
                     </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {conversationMessages.map((msg) => (
+                        <div
+                          key={`${msg.type}-${msg.id}`}
+                          className={`flex ${msg.type === 'prompt' ? 'justify-start' : 'justify-end'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg p-3 ${msg.type === 'prompt'
+                              ? 'bg-primary/10 text-foreground'
+                              : msg.isDanger
+                                ? 'bg-destructive/20 text-foreground border border-destructive/50'
+                                : 'bg-primary text-primary-foreground'
+                              }`}
+                          >
+                            <div className="text-xs opacity-70 mb-1">
+                              {msg.type === 'prompt' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </div>
+                            <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                            {msg.isDanger && msg.dangerReason && (
+                              <div className="mt-2 text-xs text-destructive flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                {msg.dangerReason}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </CardContent>
@@ -400,7 +451,7 @@ const CounselorCallDetail = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Emotion */}
-            <EmotionDisplay emotion={emotion} score={emotionScore} />
+            <EmotionDisplay emotion={emotion} emotionKorean={emotionKorean} />
 
             {/* Status Cards */}
             <Card className="shadow-card border-0">
@@ -415,9 +466,9 @@ const CounselorCallDetail = () => {
                     <span className="font-medium">건강 상태</span>
                   </div>
                   <p className="font-medium text-success">
-                    {callDetail.riskLevel === 'LOW' ? '양호' :
-                      callDetail.riskLevel === 'MEDIUM' ? '보통' :
-                        callDetail.riskLevel === 'HIGH' ? '주의' : '정보 없음'}
+                    {riskLevel === 'LOW' ? '양호' :
+                      riskLevel === 'MEDIUM' ? '보통' :
+                        riskLevel === 'HIGH' ? '주의' : '정보 없음'}
                   </p>
                 </div>
 
@@ -427,19 +478,19 @@ const CounselorCallDetail = () => {
                     <Clock className="w-4 h-4 text-info" />
                     <span className="font-medium">리뷰 상태</span>
                   </div>
-                  <p className={`font-medium ${callDetail.isReviewed ? 'text-success' : 'text-warning'}`}>
-                    {callDetail.isReviewed ? '리뷰 완료' : '리뷰 대기'}
+                  <p className={`font-medium ${isReviewed ? 'text-success' : 'text-warning'}`}>
+                    {isReviewed ? '리뷰 완료' : '리뷰 대기'}
                   </p>
                 </div>
 
                 {/* Special Notes */}
-                {callDetail.counselorNote && (
+                {callDetail.review?.comment && (
                   <div className="p-4 rounded-xl bg-info/10">
                     <div className="flex items-center gap-2 mb-2">
                       <AlertTriangle className="w-4 h-4 text-info" />
                       <span className="font-medium text-info">상담사 메모</span>
                     </div>
-                    <p className="text-sm">{callDetail.counselorNote}</p>
+                    <p className="text-sm">{callDetail.review.comment}</p>
                   </div>
                 )}
               </CardContent>
@@ -473,16 +524,16 @@ const CounselorCallDetail = () => {
                   <p className="text-sm text-muted-foreground mb-2">위험도</p>
                   <Badge
                     className={
-                      callDetail.riskLevel === 'LOW'
+                      riskLevel === 'LOW'
                         ? 'bg-success/10 text-success'
-                        : callDetail.riskLevel === 'HIGH'
+                        : riskLevel === 'HIGH'
                           ? 'bg-destructive/10 text-destructive'
                           : 'bg-warning/10 text-warning'
                     }
                   >
-                    {callDetail.riskLevel === 'LOW' ? '낮음' :
-                      callDetail.riskLevel === 'MEDIUM' ? '보통' :
-                        callDetail.riskLevel === 'HIGH' ? '높음' : '정보 없음'}
+                    {riskLevel === 'LOW' ? '낮음' :
+                      riskLevel === 'MEDIUM' ? '보통' :
+                        riskLevel === 'HIGH' ? '높음' : '정보 없음'}
                   </Badge>
                 </div>
               </CardContent>
