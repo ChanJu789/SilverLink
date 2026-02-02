@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -9,7 +9,8 @@ import {
   Meh,
   Frown,
   Phone,
-  Loader2
+  Loader2,
+  Radio
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -33,6 +34,7 @@ import { counselorNavItems } from "@/config/counselorNavItems";
 import callReviewsApi from "@/api/callReviews";
 import usersApi from "@/api/users";
 import { CallRecordSummaryResponse, MyProfileResponse } from "@/types/api";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 
 const EmotionIcon = ({ emotion }: { emotion: string }) => {
@@ -56,26 +58,30 @@ const CounselorCalls = () => {
   const [callRecords, setCallRecords] = useState<CallRecordSummaryResponse[]>([]);
   const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-
-        // 사용자 프로필 조회 (Removed)
-
-
-        // 통화 기록 조회
-        const callsResponse = await callReviewsApi.getCallRecordsForCounselor({ size: 50 });
-        setCallRecords(callsResponse.content);
-      } catch (error) {
-        console.error('Failed to fetch call records:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+  const fetchCallRecords = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setIsLoading(true);
+      const callsResponse = await callReviewsApi.getCallRecordsForCounselor({ size: 50 });
+      setCallRecords(callsResponse.content);
+    } catch (error) {
+      console.error('Failed to fetch call records:', error);
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
   }, []);
+
+  // 최초 로딩
+  useEffect(() => {
+    fetchCallRecords();
+  }, [fetchCallRecords]);
+
+  // 10초마다 자동 갱신 (통화 시작/종료 실시간 반영)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchCallRecords(false);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [fetchCallRecords]);
 
   const filteredCalls = callRecords.filter((call) => {
     const matchesSearch = call.elderlyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -235,7 +241,15 @@ const CounselorCalls = () => {
                       onClick={() => navigate(`/counselor/calls/${call.callId}`)}
                     >
                       <TableCell>
-                        <p className="font-medium">{call.elderlyName}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{call.elderlyName}</p>
+                          {call.state === 'ANSWERED' && (
+                            <Badge variant="outline" className="animate-pulse text-green-600 border-green-600 text-xs px-1.5 py-0">
+                              <Radio className="w-3 h-3 mr-1" />
+                              통화 중
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div>

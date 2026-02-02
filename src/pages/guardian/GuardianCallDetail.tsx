@@ -61,6 +61,15 @@ interface LiveMessage {
   timestamp: Date;
 }
 
+const formatTimeAMPM = (date: Date) => {
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const h = hours % 12 || 12;
+  const m = minutes.toString().padStart(2, '0');
+  return `${h}:${m} ${ampm}`;
+};
+
 const GuardianCallDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -76,43 +85,54 @@ const GuardianCallDetail = () => {
   const eventSourceRef = useRef<EventSource | null>(null);
   const liveScrollRef = useRef<HTMLDivElement>(null);
   const liveContainerRef = useRef<HTMLDivElement>(null);
+  const prevIsCallActiveRef = useRef<boolean | null>(null);
 
   // 통화 상태 확인
   const isCallActive = callDetail?.state === 'ANSWERED';
 
+  const fetchCallDetail = async (showLoading = true) => {
+    if (!id) return;
+    try {
+      if (showLoading) setIsLoading(true);
+
+      const profile = await usersApi.getMyProfile();
+      setUserProfile(profile);
+
+      const callId = parseInt(id);
+      const detail = await callReviewsApi.getCallDetailForGuardian(callId);
+      setCallDetail(detail);
+    } catch (error) {
+      console.error('Failed to fetch call detail:', error);
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      if (!id) return;
-
-      try {
-        setIsLoading(true);
-
-        // 사용자 프로필 조회
-        const profile = await usersApi.getMyProfile();
-        setUserProfile(profile);
-
-        // 통화 상세 조회
-        const callId = parseInt(id);
-        const detail = await callReviewsApi.getCallDetailForGuardian(callId);
-        setCallDetail(detail);
-      } catch (error) {
-        console.error('Failed to fetch call detail:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+    fetchCallDetail();
   }, [id]);
 
-  // 통화 진행 중일 때 자동으로 모니터링 시작
+  // 통화 진행 중일 때 자동으로 모니터링 시작 + 종료 감지
   useEffect(() => {
     if (isCallActive) {
       setIsLiveMonitoring(true);
     } else {
       setIsLiveMonitoring(false);
+      if (prevIsCallActiveRef.current === true) {
+        setTimeout(() => fetchCallDetail(false), 2000);
+      }
     }
+    prevIsCallActiveRef.current = isCallActive ?? null;
   }, [isCallActive]);
+
+  // 통화 중일 때 5초마다 상태 폴링 (종료 감지)
+  useEffect(() => {
+    if (!isCallActive || !id) return;
+    const interval = setInterval(() => {
+      fetchCallDetail(false);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isCallActive, id]);
 
   // 대화 내용 조합 (prompts + responses 시간순 정렬)
   const transcript = useMemo(() => {
@@ -200,10 +220,22 @@ const GuardianCallDetail = () => {
       setLiveMessages(prev => [...prev, newLog]);
     });
 
+    // 통화 종료 이벤트 수신 시 데이터 리페치
+    eventSource.addEventListener('callEnded', () => {
+      console.log('Call ended via SSE');
+      eventSource.close();
+      setSseConnected(false);
+      setIsLiveMonitoring(false);
+      setTimeout(() => fetchCallDetail(false), 2000);
+    });
+
     eventSource.onerror = (e) => {
       console.error('SSE Error', e);
       setSseConnected(false);
       eventSource.close();
+      // SSE 연결이 끊기면 통화가 종료된 것일 수 있으므로 모니터링 종료 + 리페치
+      setIsLiveMonitoring(false);
+      setTimeout(() => fetchCallDetail(false), 2000);
     };
 
     return () => {
@@ -242,6 +274,9 @@ const GuardianCallDetail = () => {
     );
   }
 
+  // 어르신 이름
+  const elderlyDisplayName = callDetail.elderlyName || '어르신';
+
   // 날짜 파싱
   const callDate = callDetail.callAt ? new Date(callDetail.callAt) : null;
   const formattedDate = callDate ? callDate.toLocaleDateString('ko-KR', {
@@ -270,7 +305,17 @@ const GuardianCallDetail = () => {
           </Button>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">통화 상세 기록</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-foreground">
+                  {elderlyDisplayName}님 통화 상세 기록
+                </h1>
+                {isCallActive && (
+                  <Badge variant="outline" className="animate-pulse text-green-600 border-green-600">
+                    <Radio className="w-3 h-3 mr-1" />
+                    통화 중
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center gap-4 mt-2 text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
@@ -333,16 +378,21 @@ const GuardianCallDetail = () => {
                               key={msg.id}
                               className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
                             >
-                              <div
-                                className={`max-w-[80%] rounded-lg p-3 ${msg.type === 'PROMPT'
-                                  ? 'bg-primary/10 text-foreground'
-                                  : 'bg-primary text-primary-foreground'
-                                  }`}
-                              >
-                                <div className="text-xs opacity-70 mb-1">
-                                  {msg.type === 'PROMPT' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString()}
+                              <div className="max-w-[80%]">
+                                <div
+                                  className={`rounded-lg p-3 ${msg.type === 'PROMPT'
+                                    ? 'bg-primary/10 text-foreground'
+                                    : 'bg-primary text-primary-foreground'
+                                    }`}
+                                >
+                                  <div className="text-xs opacity-70 mb-1">
+                                    {msg.type === 'PROMPT' ? 'AI 상담봇' : elderlyDisplayName}
+                                  </div>
+                                  <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                                 </div>
-                                <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                                <div className={`text-[11px] opacity-50 mt-1 ${msg.type === 'PROMPT' ? 'text-left' : 'text-right'}`}>
+                                  {formatTimeAMPM(msg.timestamp)}
+                                </div>
                               </div>
                             </div>
                           ))
@@ -397,23 +447,28 @@ const GuardianCallDetail = () => {
                   <CardDescription>AI와 어르신의 대화 기록입니다</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {transcript.length > 0 ? (
                       transcript.map((msg) => (
                         <div
                           key={msg.id}
                           className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
                         >
-                          <div
-                            className={`max-w-[80%] rounded-lg p-3 ${msg.type === 'PROMPT'
-                              ? 'bg-primary/10 text-foreground'
-                              : 'bg-primary text-primary-foreground'
-                              }`}
-                          >
-                            <div className="text-xs opacity-70 mb-1">
-                              {msg.type === 'PROMPT' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString()}
+                          <div className="max-w-[80%]">
+                            <div
+                              className={`rounded-lg p-3 ${msg.type === 'PROMPT'
+                                ? 'bg-primary/10 text-foreground'
+                                : 'bg-primary text-primary-foreground'
+                                }`}
+                            >
+                              <div className="text-xs opacity-70 mb-1">
+                                {msg.type === 'PROMPT' ? 'AI 상담봇' : elderlyDisplayName}
+                              </div>
+                              <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                             </div>
-                            <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                            <div className={`text-[11px] opacity-50 mt-1 ${msg.type === 'PROMPT' ? 'text-left' : 'text-right'}`}>
+                              {formatTimeAMPM(msg.timestamp)}
+                            </div>
                           </div>
                         </div>
                       ))
@@ -482,7 +537,7 @@ const GuardianCallDetail = () => {
                     <Heart className="w-4 h-4 text-primary" />
                     <span className="font-medium">이름</span>
                   </div>
-                  <p className="text-foreground font-medium">{callDetail.elderlyName}</p>
+                  <p className="text-foreground font-medium">{elderlyDisplayName}</p>
                 </div>
               </CardContent>
             </Card>
