@@ -35,13 +35,15 @@ import usersApi from "@/api/users";
 import { CallRecordSummaryResponse, MyProfileResponse } from "@/types/api";
 import { useAuth } from "@/contexts/AuthContext";
 
-const EmotionIcon = ({ emotion }: { emotion: string }) => {
-  switch (emotion?.toLowerCase()) {
-    case "good":
+const EmotionIcon = ({ emotion }: { emotion: string | null | undefined }) => {
+  switch (emotion?.toUpperCase()) {
+    case "POSITIVE":
+    case "GOOD":
       return <Smile className="w-5 h-5 text-success" />;
-    case "neutral":
+    case "NEUTRAL":
       return <Meh className="w-5 h-5 text-warning" />;
-    case "bad":
+    case "NEGATIVE":
+    case "BAD":
       return <Frown className="w-5 h-5 text-destructive" />;
     default:
       return <Meh className="w-5 h-5 text-muted-foreground" />;
@@ -79,18 +81,25 @@ const CounselorCalls = () => {
 
   const filteredCalls = callRecords.filter((call) => {
     const matchesSearch = call.elderlyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      call.summary?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesEmotion = emotionFilter === "all" || call.emotion?.toLowerCase() === emotionFilter;
+      call.summaryPreview?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesEmotion = emotionFilter === "all" ||
+      call.emotionLevel?.toUpperCase() === emotionFilter.toUpperCase();
     return matchesSearch && matchesEmotion;
   });
 
   // 통계 계산
   const today = new Date().toISOString().split('T')[0];
   const todayCalls = callRecords.filter(c => c.callAt?.startsWith(today)).length;
+  // duration이 문자열 형식 ("X분 Y초")이므로 분 단위 숫자 추출
   const avgDuration = callRecords.length > 0
-    ? Math.round(callRecords.reduce((sum, c) => sum + (c.duration || 0), 0) / callRecords.length)
+    ? Math.round(callRecords.reduce((sum, c) => {
+      const match = c.duration?.match(/(\d+)분/);
+      return sum + (match ? parseInt(match[1]) : 0);
+    }, 0) / callRecords.length)
     : 0;
-  const badEmotionCount = callRecords.filter(c => c.emotion?.toLowerCase() === 'bad').length;
+  const badEmotionCount = callRecords.filter(c =>
+    c.emotionLevel?.toUpperCase() === 'NEGATIVE' || c.hasDangerResponse
+  ).length;
 
   if (isLoading) {
     return (
@@ -193,9 +202,9 @@ const CounselorCalls = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">전체 감정</SelectItem>
-                    <SelectItem value="good">좋음</SelectItem>
-                    <SelectItem value="neutral">보통</SelectItem>
-                    <SelectItem value="bad">주의</SelectItem>
+                    <SelectItem value="POSITIVE">좋음</SelectItem>
+                    <SelectItem value="NEUTRAL">보통</SelectItem>
+                    <SelectItem value="NEGATIVE">주의</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -245,21 +254,23 @@ const CounselorCalls = () => {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>{call.duration}분</TableCell>
+                      <TableCell>{call.duration}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <EmotionIcon emotion={call.emotion || 'neutral'} />
+                          <EmotionIcon emotion={call.emotionLevel || 'NEUTRAL'} />
                           <span className="text-sm">
-                            {call.emotion?.toLowerCase() === "good" ? "좋음" :
-                              call.emotion?.toLowerCase() === "neutral" ? "보통" : "주의"}
+                            {call.emotionLevelKorean || (
+                              call.emotionLevel?.toUpperCase() === "POSITIVE" ? "좋음" :
+                                call.emotionLevel?.toUpperCase() === "NEUTRAL" ? "보통" : "주의"
+                            )}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="max-w-[300px]">
-                        <p className="truncate text-sm text-muted-foreground">{call.summary}</p>
+                        <p className="truncate text-sm text-muted-foreground">{call.summaryPreview}</p>
                       </TableCell>
                       <TableCell>
-                        {call.hasReview ? (
+                        {call.reviewed ? (
                           <span className="text-xs text-success">완료</span>
                         ) : (
                           <span className="text-xs text-warning">미작성</span>
