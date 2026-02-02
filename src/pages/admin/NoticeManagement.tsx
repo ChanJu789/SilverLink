@@ -55,6 +55,11 @@ interface Notice {
 
 const NoticeManagement = () => {
   const { user } = useAuth();
+  
+  // 디버깅용 로그
+  console.log("=== NoticeManagement 렌더링 ===");
+  console.log("user:", user);
+  
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -922,7 +927,7 @@ const NoticeManagement = () => {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-                  <Edit className="w-5 h-5 text-yellow-600" />
+                  <Pencil className="w-5 h-5 text-yellow-600" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">비공개</p>
@@ -1114,52 +1119,10 @@ const NoticeManagement = () => {
                           </div>
                         </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredNotices.map((notice) => (
-                        <TableRow key={notice.id}>
-                          <TableCell>
-                            {notice.isPinned && <Pin className="w-4 h-4 text-warning" />}
-                          </TableCell>
-                          <TableCell>
-                            <button
-                              onClick={() => handleView(notice)}
-                              className="font-medium line-clamp-1 text-left hover:text-primary hover:underline transition-colors"
-                            >
-                              {notice.title}
-                            </button>
-                          </TableCell>
-                          <TableCell>{getCategoryBadge(notice.category)}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{notice.targetRoles[0] || "전체"}</Badge>
-                          </TableCell>
-                          <TableCell>{notice.createdAt}</TableCell>
-                          <TableCell>
-                            {notice.isPublished ? (
-                              <Badge className="bg-success/10 text-success border-0">게시중</Badge>
-                            ) : (
-                              <Badge className="bg-muted text-muted-foreground border-0">비공개</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => handleView(notice)}>
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleEdit(notice)}>
-                                <Pencil className="w-4 h-4 text-blue-500" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleDelete(notice)}>
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
