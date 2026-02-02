@@ -29,6 +29,7 @@ import usersApi from "@/api/users";
 import noticesApi from "@/api/notices";
 import { GuardianElderlyResponse, GuardianCallReviewResponse, MyProfileResponse, NoticeResponse } from "@/types/api";
 import UnreadNoticeAlert from "@/components/notice/UnreadNoticeAlert";
+import { NoticePopup } from "@/components/notice/NoticePopup";
 
 // EmotionIcon 컴포넌트
 
@@ -103,7 +104,6 @@ const GuardianDashboard = () => {
     // 페이지가 다시 포커스될 때 공지사항 다시 확인
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log("페이지가 다시 활성화됨 - 공지사항 재확인");
         fetchUnreadNotices();
       }
     };
@@ -199,11 +199,13 @@ const GuardianDashboard = () => {
   };
 
   return (
-    <DashboardLayout
-      role="guardian"
-      userName={userProfile?.name || "보호자"}
-      navItems={guardianNavItems}
-    >
+    <>
+      <NoticePopup userRole="GUARDIAN" />
+      <DashboardLayout
+        role="guardian"
+        userName={userProfile?.name || "보호자"}
+        navItems={guardianNavItems}
+      >
       <div className="space-y-6">
         {/* Page Header */}
         <div>
@@ -388,6 +390,7 @@ const GuardianDashboard = () => {
         />
       )}
     </DashboardLayout>
+    </>
   );
 };
 

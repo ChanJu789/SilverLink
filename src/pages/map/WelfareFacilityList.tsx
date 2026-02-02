@@ -450,10 +450,20 @@ export default function WelfareFacilityList() {
         </div>
     );
 
+    // 어르신은 DashboardLayout 없이 전체 화면으로 표시
+    if (user?.role === 'ELDERLY') {
+        return (
+            <div className="min-h-screen bg-background">
+                {content}
+            </div>
+        );
+    }
+
+    // 다른 역할은 DashboardLayout 사용
     if (user) {
         return (
             <DashboardLayout
-                role={user.role.toLowerCase() as "admin" | "guardian" | "counselor" | "elderly"}
+                role={user.role.toLowerCase() as "admin" | "guardian" | "counselor"}
                 userName={user.name}
                 navItems={getNavItems()}
             >
@@ -462,5 +472,10 @@ export default function WelfareFacilityList() {
         );
     }
 
-    return content;
+    // 로그인하지 않은 경우
+    return (
+        <div className="min-h-screen bg-background">
+            {content}
+        </div>
+    );
 }

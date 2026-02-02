@@ -40,26 +40,7 @@ const GuardianNotices = () => {
         setUserProfile(profile);
 
         // 공지사항 목록 조회
-        console.log("=== 보호자 공지사항 조회 시작 ===");
         const noticesResponse = await noticesApi.getNotices({ size: 50 });
-        console.log("공지사항 응답:", noticesResponse);
-        console.log("공지사항 개수:", noticesResponse.content?.length || 0);
-        console.log("공지사항 목록:", noticesResponse.content);
-        
-        // 각 공지사항의 상세 정보 로그
-        noticesResponse.content.forEach((notice, index) => {
-          console.log(`공지사항 ${index + 1}:`, {
-            id: notice.id,
-            title: notice.title,
-            content: notice.content,
-            category: notice.category,
-            targetMode: notice.targetMode,
-            targetRoles: notice.targetRoles,
-            isPriority: notice.isPriority,
-            isRead: notice.isRead,
-            createdAt: notice.createdAt
-          });
-        });
         
         setNotices(noticesResponse.content);
       } catch (error) {
@@ -94,24 +75,10 @@ const GuardianNotices = () => {
     const matchesSearch = notice.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       notice.content?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    console.log("필터링 체크:", {
-      noticeId: notice.id,
-      title: notice.title,
-      content: notice.content?.substring(0, 50),
-      searchTerm,
-      matchesSearch
-    });
-    
     return matchesSearch;
   });
 
-  console.log("=== 필터링 결과 ===");
-  console.log("전체 공지사항 수:", notices.length);
-  console.log("필터링된 공지사항 수:", filteredNotices.length);
-  console.log("검색어:", searchTerm);
-
   const getCategoryBadge = (category: string) => {
-    console.log("getCategoryBadge 호출, category:", category, "타입:", typeof category);
     
     // 백엔드 enum을 한글로 변환
     const categoryNameMap: Record<string, string> = {
@@ -140,7 +107,6 @@ const GuardianNotices = () => {
     };
     
     const style = styles[category] || styles[displayName] || "bg-muted text-muted-foreground";
-    console.log("적용할 스타일:", style, "표시명:", displayName);
     return { style, displayName };
   };
 
