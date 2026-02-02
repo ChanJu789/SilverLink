@@ -363,13 +363,46 @@ export interface CallRecordSummaryResponse {
 }
 
 export interface CallRecordDetailResponse extends CallRecordSummaryResponse {
-    transcript: string;
-    emotionAnalysis: {
-        overall: string;
-        details: string;
+    elderly: {
+        id: number;
+        name: string;
+        phone: string;
+        age: number;
+        gender: string;
     };
-    aiSummary: string;
-    review?: ReviewResponse;
+    recordingUrl?: string;
+    callTimeSec?: number;
+    prompts: Array<{
+        promptId: number;
+        content: string;
+        createdAt: string;
+    }>;
+    responses: Array<{
+        responseId: number;
+        content: string;
+        respondedAt: string;
+        danger: boolean;
+        dangerReason?: string;
+    }>;
+    summaries: Array<{
+        summaryId: number;
+        content: string;
+        createdAt: string;
+    }>;
+    emotions: Array<{
+        emotionId: number;
+        emotionLevel: string;
+        emotionLevelKorean: string;
+        createdAt: string;
+    }>;
+    review?: {
+        reviewId: number;
+        counselorId: number;
+        counselorName: string;
+        reviewedAt: string;
+        comment: string;
+        urgent: boolean;
+    };
 }
 
 export interface ReviewResponse {
@@ -392,6 +425,8 @@ export interface GuardianCallReviewResponse {
     elderlyName: string;
     callAt: string;
     duration: string;  // "분:초" 형식
+    state: string;
+    stateKorean: string;
     summary: string;
     emotionLevel: string | null;
     emotionLevelKorean: string | null;
@@ -400,6 +435,18 @@ export interface GuardianCallReviewResponse {
     counselorComment: string | null;
     urgent: boolean;
     reviewedAt: string | null;
+    prompts: Array<{
+        promptId: number;
+        content: string;
+        createdAt: string;
+    }>;
+    responses: Array<{
+        responseId: number;
+        content: string;
+        respondedAt: string;
+        danger: boolean;
+        dangerReason?: string;
+    }>;
 }
 
 export interface UnreviewedCountResponse {

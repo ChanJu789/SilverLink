@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ArrowLeft,
   Calendar,
@@ -75,6 +75,10 @@ const GuardianCallDetail = () => {
   const [sseConnected, setSseConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const liveScrollRef = useRef<HTMLDivElement>(null);
+  const liveContainerRef = useRef<HTMLDivElement>(null);
+
+  // 통화 상태 확인
+  const isCallActive = callDetail?.state === 'ANSWERED';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -101,6 +105,40 @@ const GuardianCallDetail = () => {
     fetchData();
   }, [id]);
 
+  // 통화 진행 중일 때 자동으로 모니터링 시작
+  useEffect(() => {
+    if (isCallActive) {
+      setIsLiveMonitoring(true);
+    } else {
+      setIsLiveMonitoring(false);
+    }
+  }, [isCallActive]);
+
+  // 대화 내용 조합 (prompts + responses 시간순 정렬)
+  const transcript = useMemo(() => {
+    if (!callDetail) return [];
+    if (!callDetail.prompts?.length && !callDetail.responses?.length) {
+      return [];
+    }
+    const allMessages = [
+      ...(callDetail.prompts || []).map(p => ({
+        id: p.promptId,
+        type: 'PROMPT' as const,
+        content: p.content,
+        timestamp: new Date(p.createdAt)
+      })),
+      ...(callDetail.responses || []).map(r => ({
+        id: r.responseId,
+        type: 'REPLY' as const,
+        content: r.content,
+        timestamp: new Date(r.respondedAt),
+        danger: r.danger,
+        dangerReason: r.dangerReason
+      }))
+    ];
+    return allMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  }, [callDetail]);
+
   // 실시간 모니터링 시작/종료
   useEffect(() => {
     if (!id || !isLiveMonitoring) {
@@ -112,21 +150,22 @@ const GuardianCallDetail = () => {
       return;
     }
 
-    // 기존 로그 가져오기
-    fetch(`/api/internal/callbot/calls/${id}/logs`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          const historyLogs: LiveMessage[] = data.data.map((item: any) => ({
-            id: item.id,
-            type: item.type,
-            content: item.content,
-            timestamp: new Date(item.timestamp)
-          }));
-          setLiveMessages(historyLogs);
-        }
-      })
-      .catch(err => console.error("Failed to fetch logs", err));
+    // 기존 대화 내용(prompts + responses)을 모니터링 초기 메시지로 설정
+    const initialMessages: LiveMessage[] = [
+      ...(callDetail?.prompts || []).map(p => ({
+        id: p.promptId,
+        type: 'PROMPT' as const,
+        content: p.content,
+        timestamp: new Date(p.createdAt)
+      })),
+      ...(callDetail?.responses || []).map(r => ({
+        id: r.responseId,
+        type: 'REPLY' as const,
+        content: r.content,
+        timestamp: new Date(r.respondedAt)
+      }))
+    ].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    setLiveMessages(initialMessages);
 
     // SSE 연결
     const eventSource = new EventSource(`/api/internal/callbot/calls/${id}/sse`);
@@ -173,12 +212,12 @@ const GuardianCallDetail = () => {
     };
   }, [id, isLiveMonitoring]);
 
-  // 실시간 메시지 자동 스크롤
+  // 모니터링 카드 내부에서만 자동 스크롤 (페이지 스크롤에 영향 없음)
   useEffect(() => {
-    if (liveScrollRef.current && isLiveMonitoring) {
-      liveScrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (liveContainerRef.current && isLiveMonitoring && isCallActive) {
+      liveContainerRef.current.scrollTop = liveContainerRef.current.scrollHeight;
     }
-  }, [liveMessages, isLiveMonitoring]);
+  }, [liveMessages, isLiveMonitoring, isCallActive]);
 
   if (isLoading) {
     return (
@@ -250,69 +289,70 @@ const GuardianCallDetail = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* 실시간 모니터링 카드 */}
-            <Card className="shadow-card border-0">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Radio className="w-5 h-5 text-primary" />
-                    실시간 통화 모니터링
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    {sseConnected && (
-                      <Badge variant="outline" className="animate-pulse text-green-600 border-green-600">
-                        ● Live
-                      </Badge>
-                    )}
-                    <Button
-                      variant={isLiveMonitoring ? "destructive" : "default"}
-                      size="sm"
-                      onClick={() => setIsLiveMonitoring(!isLiveMonitoring)}
-                    >
-                      {isLiveMonitoring ? "모니터링 중지" : "모니터링 시작"}
-                    </Button>
-                  </div>
-                </div>
-                <CardDescription>
-                  {isLiveMonitoring
-                    ? "실시간으로 통화 내용을 확인하고 있습니다"
-                    : "버튼을 클릭하여 실시간 모니터링을 시작하세요"}
-                </CardDescription>
-              </CardHeader>
-              {isLiveMonitoring && (
-                <CardContent>
-                  <div className="bg-secondary/30 rounded-xl p-4 h-[300px] overflow-y-auto">
-                    <div className="space-y-3">
-                      {liveMessages.length === 0 ? (
-                        <div className="flex h-full items-center justify-center text-muted-foreground">
-                          대화 내용을 기다리고 있습니다...
-                        </div>
-                      ) : (
-                        liveMessages.map((msg) => (
-                          <div
-                            key={msg.id}
-                            className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
-                          >
-                            <div
-                              className={`max-w-[80%] rounded-lg p-3 ${msg.type === 'PROMPT'
-                                ? 'bg-primary/10 text-foreground'
-                                : 'bg-primary text-primary-foreground'
-                                }`}
-                            >
-                              <div className="text-xs opacity-70 mb-1">
-                                {msg.type === 'PROMPT' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString()}
-                              </div>
-                              <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
-                            </div>
-                          </div>
-                        ))
+            {/* 실시간 모니터링 카드 - 통화 진행 중일 때만 표시 */}
+            {isCallActive && (
+              <Card className="shadow-card border-0">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Radio className="w-5 h-5 text-primary" />
+                      실시간 통화 모니터링
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      {sseConnected && (
+                        <Badge variant="outline" className="animate-pulse text-green-600 border-green-600">
+                          ● Live
+                        </Badge>
                       )}
-                      <div ref={liveScrollRef} />
+                      <Button
+                        variant={isLiveMonitoring ? "destructive" : "default"}
+                        size="sm"
+                        onClick={() => setIsLiveMonitoring(!isLiveMonitoring)}
+                      >
+                        {isLiveMonitoring ? "모니터링 중지" : "모니터링 시작"}
+                      </Button>
                     </div>
                   </div>
-                </CardContent>
-              )}
-            </Card>
+                  <CardDescription>
+                    {isLiveMonitoring
+                      ? "실시간으로 통화 내용을 확인하고 있습니다"
+                      : "버튼을 클릭하여 실시간 모니터링을 시작하세요"}
+                  </CardDescription>
+                </CardHeader>
+                {isLiveMonitoring && (
+                  <CardContent>
+                    <div ref={liveContainerRef} className="bg-secondary/30 rounded-xl p-4 h-[300px] overflow-y-auto">
+                      <div className="space-y-3">
+                        {liveMessages.length === 0 ? (
+                          <div className="flex h-full items-center justify-center text-muted-foreground">
+                            대화 내용을 기다리고 있습니다...
+                          </div>
+                        ) : (
+                          liveMessages.map((msg) => (
+                            <div
+                              key={msg.id}
+                              className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
+                            >
+                              <div
+                                className={`max-w-[80%] rounded-lg p-3 ${msg.type === 'PROMPT'
+                                  ? 'bg-primary/10 text-foreground'
+                                  : 'bg-primary text-primary-foreground'
+                                  }`}
+                              >
+                                <div className="text-xs opacity-70 mb-1">
+                                  {msg.type === 'PROMPT' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString()}
+                                </div>
+                                <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            )}
 
             {/* Summary Card */}
             <Card className="shadow-card border-0">
@@ -342,6 +382,47 @@ const GuardianCallDetail = () => {
                   <p className="text-foreground leading-relaxed">
                     {callDetail.counselorComment}
                   </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Transcript - 완료된 통화 시 표시 */}
+            {!isCallActive && (
+              <Card className="shadow-card border-0">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    대화 내용
+                  </CardTitle>
+                  <CardDescription>AI와 어르신의 대화 기록입니다</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {transcript.length > 0 ? (
+                      transcript.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg p-3 ${msg.type === 'PROMPT'
+                              ? 'bg-primary/10 text-foreground'
+                              : 'bg-primary text-primary-foreground'
+                              }`}
+                          >
+                            <div className="text-xs opacity-70 mb-1">
+                              {msg.type === 'PROMPT' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString()}
+                            </div>
+                            <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">
+                        대화 내용이 없습니다.
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -388,7 +469,7 @@ const GuardianCallDetail = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Emotion */}
-            <EmotionDisplay emotion={callDetail.emotion || 'neutral'} />
+            <EmotionDisplay emotion={callDetail.emotionLevel?.toLowerCase() || 'neutral'} />
 
             {/* Elderly Info */}
             <Card className="shadow-card border-0">
