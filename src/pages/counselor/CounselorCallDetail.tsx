@@ -110,7 +110,7 @@ const CounselorCallDetail = () => {
     fetchCallDetail();
   }, [id]);
 
-  // 통화 진행 중일 때 자동으로 모니터링 시작 + 종료 감지
+  // 통화 진행 중일 때 자동으로 모니터링 UI 시작 + 종료 감지
   useEffect(() => {
     if (isCallActive) {
       setIsLiveMonitoring(true);
@@ -133,10 +133,9 @@ const CounselorCallDetail = () => {
     return () => clearInterval(interval);
   }, [isCallActive, id]);
 
-  // 실시간 모니터링 시작/종료
+  // SSE 연결은 isCallActive에 연동 (모니터링 중지해도 SSE는 유지)
   useEffect(() => {
-    if (!id || !isLiveMonitoring) {
-      // 연결 종료
+    if (!id || !isCallActive) {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -162,7 +161,7 @@ const CounselorCallDetail = () => {
     ].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     setLiveMessages(initialMessages);
 
-    // 2. SSE 연결
+    // SSE 연결
     const eventSource = new EventSource(`/api/internal/callbot/calls/${id}/sse`);
     eventSourceRef.current = eventSource;
 
@@ -195,12 +194,10 @@ const CounselorCallDetail = () => {
       setLiveMessages(prev => [...prev, newLog]);
     });
 
-    // 통화 종료 이벤트 수신 시 데이터 리페치
     eventSource.addEventListener('callEnded', () => {
       console.log('Call ended via SSE');
       eventSource.close();
       setSseConnected(false);
-      setIsLiveMonitoring(false);
       setTimeout(() => fetchCallDetail(false), 2000);
     });
 
@@ -208,8 +205,6 @@ const CounselorCallDetail = () => {
       console.error('SSE Error', e);
       setSseConnected(false);
       eventSource.close();
-      // SSE 연결이 끊기면 통화가 종료된 것일 수 있으므로 모니터링 종료 + 리페치
-      setIsLiveMonitoring(false);
       setTimeout(() => fetchCallDetail(false), 2000);
     };
 
@@ -217,7 +212,7 @@ const CounselorCallDetail = () => {
       eventSource.close();
       setSseConnected(false);
     };
-  }, [id, isLiveMonitoring]);
+  }, [id, isCallActive]);
 
   // 모니터링 카드 내부에서만 자동 스크롤 (페이지 스크롤에 영향 없음)
   useEffect(() => {
@@ -467,7 +462,8 @@ const CounselorCallDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Transcript */}
+            {/* Transcript - 통화 종료 후에만 표시 */}
+            {!isCallActive && (
             <Card className="shadow-card border-0">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -510,6 +506,7 @@ const CounselorCallDetail = () => {
                 </div>
               </CardContent>
             </Card>
+            )}
           </div>
 
           {/* Sidebar */}

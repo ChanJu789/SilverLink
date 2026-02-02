@@ -159,9 +159,9 @@ const GuardianCallDetail = () => {
     return allMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [callDetail]);
 
-  // 실시간 모니터링 시작/종료
+  // SSE 연결은 isCallActive에 연동 (모니터링 중지해도 SSE는 유지)
   useEffect(() => {
-    if (!id || !isLiveMonitoring) {
+    if (!id || !isCallActive) {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -220,12 +220,10 @@ const GuardianCallDetail = () => {
       setLiveMessages(prev => [...prev, newLog]);
     });
 
-    // 통화 종료 이벤트 수신 시 데이터 리페치
     eventSource.addEventListener('callEnded', () => {
       console.log('Call ended via SSE');
       eventSource.close();
       setSseConnected(false);
-      setIsLiveMonitoring(false);
       setTimeout(() => fetchCallDetail(false), 2000);
     });
 
@@ -233,8 +231,6 @@ const GuardianCallDetail = () => {
       console.error('SSE Error', e);
       setSseConnected(false);
       eventSource.close();
-      // SSE 연결이 끊기면 통화가 종료된 것일 수 있으므로 모니터링 종료 + 리페치
-      setIsLiveMonitoring(false);
       setTimeout(() => fetchCallDetail(false), 2000);
     };
 
@@ -242,7 +238,7 @@ const GuardianCallDetail = () => {
       eventSource.close();
       setSseConnected(false);
     };
-  }, [id, isLiveMonitoring]);
+  }, [id, isCallActive]);
 
   // 모니터링 카드 내부에서만 자동 스크롤 (페이지 스크롤에 영향 없음)
   useEffect(() => {
