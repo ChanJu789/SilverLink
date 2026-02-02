@@ -41,7 +41,7 @@ const GuardianNotices = () => {
 
         // 공지사항 목록 조회
         const noticesResponse = await noticesApi.getNotices({ size: 50 });
-        
+
         setNotices(noticesResponse.content);
       } catch (error) {
         console.error('Failed to fetch notices:', error);
@@ -74,12 +74,12 @@ const GuardianNotices = () => {
   const filteredNotices = notices.filter((notice) => {
     const matchesSearch = notice.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       notice.content?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     return matchesSearch;
   });
 
   const getCategoryBadge = (category: string) => {
-    
+
     // 백엔드 enum을 한글로 변환
     const categoryNameMap: Record<string, string> = {
       "NOTICE": "공지",
@@ -87,9 +87,9 @@ const GuardianNotices = () => {
       "SYSTEM": "시스템",
       "NEWS": "소식",
     };
-    
+
     const displayName = categoryNameMap[category] || category;
-    
+
     const styles: Record<string, string> = {
       "NOTICE": "bg-primary/10 text-primary border-0",
       "EVENT": "bg-success/10 text-success border-0",
@@ -105,7 +105,7 @@ const GuardianNotices = () => {
       "시스템": "bg-info/10 text-info border-0",
       "소식": "bg-accent/10 text-accent border-0",
     };
-    
+
     const style = styles[category] || styles[displayName] || "bg-muted text-muted-foreground";
     return { style, displayName };
   };
@@ -222,13 +222,12 @@ const GuardianNotices = () => {
               filteredNotices.map((notice) => (
                 <div
                   key={notice.id}
-                  className={`p-4 rounded-xl transition-colors cursor-pointer ${
-                    notice.isPriority 
-                      ? 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100' 
-                      : notice.isRead 
-                        ? 'bg-secondary/30 hover:bg-secondary/50' 
+                  className={`p-4 rounded-xl transition-colors cursor-pointer ${notice.isPriority
+                      ? 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100'
+                      : notice.isRead
+                        ? 'bg-secondary/30 hover:bg-secondary/50'
                         : 'bg-primary/5 hover:bg-primary/10'
-                  }`}
+                    }`}
                   onClick={() => handleNoticeClick(notice)}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -244,9 +243,8 @@ const GuardianNotices = () => {
                           {getCategoryBadge(notice.category).displayName}
                         </Badge>
                       </div>
-                      <h3 className={`font-medium text-foreground ${
-                        notice.isPriority ? "text-red-800 font-semibold" : ""
-                      }`}>
+                      <h3 className={`font-medium text-foreground ${notice.isPriority ? "text-red-800 font-semibold" : ""
+                        }`}>
                         {notice.isPriority && "📌 "}
                         {notice.title}
                       </h3>
@@ -284,7 +282,7 @@ const GuardianNotices = () => {
           <div className="mt-4 whitespace-pre-wrap text-foreground">
             {selectedNotice?.content}
           </div>
-          
+
           {/* 첨부파일 섹션 */}
           {selectedNotice?.attachments && selectedNotice.attachments.length > 0 && (
             <div className="mt-6 border-t pt-4">
@@ -301,16 +299,17 @@ const GuardianNotices = () => {
                     onClick={async () => {
                       try {
                         // fetch로 파일 다운로드 (원본 파일명 유지)
-                        const downloadUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/files/download?filePath=${encodeURIComponent(file.filePath)}&originalFileName=${encodeURIComponent(file.originalFileName)}`;
-                        
+                        const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+                        const downloadUrl = `${baseUrl}/api/files/download?filePath=${encodeURIComponent(file.filePath)}&originalFileName=${encodeURIComponent(file.originalFileName)}`;
+
                         const response = await fetch(downloadUrl);
                         if (!response.ok) {
                           throw new Error('파일 다운로드 실패');
                         }
-                        
+
                         // Blob으로 변환
                         const blob = await response.blob();
-                        
+
                         // Blob URL 생성 및 다운로드
                         const blobUrl = window.URL.createObjectURL(blob);
                         const link = document.createElement('a');
@@ -319,7 +318,7 @@ const GuardianNotices = () => {
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
-                        
+
                         // Blob URL 해제
                         window.URL.revokeObjectURL(blobUrl);
                       } catch (error) {
