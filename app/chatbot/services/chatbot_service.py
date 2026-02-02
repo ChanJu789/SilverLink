@@ -2,6 +2,7 @@ import asyncio
 import logging
 import time
 import pymysql
+import numpy as np
 from datetime import datetime
 from langgraph.graph import StateGraph, MessagesState
 from langgraph.checkpoint.memory import MemorySaver
@@ -32,6 +33,14 @@ class ChatbotService(BaseService):
         self.memory = MemorySaver()
         self.app = self._build_workflow()
         super().__init__(chatbot_repository)
+
+    def _calculate_cosine_similarity(self, vec1: list[float], vec2: list[float]) -> float:
+        """두 벡터 간 코사인 유사도 계산"""
+        v1, v2 = np.array(vec1), np.array(vec2)
+        norm1, norm2 = np.linalg.norm(v1), np.linalg.norm(v2)
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        return float(np.dot(v1, v2) / (norm1 * norm2))
 
     def _build_workflow(self):
         workflow = StateGraph(state_schema=ChatbotState)
@@ -165,6 +174,19 @@ class ChatbotService(BaseService):
         llm_time = time.time() - llm_start
         logger.info(f"⏱️ [4/4] LLM 응답 생성: {llm_time:.2f}초")
         
+        # 5. 평가 지표 계산
+        eval_start = time.time()
+        
+        # 검색 최고 점수 추출
+        retrieval_score = all_results[0]["score"] if all_results else 0.0
+        
+        # 답변 임베딩 생성 및 Q-A 유사도 계산
+        answer_embedding = self.embedding_service.create_embedding(last_message.content)
+        qa_similarity_score = self._calculate_cosine_similarity(embedding, answer_embedding)
+        
+        eval_time = time.time() - eval_start
+        logger.info(f"⏱️ [5/5] 평가 지표 계산: {eval_time:.2f}초 (검색점수:{retrieval_score:.4f}, Q-A유사도:{qa_similarity_score:.4f})")
+        
         # 총 소요 시간
         total_time = time.time() - total_start
         logger.info(f"✅ 총 소요 시간: {total_time:.2f}초 (임베딩:{embed_time:.2f}s + 검색:{search_time:.2f}s + 병합:{merge_time:.2f}s + LLM:{llm_time:.2f}s)")
@@ -182,7 +204,10 @@ class ChatbotService(BaseService):
                 search_time_ms=int(search_time * 1000),
                 llm_time_ms=int(llm_time * 1000),
                 response_time_ms=int(total_time * 1000),
-                model_name=configs.OPENAI_MODEL
+                model_name=configs.OPENAI_MODEL,
+                retrieval_score=retrieval_score,
+                qa_similarity_score=qa_similarity_score,
+                retrieved_context=context
             )
             logger.info("💾 대화 로그가 RDS에 저장되었습니다.")
         except Exception as e:
@@ -206,7 +231,10 @@ class ChatbotService(BaseService):
         search_time_ms: int = None,
         llm_time_ms: int = None,
         response_time_ms: int = None,
-        model_name: str = None
+        model_name: str = None,
+        retrieval_score: float = None,
+        qa_similarity_score: float = None,
+        retrieved_context: str = None
     ):
         """대화 로그를 RDS chatbot_logs 테이블에 저장"""
         connection = None
@@ -225,8 +253,9 @@ class ChatbotService(BaseService):
                     INSERT INTO chatbot_logs 
                     (guardian_user_id, elderly_user_id, session_id, user_message_text, bot_response_text,
                      source_type, embedding_time_ms, search_time_ms, llm_time_ms, 
-                     response_time_ms, model_name, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     response_time_ms, model_name, retrieval_score, qa_similarity_score,
+                     retrieved_context, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(sql, (
                     guardian_id,
@@ -240,6 +269,9 @@ class ChatbotService(BaseService):
                     llm_time_ms,
                     response_time_ms,
                     model_name,
+                    retrieval_score,
+                    qa_similarity_score,
+                    retrieved_context,
                     datetime.now()
                 ))
                 connection.commit()
