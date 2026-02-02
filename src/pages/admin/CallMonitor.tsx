@@ -19,11 +19,17 @@ const CallMonitor = () => {
     useEffect(() => {
         if (!callId) return;
 
+        console.log(`🔌 [SSE] 연결 시도: callId=${callId}`);
+
         // 1. Fetch History
         fetch(`/api/internal/callbot/calls/${callId}/logs`)
-            .then(res => res.json())
+            .then(res => {
+                console.log(`📜 [SSE] 히스토리 로드 응답: status=${res.status}`);
+                return res.json();
+            })
             .then(data => {
                 if (data.success) {
+                    console.log(`✅ [SSE] 히스토리 로드 성공: ${data.data.length}개 메시지`);
                     const historyLogs: LogMessage[] = data.data.map((item: any) => ({
                         id: item.id, // Note: ID collision possible between PROMPT/REPLY if DB IDs overlap, better to postfix
                         type: item.type,
@@ -31,18 +37,27 @@ const CallMonitor = () => {
                         timestamp: new Date(item.timestamp)
                     }));
                     setLogs(historyLogs);
+                } else {
+                    console.warn(`⚠️ [SSE] 히스토리 로드 실패:`, data);
                 }
             })
-            .catch(err => console.error("Failed to fetch logs", err));
+            .catch(err => {
+                console.error("❌ [SSE] 히스토리 로드 에러:", err);
+            });
 
         // 2. Connect SSE
         const eventSource = new EventSource(`/api/internal/callbot/calls/${callId}/sse`);
 
         eventSource.onopen = () => {
-            console.log('SSE Connected');
+            console.log(`✅ [SSE] 연결 성공: callId=${callId}, readyState=${eventSource.readyState}`);
         };
 
+        eventSource.addEventListener('connect', () => {
+            console.log(`🤝 [SSE] 서버 연결 확인됨: callId=${callId}`);
+        });
+
         eventSource.addEventListener('prompt', (e: MessageEvent) => {
+            console.log(`📤 [SSE] AI 발화 수신: callId=${callId}, data=${e.data.substring(0, 50)}...`);
             const newLog: LogMessage = {
                 id: Date.now(),
                 type: 'PROMPT',
@@ -53,6 +68,7 @@ const CallMonitor = () => {
         });
 
         eventSource.addEventListener('reply', (e: MessageEvent) => {
+            console.log(`📥 [SSE] 어르신 응답 수신: callId=${callId}, data=${e.data.substring(0, 50)}...`);
             const newLog: LogMessage = {
                 id: Date.now(),
                 type: 'REPLY',
@@ -63,11 +79,13 @@ const CallMonitor = () => {
         });
 
         eventSource.onerror = (e) => {
-            console.error('SSE Error', e);
+            console.error(`❌ [SSE] 에러 발생: callId=${callId}, readyState=${eventSource.readyState}`, e);
             eventSource.close();
+            console.log(`🔌 [SSE] 연결 종료됨: callId=${callId}`);
         };
 
         return () => {
+            console.log(`🔌 [SSE] 컴포넌트 언마운트로 연결 종료: callId=${callId}`);
             eventSource.close();
         };
     }, [callId]);

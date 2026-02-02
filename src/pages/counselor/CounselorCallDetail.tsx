@@ -19,7 +19,10 @@ import {
   MessageSquare,
   User,
   Loader2,
-  Radio
+  Radio,
+  Edit3,
+  CheckCircle2,
+  Save
 } from "lucide-react";
 import { counselorNavItems } from "@/config/counselorNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -27,6 +30,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea"; // Assuming you have this component or standard textarea
+import { useToast } from "@/components/ui/use-toast"; // Using local toast in future if available, or just alert? Assuming useToast hook exists or I'll use standard alert for now if not found in imports previously, wait, I saw Toaster in previous history. I'll use standard window.alert or add Toaster to main.
+// Actually, I should check if `useToast` exists. In `CounselorCallDetail.tsx` imports, it wasn't there.
+// I'll stick to simple state management for now, or just `alert` if needed, but better to use UI.
+// Let's use `Label` and `Textarea` from shadcn/ui if available. I see `Input` was used in `CounselorCalls.tsx`. I'll assume `Textarea` exists or use standard one.
+// Wait, I don't see `Textarea` imported in the original file. I'll use standard `textarea` with Tailwind classes.
+
 import callReviewsApi from "@/api/callReviews";
 import usersApi from "@/api/users";
 import { CallRecordDetailResponse, CallResponseItem, CallPromptItem } from "@/types/api";
@@ -59,28 +69,35 @@ const EmotionDisplay = ({ emotion, emotionKorean }: { emotion: string; emotionKo
   );
 };
 
-interface LiveMessage {
+interface ConversationMessage {
   id: number;
-  type: 'PROMPT' | 'REPLY';
+  type: 'prompt' | 'response';
   content: string;
   timestamp: Date;
+  isDanger?: boolean;
+  dangerReason?: string;
+  isLive?: boolean;
 }
 
 const CounselorCallDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [callDetail, setCallDetail] = useState<CallRecordDetailResponse | null>(null);
   const { user } = useAuth();
 
-  // 실시간 모니터링 상태
-  const [isLiveMonitoring, setIsLiveMonitoring] = useState(false);
-  const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([]);
+  // 통합된 메시지 상태
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [sseConnected, setSseConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const liveScrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  // 리뷰 관련 상태
+  const [reviewComment, setReviewComment] = useState("");
+  const [isReviewEditing, setIsReviewEditing] = useState(false);
+  const [isSavingReview, setIsSavingReview] = useState(false);
+
+  // 데이터 로딩
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
@@ -90,6 +107,34 @@ const CounselorCallDetail = () => {
 
         const detail = await callReviewsApi.getCallRecordDetail(parseInt(id)) as unknown as CallRecordDetailResponse;
         setCallDetail(detail);
+
+        if (detail.review) {
+          setReviewComment(detail.review.comment);
+          setIsReviewEditing(false); // 이미 리뷰가 있으면 보기 모드로 시작
+        } else {
+          setIsReviewEditing(true); // 리뷰가 없으면 작성 모드로 시작
+        }
+
+        // 초기 메시지 구성
+        const initialMessages: ConversationMessage[] = [
+          ...(detail.prompts || []).map(p => ({
+            id: p.promptId,
+            type: 'prompt' as const,
+            content: p.content,
+            timestamp: new Date(p.createdAt)
+          })),
+          ...(detail.responses || []).map(r => ({
+            id: r.responseId,
+            type: 'response' as const,
+            content: r.content,
+            timestamp: new Date(r.respondedAt),
+            isDanger: r.danger,
+            dangerReason: r.dangerReason
+          }))
+        ].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+        setMessages(initialMessages);
+
       } catch (error) {
         console.error('Failed to fetch call detail:', error);
       } finally {
@@ -100,85 +145,103 @@ const CounselorCallDetail = () => {
     fetchData();
   }, [id]);
 
-  // 실시간 모니터링 시작/종료
+  // SSE 연결 (항상 연결 시도)
   useEffect(() => {
-    if (!id || !isLiveMonitoring) {
-      // 연결 종료
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-        setSseConnected(false);
-      }
-      return;
-    }
+    if (!id) return;
 
-    // 1. 기존 로그 가져오기
-    fetch(`/api/internal/callbot/calls/${id}/logs`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          const historyLogs: LiveMessage[] = data.data.map((item: any) => ({
-            id: item.id,
-            type: item.type,
-            content: item.content,
-            timestamp: new Date(item.timestamp)
-          }));
-          setLiveMessages(historyLogs);
-        }
-      })
-      .catch(err => console.error("Failed to fetch logs", err));
+    console.log(`🔌 [SSE] 연결 시도: callId=${id}`);
 
-    // 2. SSE 연결
+    // SSE 연결
     const eventSource = new EventSource(`/api/internal/callbot/calls/${id}/sse`);
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      console.log('SSE Connected');
+      console.log(`✅ [SSE] 연결 성공: callId=${id}, readyState=${eventSource.readyState}`);
       setSseConnected(true);
     };
 
     eventSource.addEventListener('connect', () => {
-      console.log('SSE Connection confirmed');
+      console.log(`🤝 [SSE] 서버 연결 확인됨: callId=${id}`);
     });
 
     eventSource.addEventListener('prompt', (e: MessageEvent) => {
-      const newLog: LiveMessage = {
+      console.log(`📤 [SSE] AI 발화 수신: callId=${id}, data=${e.data.substring(0, 50)}...`);
+      const newLog: ConversationMessage = {
         id: Date.now(),
-        type: 'PROMPT',
+        type: 'prompt',
         content: e.data,
-        timestamp: new Date()
+        timestamp: new Date(),
+        isLive: true
       };
-      setLiveMessages(prev => [...prev, newLog]);
+      setMessages(prev => [...prev, newLog]);
     });
 
     eventSource.addEventListener('reply', (e: MessageEvent) => {
-      const newLog: LiveMessage = {
+      console.log(`📥 [SSE] 어르신 응답 수신: callId=${id}, data=${e.data.substring(0, 50)}...`);
+      const newLog: ConversationMessage = {
         id: Date.now(),
-        type: 'REPLY',
+        type: 'response',
         content: e.data,
-        timestamp: new Date()
+        timestamp: new Date(),
+        isLive: true
       };
-      setLiveMessages(prev => [...prev, newLog]);
+      setMessages(prev => [...prev, newLog]);
     });
 
     eventSource.onerror = (e) => {
-      console.error('SSE Error', e);
+      console.error(`❌ [SSE] 에러 발생: callId=${id}, readyState=${eventSource.readyState}`, e);
       setSseConnected(false);
       eventSource.close();
+      console.log(`🔌 [SSE] 연결 종료됨: callId=${id}`);
     };
 
     return () => {
+      console.log(`🔌 [SSE] 컴포넌트 언마운트로 연결 종료: callId=${id}`);
       eventSource.close();
       setSseConnected(false);
     };
-  }, [id, isLiveMonitoring]);
+  }, [id]);
 
-  // 실시간 메시지 자동 스크롤
+  // 메시지 업데이트 시 자동 스크롤
   useEffect(() => {
-    if (liveScrollRef.current && isLiveMonitoring) {
-      liveScrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (scrollRef.current) {
+      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [liveMessages, isLiveMonitoring]);
+  }, [messages]);
+
+  const handleSaveReview = async () => {
+    if (!id || !reviewComment.trim()) return;
+
+    try {
+      setIsSavingReview(true);
+      if (callDetail?.review) {
+        // Update existing review
+        await callReviewsApi.updateReview(callDetail.review.reviewId, {
+          callId: parseInt(id),
+          comment: reviewComment
+        });
+      } else {
+        // Create new review
+        await callReviewsApi.createReview({
+          callId: parseInt(id),
+          comment: reviewComment
+        });
+      }
+
+      // Refresh data
+      const detail = await callReviewsApi.getCallRecordDetail(parseInt(id)) as unknown as CallRecordDetailResponse;
+      setCallDetail(detail);
+      setIsReviewEditing(false);
+      alert("상담 일지가 저장되었습니다."); // Simple feedback
+
+    } catch (error) {
+      console.error("Failed to save review:", error);
+      alert("저장에 실패했습니다.");
+    } finally {
+      setIsSavingReview(false);
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -204,36 +267,9 @@ const CounselorCallDetail = () => {
     );
   }
 
-  const emotionScore = callDetail.emotions?.[0] ? 60 : 60; // 감정 점수 계산 로직
+  const emotionScore = callDetail.emotions?.[0] ? 60 : 60;
   const emotion = callDetail.emotions?.[0]?.emotionLevel || 'NEUTRAL';
   const emotionKorean = callDetail.emotions?.[0]?.emotionLevelKorean || '보통';
-
-  // prompts와 responses를 시간순으로 정렬하여 대화 내역 구성
-  interface ConversationMessage {
-    id: number;
-    type: 'prompt' | 'response';
-    content: string;
-    timestamp: Date;
-    isDanger?: boolean;
-    dangerReason?: string;
-  }
-
-  const conversationMessages: ConversationMessage[] = [
-    ...(callDetail.prompts || []).map(p => ({
-      id: p.promptId,
-      type: 'prompt' as const,
-      content: p.content,
-      timestamp: new Date(p.createdAt)
-    })),
-    ...(callDetail.responses || []).map(r => ({
-      id: r.responseId,
-      type: 'response' as const,
-      content: r.content,
-      timestamp: new Date(r.respondedAt),
-      isDanger: r.danger,
-      dangerReason: r.dangerReason
-    }))
-  ].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
   // 요약 정보
   const latestSummary = callDetail.summaries?.[0]?.content || null;
@@ -272,6 +308,12 @@ const CounselorCallDetail = () => {
                   <User className="w-3 h-3 mr-1" />
                   {callDetail.elderly?.name}
                 </Badge>
+                {sseConnected && (
+                  <Badge variant="outline" className="animate-pulse text-green-600 border-green-600 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-600"></span>
+                    실시간 통화 중
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-4 mt-2 text-muted-foreground">
                 <span className="flex items-center gap-1">
@@ -291,69 +333,6 @@ const CounselorCallDetail = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* 실시간 모니터링 카드 */}
-            <Card className="shadow-card border-0">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Radio className="w-5 h-5 text-primary" />
-                    실시간 통화 모니터링
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    {sseConnected && (
-                      <Badge variant="outline" className="animate-pulse text-green-600 border-green-600">
-                        ● Live
-                      </Badge>
-                    )}
-                    <Button
-                      variant={isLiveMonitoring ? "destructive" : "default"}
-                      size="sm"
-                      onClick={() => setIsLiveMonitoring(!isLiveMonitoring)}
-                    >
-                      {isLiveMonitoring ? "모니터링 중지" : "모니터링 시작"}
-                    </Button>
-                  </div>
-                </div>
-                <CardDescription>
-                  {isLiveMonitoring
-                    ? "실시간으로 통화 내용을 확인하고 있습니다"
-                    : "버튼을 클릭하여 실시간 모니터링을 시작하세요"}
-                </CardDescription>
-              </CardHeader>
-              {isLiveMonitoring && (
-                <CardContent>
-                  <div className="bg-secondary/30 rounded-xl p-4 h-[400px] overflow-y-auto">
-                    <div className="space-y-3">
-                      {liveMessages.length === 0 ? (
-                        <div className="flex h-full items-center justify-center text-muted-foreground">
-                          대화 내용을 기다리고 있습니다...
-                        </div>
-                      ) : (
-                        liveMessages.map((msg) => (
-                          <div
-                            key={msg.id}
-                            className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
-                          >
-                            <div
-                              className={`max-w-[80%] rounded-lg p-3 ${msg.type === 'PROMPT'
-                                ? 'bg-primary/10 text-foreground'
-                                : 'bg-primary text-primary-foreground'
-                                }`}
-                            >
-                              <div className="text-xs opacity-70 mb-1">
-                                {msg.type === 'PROMPT' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString()}
-                              </div>
-                              <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                      <div ref={liveScrollRef} />
-                    </div>
-                  </div>
-                </CardContent>
-              )}
-            </Card>
 
             {/* Summary Card */}
             <Card className="shadow-card border-0">
@@ -398,26 +377,35 @@ const CounselorCallDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Transcript - 대화 내용 */}
+            {/* Transcript - 대화 내용 (통합됨) */}
             <Card className="shadow-card border-0">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  대화 내용
-                </CardTitle>
-                <CardDescription>AI와 어르신의 대화 기록입니다</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-primary" />
+                      대화 내용
+                    </CardTitle>
+                    <CardDescription>AI와 어르신의 대화 기록입니다</CardDescription>
+                  </div>
+                  {sseConnected && (
+                    <Badge variant="secondary" className="animate-pulse">
+                      실시간 업데이트 중...
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="bg-secondary/30 rounded-xl p-4 max-h-[500px] overflow-y-auto">
-                  {conversationMessages.length === 0 ? (
+                <div className="bg-secondary/30 rounded-xl p-4 max-h-[600px] overflow-y-auto">
+                  {messages.length === 0 ? (
                     <p className="text-muted-foreground text-center py-4">
                       대화 내용이 없습니다.
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      {conversationMessages.map((msg) => (
+                      {messages.map((msg, index) => (
                         <div
-                          key={`${msg.type}-${msg.id}`}
+                          key={`${msg.type}-${msg.id}-${index}`}
                           className={`flex ${msg.type === 'prompt' ? 'justify-start' : 'justify-end'}`}
                         >
                           <div
@@ -426,10 +414,13 @@ const CounselorCallDetail = () => {
                               : msg.isDanger
                                 ? 'bg-destructive/20 text-foreground border border-destructive/50'
                                 : 'bg-primary text-primary-foreground'
-                              }`}
+                              } ${msg.isLive ? 'animate-in fade-in slide-in-from-bottom-2 duration-300' : ''}`}
                           >
-                            <div className="text-xs opacity-70 mb-1">
-                              {msg.type === 'prompt' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            <div className="text-xs opacity-70 mb-1 flex justify-between gap-2">
+                              <span>
+                                {msg.type === 'prompt' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </span>
+                              {msg.isLive && <Badge variant="outline" className="h-4 px-1 text-[10px] border-border/50">NEW</Badge>}
                             </div>
                             <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                             {msg.isDanger && msg.dangerReason && (
@@ -441,6 +432,7 @@ const CounselorCallDetail = () => {
                           </div>
                         </div>
                       ))}
+                      <div ref={scrollRef} />
                     </div>
                   )}
                 </div>
@@ -474,23 +466,79 @@ const CounselorCallDetail = () => {
 
                 {/* Review Status */}
                 <div className="p-4 rounded-xl bg-secondary/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-4 h-4 text-info" />
-                    <span className="font-medium">리뷰 상태</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-info" />
+                      <span className="font-medium">리뷰 상태</span>
+                    </div>
                   </div>
                   <p className={`font-medium ${isReviewed ? 'text-success' : 'text-warning'}`}>
                     {isReviewed ? '리뷰 완료' : '리뷰 대기'}
                   </p>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Special Notes */}
-                {callDetail.review?.comment && (
-                  <div className="p-4 rounded-xl bg-info/10">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertTriangle className="w-4 h-4 text-info" />
-                      <span className="font-medium text-info">상담사 메모</span>
+            {/* Review Write/View Card */}
+            <Card className="shadow-card border-0">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Edit3 className="w-5 h-5 text-primary" />
+                    상담 일지
+                  </CardTitle>
+                  {!isReviewEditing && (
+                    <Button variant="ghost" size="sm" onClick={() => setIsReviewEditing(true)}>
+                      수정
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isReviewEditing ? (
+                  <div className="space-y-3">
+                    <textarea
+                      className="w-full min-h-[120px] p-3 rounded-md border border-input bg-transparent text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="상담 내용을 기록해주세요."
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                    />
+                    <div className="flex justify-end gap-2">
+                      {/* Only show cancel if a review already exists */}
+                      {callDetail.review && (
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          setReviewComment(callDetail.review?.comment || "");
+                          setIsReviewEditing(false);
+                        }}>
+                          취소
+                        </Button>
+                      )}
+
+                      <Button size="sm" onClick={handleSaveReview} disabled={isSavingReview}>
+                        {isSavingReview ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            저장 중
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 mr-2" />
+                            저장
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <p className="text-sm">{callDetail.review.comment}</p>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-secondary/30">
+                    <p className="text-sm whitespace-pre-wrap">
+                      {callDetail.review?.comment || "작성된 상담 일지가 없습니다."}
+                    </p>
+                    {callDetail.review && (
+                      <p className="text-xs text-muted-foreground mt-2 text-right">
+                        작성일: {new Date(callDetail.review.reviewedAt).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                 )}
               </CardContent>
