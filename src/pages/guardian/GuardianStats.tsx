@@ -35,7 +35,6 @@ import {
   Cell,
   Legend
 } from "recharts";
-import { useAuth } from "@/contexts/AuthContext";
 
 // Mock data - Weekly emotion data
 const weeklyEmotionData = [
