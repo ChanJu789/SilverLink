@@ -149,20 +149,23 @@ const CounselorCallDetail = () => {
   useEffect(() => {
     if (!id) return;
 
+    console.log(`🔌 [SSE] 연결 시도: callId=${id}`);
+
     // SSE 연결
     const eventSource = new EventSource(`/api/internal/callbot/calls/${id}/sse`);
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      console.log('SSE Connected');
+      console.log(`✅ [SSE] 연결 성공: callId=${id}, readyState=${eventSource.readyState}`);
       setSseConnected(true);
     };
 
     eventSource.addEventListener('connect', () => {
-      console.log('SSE Connection confirmed');
+      console.log(`🤝 [SSE] 서버 연결 확인됨: callId=${id}`);
     });
 
     eventSource.addEventListener('prompt', (e: MessageEvent) => {
+      console.log(`📤 [SSE] AI 발화 수신: callId=${id}, data=${e.data.substring(0, 50)}...`);
       const newLog: ConversationMessage = {
         id: Date.now(),
         type: 'prompt',
@@ -174,6 +177,7 @@ const CounselorCallDetail = () => {
     });
 
     eventSource.addEventListener('reply', (e: MessageEvent) => {
+      console.log(`📥 [SSE] 어르신 응답 수신: callId=${id}, data=${e.data.substring(0, 50)}...`);
       const newLog: ConversationMessage = {
         id: Date.now(),
         type: 'response',
@@ -185,13 +189,14 @@ const CounselorCallDetail = () => {
     });
 
     eventSource.onerror = (e) => {
-      // SSE 에러는 자연스러운 연결 종료일 수도 있으므로 조용히 처리하거나 로그만 남김
-      // console.error('SSE Error', e); 
+      console.error(`❌ [SSE] 에러 발생: callId=${id}, readyState=${eventSource.readyState}`, e);
       setSseConnected(false);
       eventSource.close();
+      console.log(`🔌 [SSE] 연결 종료됨: callId=${id}`);
     };
 
     return () => {
+      console.log(`🔌 [SSE] 컴포넌트 언마운트로 연결 종료: callId=${id}`);
       eventSource.close();
       setSseConnected(false);
     };
