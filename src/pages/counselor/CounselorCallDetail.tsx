@@ -73,9 +73,9 @@ const CounselorCallDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [callDetail, setCallDetail] = useState<CounselorCallRecordResponse | null>(null);
   const { user } = useAuth();
-  
-  // 실시간 모니터링 상태
-  const [isLiveMonitoring, setIsLiveMonitoring] = useState(false);
+
+  // 실시간 모니터링 상태 (자동 시작)
+  const [isLiveMonitoring, setIsLiveMonitoring] = useState(true);
   const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([]);
   const [sseConnected, setSseConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -278,8 +278,8 @@ const CounselorCallDetail = () => {
                   </div>
                 </div>
                 <CardDescription>
-                  {isLiveMonitoring 
-                    ? "실시간으로 통화 내용을 확인하고 있습니다" 
+                  {isLiveMonitoring
+                    ? "실시간으로 통화 내용을 확인하고 있습니다"
                     : "버튼을 클릭하여 실시간 모니터링을 시작하세요"}
                 </CardDescription>
               </CardHeader>
@@ -298,11 +298,10 @@ const CounselorCallDetail = () => {
                             className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
                           >
                             <div
-                              className={`max-w-[80%] rounded-lg p-3 ${
-                                msg.type === 'PROMPT'
+                              className={`max-w-[80%] rounded-lg p-3 ${msg.type === 'PROMPT'
                                   ? 'bg-primary/10 text-foreground'
                                   : 'bg-primary text-primary-foreground'
-                              }`}
+                                }`}
                             >
                               <div className="text-xs opacity-70 mb-1">
                                 {msg.type === 'PROMPT' ? 'AI 상담봇' : '어르신'} • {msg.timestamp.toLocaleTimeString()}
