@@ -56,6 +56,11 @@ interface Notice {
 
 const NoticeManagement = () => {
   const { user } = useAuth();
+  
+  // 디버깅용 로그
+  console.log("=== NoticeManagement 렌더링 ===");
+  console.log("user:", user);
+  
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -869,7 +874,7 @@ const NoticeManagement = () => {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-                  <Edit className="w-5 h-5 text-yellow-600" />
+                  <Pencil className="w-5 h-5 text-yellow-600" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">비공개</p>
