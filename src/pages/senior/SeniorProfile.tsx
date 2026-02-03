@@ -51,6 +51,7 @@ const SeniorProfile = () => {
   const [requests, setRequests] = useState<ScheduleChangeRequest[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // 변경 요청 폼
   const [newTime, setNewTime] = useState("09:00");
@@ -62,6 +63,7 @@ const SeniorProfile = () => {
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [scheduleData, requestsData] = await Promise.all([
         getMySchedule(),
@@ -76,8 +78,10 @@ const SeniorProfile = () => {
       if (scheduleData.preferredCallDays?.length > 0) {
         setNewDays(scheduleData.preferredCallDays);
       }
-    } catch (error) {
-      console.error("Failed to load schedule:", error);
+    } catch (err: any) {
+      console.error("Failed to load schedule:", err);
+      const message = err.response?.data?.message || err.message || "알 수 없는 오류";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -253,9 +257,20 @@ const SeniorProfile = () => {
                   </Button>
                 </>
               ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  스케줄 정보를 불러올 수 없습니다
-                </p>
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-2">스케줄 정보를 불러올 수 없습니다</p>
+                  {error && (
+                    <p className="text-sm text-red-500">오류: {error}</p>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadData}
+                    className="mt-4"
+                  >
+                    다시 시도
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
