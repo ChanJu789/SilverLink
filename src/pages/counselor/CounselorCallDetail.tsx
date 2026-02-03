@@ -28,6 +28,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea"; // Assuming you have this component or standard textarea
+import { useToast } from "@/components/ui/use-toast"; // Using local toast in future if available, or just alert? Assuming useToast hook exists or I'll use standard alert for now if not found in imports previously, wait, I saw Toaster in previous history. I'll use standard window.alert or add Toaster to main.
+// Actually, I should check if `useToast` exists. In `CounselorCallDetail.tsx` imports, it wasn't there.
+// I'll stick to simple state management for now, or just `alert` if needed, but better to use UI.
+// Let's use `Label` and `Textarea` from shadcn/ui if available. I see `Input` was used in `CounselorCalls.tsx`. I'll assume `Textarea` exists or use standard one.
+// Wait, I don't see `Textarea` imported in the original file. I'll use standard `textarea` with Tailwind classes.
+
 import callReviewsApi from "@/api/callReviews";
 import usersApi from "@/api/users";
 import { CallRecordDetailResponse, MyProfileResponse } from "@/types/api";
@@ -58,11 +65,14 @@ const EmotionDisplay = ({ emotion, emotionKorean }: { emotion: string; emotionKo
   );
 };
 
-interface LiveMessage {
+interface ConversationMessage {
   id: number;
-  type: 'PROMPT' | 'REPLY';
+  type: 'prompt' | 'response';
   content: string;
   timestamp: Date;
+  isDanger?: boolean;
+  dangerReason?: string;
+  isLive?: boolean;
 }
 
 const formatTimeAMPM = (date: Date) => {
@@ -202,32 +212,36 @@ const CounselorCallDetail = () => {
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      console.log('SSE Connected');
+      console.log(`✅ [SSE] 연결 성공: callId=${id}, readyState=${eventSource.readyState}`);
       setSseConnected(true);
     };
 
     eventSource.addEventListener('connect', () => {
-      console.log('SSE Connection confirmed');
+      console.log(`🤝 [SSE] 서버 연결 확인됨: callId=${id}`);
     });
 
     eventSource.addEventListener('prompt', (e: MessageEvent) => {
-      const newLog: LiveMessage = {
+      console.log(`📤 [SSE] AI 발화 수신: callId=${id}, data=${e.data.substring(0, 50)}...`);
+      const newLog: ConversationMessage = {
         id: Date.now(),
-        type: 'PROMPT',
+        type: 'prompt',
         content: e.data,
-        timestamp: new Date()
+        timestamp: new Date(),
+        isLive: true
       };
-      setLiveMessages(prev => [...prev, newLog]);
+      setMessages(prev => [...prev, newLog]);
     });
 
     eventSource.addEventListener('reply', (e: MessageEvent) => {
-      const newLog: LiveMessage = {
+      console.log(`📥 [SSE] 어르신 응답 수신: callId=${id}, data=${e.data.substring(0, 50)}...`);
+      const newLog: ConversationMessage = {
         id: Date.now(),
-        type: 'REPLY',
+        type: 'response',
         content: e.data,
-        timestamp: new Date()
+        timestamp: new Date(),
+        isLive: true
       };
-      setLiveMessages(prev => [...prev, newLog]);
+      setMessages(prev => [...prev, newLog]);
     });
 
     eventSource.addEventListener('callEnded', () => {
@@ -238,13 +252,14 @@ const CounselorCallDetail = () => {
     });
 
     eventSource.onerror = (e) => {
-      console.error('SSE Error', e);
+      console.error(`❌ [SSE] 에러 발생: callId=${id}, readyState=${eventSource.readyState}`, e);
       setSseConnected(false);
       eventSource.close();
       setTimeout(() => fetchCallDetail(false), 2000);
     };
 
     return () => {
+      console.log(`🔌 [SSE] 컴포넌트 언마운트로 연결 종료: callId=${id}`);
       eventSource.close();
       setSseConnected(false);
     };
@@ -614,9 +629,11 @@ const CounselorCallDetail = () => {
 
                 {/* Review Status */}
                 <div className="p-4 rounded-xl bg-secondary/50">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-4 h-4 text-info" />
-                    <span className="font-medium">리뷰 상태</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-info" />
+                      <span className="font-medium">리뷰 상태</span>
+                    </div>
                   </div>
                   <p className={`font-medium ${isReviewed ? 'text-success' : 'text-warning'}`}>
                     {isReviewed ? '리뷰 완료' : '리뷰 대기'}

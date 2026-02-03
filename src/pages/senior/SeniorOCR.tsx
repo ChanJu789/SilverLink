@@ -41,6 +41,7 @@ interface MedicationInfo {
   times: string[];
   instructions?: string;
   confidence: number;
+  category?: string;
 }
 
 interface ValidationResult {
@@ -51,6 +52,18 @@ interface ValidationResult {
   warnings: string[];
   error_message?: string;
 }
+
+// 약 카테고리 매핑
+const MEDICATION_CATEGORIES: Record<string, { label: string; color: string }> = {
+  "혈압약": { label: "💊 혈압약", color: "bg-red-100 text-red-700 border-red-200" },
+  "당뇨약": { label: "💉 당뇨약", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  "감기약": { label: "🤧 감기약", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+  "위장약": { label: "🩺 위장약", color: "bg-green-100 text-green-700 border-green-200" },
+  "진통제": { label: "💊 진통제", color: "bg-orange-100 text-orange-700 border-orange-200" },
+  "수면제": { label: "😴 수면제", color: "bg-purple-100 text-purple-700 border-purple-200" },
+  "비타민": { label: "🍊 비타민", color: "bg-amber-100 text-amber-700 border-amber-200" },
+  "기타": { label: "💊 일반약", color: "bg-gray-100 text-gray-700 border-gray-200" },
+};
 
 const SeniorOCR = () => {
   const navigate = useNavigate();
@@ -72,6 +85,9 @@ const SeniorOCR = () => {
   const [selectedMedications, setSelectedMedications] = useState<Set<string>>(new Set());
   const [selectedTimes, setSelectedTimes] = useState<Record<string, string[]>>({});
   const [isRegistering, setIsRegistering] = useState(false);
+
+  // OCR 결과 확인 모달
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -163,6 +179,8 @@ const SeniorOCR = () => {
             );
           }
 
+          // 확인 모달 표시
+          setShowConfirmDialog(true);
           toast.success(`${validationResponse.medications.length}개의 약을 찾았어요!`);
         } else {
           // 폴백: 기본 추출 로직
@@ -321,21 +339,25 @@ const SeniorOCR = () => {
     return medications.slice(0, 5);
   };
 
-  // 약 이름을 쉬운 표현으로 변환
-  const getMedicationDisplayName = (med: MedicationInfo): string => {
+  // 약 카테고리 추출
+  const getMedicationCategory = (med: MedicationInfo): string => {
     const name = med.medication_name;
     const lower = name.toLowerCase();
 
-    // 카테고리 매핑
-    if (lower.includes("혈압") || lower.includes("amlod") || lower.includes("losar")) return "혈압약";
-    if (lower.includes("당뇨") || lower.includes("metfor") || lower.includes("glim")) return "당뇨약";
-    if (lower.includes("감기") || lower.includes("타이레놀") || lower.includes("acetam")) return "감기약";
-    if (lower.includes("위") || lower.includes("omep") || lower.includes("panto")) return "위장약";
-    if (lower.includes("진통") || lower.includes("ibup") || lower.includes("aspir")) return "진통제";
-    if (lower.includes("수면") || lower.includes("zolp")) return "수면제";
+    if (lower.includes("혈압") || lower.includes("amlod") || lower.includes("losar") || lower.includes("norvasc")) return "혈압약";
+    if (lower.includes("당뇨") || lower.includes("metfor") || lower.includes("glim") || lower.includes("jardiance")) return "당뇨약";
+    if (lower.includes("감기") || lower.includes("타이레놀") || lower.includes("acetam") || lower.includes("cold")) return "감기약";
+    if (lower.includes("위") || lower.includes("omep") || lower.includes("panto") || lower.includes("nexium")) return "위장약";
+    if (lower.includes("진통") || lower.includes("ibup") || lower.includes("aspir") || lower.includes("celebrex")) return "진통제";
+    if (lower.includes("수면") || lower.includes("zolp") || lower.includes("stilnox")) return "수면제";
     if (lower.includes("비타민") || lower.includes("vitam")) return "비타민";
 
-    return name;
+    return "기타";
+  };
+
+  // 약 이름을 쉬운 표현으로 변환 (원본 약 이름 반환)
+  const getMedicationDisplayName = (med: MedicationInfo): string => {
+    return med.medication_name;
   };
 
   const handleSpeak = () => {
@@ -487,8 +509,8 @@ const SeniorOCR = () => {
               <Camera className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">약봉지 읽기</h1>
-              <p className="text-info-foreground/80 text-sm">약봉지를 찍으면 일정에 등록해요</p>
+              <h1 className="text-2xl font-bold">약봉투 촬영</h1>
+              <p className="text-info-foreground/80 text-sm">약봉투를 찍으면 일정에 등록해요</p>
             </div>
           </div>
         </div>
@@ -597,10 +619,23 @@ const SeniorOCR = () => {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className="font-bold text-base">
                                 {getMedicationDisplayName(med)}
                               </span>
+                              {/* 카테고리 배지 */}
+                              {(() => {
+                                const category = getMedicationCategory(med);
+                                const categoryInfo = MEDICATION_CATEGORIES[category];
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs ${categoryInfo.color}`}
+                                  >
+                                    {categoryInfo.label}
+                                  </Badge>
+                                );
+                              })()}
                               {med.confidence < 0.7 && (
                                 <Badge variant="outline" className="text-xs">
                                   <AlertCircle className="w-3 h-3 mr-1" />
@@ -717,8 +752,8 @@ const SeniorOCR = () => {
                 {/* 약 선택 */}
                 <div
                   className={`flex items-start gap-3 cursor-pointer ${selectedMedications.has(med.medication_name)
-                      ? "opacity-100"
-                      : "opacity-50"
+                    ? "opacity-100"
+                    : "opacity-50"
                     }`}
                   onClick={() => handleToggleMedication(med.medication_name)}
                 >
@@ -765,8 +800,8 @@ const SeniorOCR = () => {
                           <div
                             key={key}
                             className={`text-center p-2 rounded-lg border cursor-pointer transition-colors ${isSelected
-                                ? "bg-primary/10 border-primary"
-                                : "hover:bg-muted"
+                              ? "bg-primary/10 border-primary"
+                              : "hover:bg-muted"
                               }`}
                             onClick={() => handleToggleTime(med.medication_name, key)}
                           >
@@ -800,6 +835,112 @@ const SeniorOCR = () => {
                 <Check className="w-4 h-4" />
               )}
               {selectedMedications.size}개 약 등록하기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OCR 결과 확인 모달 */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="max-w-md mx-4">
+          <DialogHeader>
+            <DialogTitle className="text-2xl flex items-center gap-3">
+              <Check className="w-8 h-8 text-info" />
+              이 내용이 맞나요?
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              인식된 약 정보를 확인해주세요
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4 max-h-[50vh] overflow-y-auto">
+            {/* 촬영한 이미지 미리보기 */}
+            {image && (
+              <div className="rounded-xl overflow-hidden border">
+                <img
+                  src={image}
+                  alt="촬영한 약봉투"
+                  className="w-full max-h-32 object-cover"
+                />
+              </div>
+            )}
+
+            {/* 인식된 약 목록 */}
+            <div className="space-y-2">
+              {extractedMedications.map((med, idx) => {
+                const category = getMedicationCategory(med);
+                const categoryInfo = MEDICATION_CATEGORIES[category];
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 bg-muted/50 rounded-lg border"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-bold">{med.medication_name}</span>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${categoryInfo.color}`}
+                          >
+                            {categoryInfo.label}
+                          </Badge>
+                        </div>
+                        {med.dosage && (
+                          <p className="text-sm text-muted-foreground">
+                            용량: {med.dosage}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {med.times.map(time => (
+                            <Badge key={time} variant="secondary" className="text-xs">
+                              {timeLabels[time] || time}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <Badge
+                        variant={med.confidence >= 0.8 ? "default" : "secondary"}
+                        className="ml-2"
+                      >
+                        {Math.round(med.confidence * 100)}%
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {extractedMedications.length === 0 && (
+              <div className="text-center py-4 text-muted-foreground">
+                <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                <p>인식된 약이 없어요. 다시 촬영해주세요.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex flex-col gap-3 sm:flex-col">
+            <Button
+              onClick={() => {
+                setShowConfirmDialog(false);
+                handleOpenMedicationDialog();
+              }}
+              className="w-full h-14 text-lg font-bold bg-info hover:bg-info/90"
+              disabled={extractedMedications.length === 0}
+            >
+              <Check className="w-6 h-6 mr-2" />
+              네, 맞아요
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowConfirmDialog(false);
+                handleReset();
+              }}
+              className="w-full h-14 text-lg font-bold"
+            >
+              <RotateCcw className="w-6 h-6 mr-2" />
+              아니요, 다시 찍을게요
             </Button>
           </DialogFooter>
         </DialogContent>
