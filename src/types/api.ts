@@ -347,108 +347,88 @@ export interface WelfareSearchRequest {
 // =====================
 // 통화 리뷰 관련 타입
 // =====================
+
+// 오늘의 상태 (식사, 건강, 수면) 타입
+export interface MealInfo {
+    taken: boolean | null;
+    status: string; // "식사함", "식사 안함", "미확인"
+}
+
+export interface HealthInfo {
+    level: string | null;      // "GOOD", "NORMAL", "BAD", or null
+    levelKorean: string;       // "좋음", "보통", "나쁨", "미확인"
+    detail: string | null;
+}
+
+export interface SleepInfo {
+    level: string | null;      // "GOOD", "NORMAL", "BAD", or null
+    levelKorean: string;       // "좋음", "보통", "나쁨", "미확인"
+    detail: string | null;
+}
+
+export interface DailyStatusInfo {
+    meal: MealInfo;
+    health: HealthInfo;
+    sleep: SleepInfo;
+}
+
 export interface CallRecordSummaryResponse {
     callId: number;
     elderlyId: number;
     elderlyName: string;
     callAt: string;
-    duration: string;  // "분:초" 형식
+    duration: string; // Changed from number to string ("분:초")
     state: string;
     stateKorean: string;
-    emotionLevel: string | null;
+    emotionLevel: 'GOOD' | 'NORMAL' | 'BAD' | null;
     emotionLevelKorean: string | null;
     hasDangerResponse: boolean;
     reviewed: boolean;
     summaryPreview?: string;
-    // 프론트엔드 호환용 (deprecated)
-    emotion?: string;
-    hasReview?: boolean;
-    summary?: string;
 }
 
-// 통화 상세 정보의 어르신 정보
-export interface CallElderlyInfo {
-    id: number;
-    name: string;
-    phone: string;
-    age: number;
-    gender: string;
-}
-
-// 어르신 응답 (대화 내용)
-export interface CallResponseItem {
-    responseId: number;
-    content: string;
-    respondedAt: string;
-    danger: boolean;
-    dangerReason?: string;
-}
-
-// AI 발화 (LLM 모델 프롬프트)
-export interface CallPromptItem {
-    promptId: number;
-    content: string;
-    createdAt: string;
-}
-
-// 요약 정보
-export interface CallSummaryItem {
-    summaryId: number;
-    content: string;
-    createdAt: string;
-}
-
-// 감정 분석 정보
-export interface CallEmotionItem {
-    emotionId: number;
-    emotionLevel: string;
-    emotionLevelKorean: string;
-    createdAt: string;
-}
-
-// 상담사 리뷰 정보
-export interface CallReviewInfo {
-    reviewId: number;
-    counselorId: number;
-    counselorName: string;
-    reviewedAt: string;
-    comment: string;
-    urgent: boolean;
-}
-
-export interface CallRecordDetailResponse {
-    callId: number;
-    elderly: CallElderlyInfo;
-    callAt: string;
-    duration: string;
-    callTimeSec: number;
-    state: string;
-    stateKorean: string;
-    recordingUrl?: string;  // 녹음 파일 URL
-    responses: CallResponseItem[];
-    prompts?: CallPromptItem[];
-    summaries: CallSummaryItem[];
-    emotions: CallEmotionItem[];
-    review?: CallReviewInfo;
-}
-
-// 상담사용 통화 상세 응답 (CounselorCallDetail에서 사용)
-export interface CounselorCallRecordResponse {
-    callId: number;
-    elderlyId: number;
-    elderlyName: string;
-    callDate: string;
-    callTime: string;
-    duration: string;
-    summary?: string;
-    transcript?: string;
-    emotion: string;
-    emotionScore: number;
-    riskLevel: string;
-    isReviewed: boolean;
-    counselorNote?: string;
-    responses: CallResponseItem[];
-    prompts?: CallPromptItem[];
+export interface CallRecordDetailResponse extends CallRecordSummaryResponse {
+    elderly: {
+        id: number;
+        name: string;
+        phone: string;
+        age: number;
+        gender: string;
+    };
+    recordingUrl?: string;
+    callTimeSec?: number;
+    prompts: Array<{
+        promptId: number;
+        content: string;
+        createdAt: string;
+    }>;
+    responses: Array<{
+        responseId: number;
+        content: string;
+        respondedAt: string;
+        danger: boolean;
+        dangerReason?: string;
+    }>;
+    summaries: Array<{
+        summaryId: number;
+        content: string;
+        createdAt: string;
+    }>;
+    emotions: Array<{
+        emotionId: number;
+        emotionLevel: string;
+        emotionLevelKorean: string;
+        createdAt: string;
+    }>;
+    review?: {
+        reviewId: number;
+        counselorId: number;
+        counselorName: string;
+        reviewedAt: string;
+        comment: string;
+        urgent: boolean;
+    };
+    dailyStatus?: DailyStatusInfo;
 }
 
 export interface ReviewResponse {
@@ -464,6 +444,7 @@ export interface ReviewResponse {
 export interface ReviewRequest {
     callId: number;
     comment: string;
+    urgent?: boolean;
 }
 
 export interface GuardianCallReviewResponse {
@@ -471,6 +452,8 @@ export interface GuardianCallReviewResponse {
     elderlyName: string;
     callAt: string;
     duration: string;  // "분:초" 형식
+    state: string;
+    stateKorean: string;
     summary: string;
     emotionLevel: string | null;
     emotionLevelKorean: string | null;
@@ -479,6 +462,19 @@ export interface GuardianCallReviewResponse {
     counselorComment: string | null;
     urgent: boolean;
     reviewedAt: string | null;
+    prompts: Array<{
+        promptId: number;
+        content: string;
+        createdAt: string;
+    }>;
+    responses: Array<{
+        responseId: number;
+        content: string;
+        respondedAt: string;
+        danger: boolean;
+        dangerReason?: string;
+    }>;
+    dailyStatus?: DailyStatusInfo;
 }
 
 export interface UnreviewedCountResponse {

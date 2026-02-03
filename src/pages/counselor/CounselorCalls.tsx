@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -9,18 +9,20 @@ import {
   Meh,
   Frown,
   Phone,
-  Loader2
+  Loader2,
+  Radio,
+  ChevronDown,
+  X
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -31,18 +33,39 @@ import {
 } from "@/components/ui/table";
 import { counselorNavItems } from "@/config/counselorNavItems";
 import callReviewsApi from "@/api/callReviews";
-import usersApi from "@/api/users";
-import { CallRecordSummaryResponse, MyProfileResponse } from "@/types/api";
+import { CallRecordSummaryResponse } from "@/types/api";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 
-const EmotionIcon = ({ emotion }: { emotion: string | null | undefined }) => {
+// 12시간 형식 시간 변환 함수
+const formatTimeAMPM = (isoTime: string) => {
+  if (!isoTime) return '';
+  const timePart = isoTime.split('T')[1]?.substring(0, 5);
+  if (!timePart) return '';
+  const [hourStr, minute] = timePart.split(':');
+  const hour = parseInt(hourStr, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const h = hour % 12 || 12;
+  return `${h}:${minute} ${ampm}`;
+};
+
+// duration 문자열("분:초")을 초 단위로 변환
+const parseDurationToSeconds = (duration: string): number => {
+  if (!duration) return 0;
+  const parts = duration.split(':');
+  if (parts.length === 2) {
+    const [min, sec] = parts.map(p => parseInt(p, 10) || 0);
+    return min * 60 + sec;
+  }
+  return 0;
+};
+
+const EmotionIcon = ({ emotion }: { emotion: string }) => {
   switch (emotion?.toUpperCase()) {
-    case "POSITIVE":
     case "GOOD":
       return <Smile className="w-5 h-5 text-success" />;
-    case "NEUTRAL":
-      return <Meh className="w-5 h-5 text-warning" />;
-    case "NEGATIVE":
+    case "NORMAL":
+      return <Meh className="w-5 h-5 text-muted-foreground" />;
     case "BAD":
       return <Frown className="w-5 h-5 text-destructive" />;
     default:
@@ -50,55 +73,165 @@ const EmotionIcon = ({ emotion }: { emotion: string | null | undefined }) => {
   }
 };
 
+// 필터 헤더 컴포넌트
+const FilterableHeader = ({
+  label,
+  value,
+  options,
+  onSelect,
+  className = ""
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onSelect: (value: string) => void;
+  className?: string;
+}) => {
+  const isFiltered = value !== "all";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={`flex items-center gap-1 text-left font-medium text-sm hover:text-primary transition-colors ${isFiltered ? 'text-primary' : ''} ${className}`}
+        >
+          {label}
+          {isFiltered && <span className="text-xs">✓</span>}
+          <ChevronDown className="w-3 h-3" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[120px]">
+        {options.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onClick={() => onSelect(option.value)}
+            className={value === option.value ? 'bg-muted' : ''}
+          >
+            {option.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 const CounselorCalls = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [elderlyFilter, setElderlyFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
   const [emotionFilter, setEmotionFilter] = useState("all");
+  const [reviewFilter, setReviewFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [callRecords, setCallRecords] = useState<CallRecordSummaryResponse[]>([]);
   const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-
-        // 사용자 프로필 조회 (Removed)
-
-
-        // 통화 기록 조회
-        const callsResponse = await callReviewsApi.getCallRecordsForCounselor({ size: 50 });
-        setCallRecords(callsResponse.content);
-      } catch (error) {
-        console.error('Failed to fetch call records:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+  const fetchCallRecords = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setIsLoading(true);
+      const callsResponse = await callReviewsApi.getCallRecordsForCounselor({ size: 50 });
+      setCallRecords(callsResponse.content);
+    } catch (error) {
+      console.error('Failed to fetch call records:', error);
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
   }, []);
 
-  const filteredCalls = callRecords.filter((call) => {
-    const matchesSearch = call.elderlyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      call.summaryPreview?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesEmotion = emotionFilter === "all" ||
-      call.emotionLevel?.toUpperCase() === emotionFilter.toUpperCase();
-    return matchesSearch && matchesEmotion;
-  });
+  // 최초 로딩
+  useEffect(() => {
+    fetchCallRecords();
+  }, [fetchCallRecords]);
+
+  // 10초마다 자동 갱신 (통화 시작/종료 실시간 반영)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchCallRecords(false);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [fetchCallRecords]);
+
+  // 페이지가 다시 보일 때 (상세에서 돌아올 때) 데이터 새로고침
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchCallRecords(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchCallRecords]);
+
+  // 어르신 목록 (고유값 추출)
+  const elderlyOptions = useMemo(() => {
+    const uniqueNames = [...new Set(callRecords.map(c => c.elderlyName).filter(Boolean))];
+    return [
+      { value: "all", label: "전체" },
+      ...uniqueNames.map(name => ({ value: name, label: name }))
+    ];
+  }, [callRecords]);
+
+  // 날짜 목록 (고유값 추출)
+  const dateOptions = useMemo(() => {
+    const uniqueDates = [...new Set(callRecords.map(c => c.callAt?.split('T')[0]).filter(Boolean))];
+    uniqueDates.sort((a, b) => b.localeCompare(a)); // 최신순 정렬
+    return [
+      { value: "all", label: "전체" },
+      ...uniqueDates.map(date => ({ value: date, label: date }))
+    ];
+  }, [callRecords]);
+
+  // 감정 옵션
+  const emotionOptions = [
+    { value: "all", label: "전체" },
+    { value: "GOOD", label: "좋음" },
+    { value: "NORMAL", label: "보통" },
+    { value: "BAD", label: "주의" }
+  ];
+
+  // 코멘트 옵션
+  const reviewOptions = [
+    { value: "all", label: "전체" },
+    { value: "completed", label: "작성 완료" },
+    { value: "pending", label: "미작성" }
+  ];
+
+  const filteredCalls = useMemo(() => {
+    return callRecords.filter((call) => {
+      const matchesSearch = !searchTerm ||
+        call.elderlyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        call.summaryPreview?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesElderly = elderlyFilter === "all" || call.elderlyName === elderlyFilter;
+      const matchesDate = dateFilter === "all" || call.callAt?.startsWith(dateFilter);
+      const matchesEmotion = emotionFilter === "all" || call.emotionLevel?.toUpperCase() === emotionFilter;
+      const matchesReview = reviewFilter === "all" ||
+        (reviewFilter === "completed" && call.reviewed) ||
+        (reviewFilter === "pending" && !call.reviewed);
+      return matchesSearch && matchesElderly && matchesDate && matchesEmotion && matchesReview;
+    });
+  }, [callRecords, searchTerm, elderlyFilter, dateFilter, emotionFilter, reviewFilter]);
+
+  // 필터가 활성화되어 있는지 확인
+  const hasActiveFilters = elderlyFilter !== "all" || dateFilter !== "all" || emotionFilter !== "all" || reviewFilter !== "all";
+
+  // 필터 초기화 함수
+  const resetFilters = () => {
+    setSearchTerm("");
+    setElderlyFilter("all");
+    setDateFilter("all");
+    setEmotionFilter("all");
+    setReviewFilter("all");
+  };
 
   // 통계 계산
   const today = new Date().toISOString().split('T')[0];
   const todayCalls = callRecords.filter(c => c.callAt?.startsWith(today)).length;
-  // duration이 문자열 형식 ("X분 Y초")이므로 분 단위 숫자 추출
-  const avgDuration = callRecords.length > 0
-    ? Math.round(callRecords.reduce((sum, c) => {
-      const match = c.duration?.match(/(\d+)분/);
-      return sum + (match ? parseInt(match[1]) : 0);
-    }, 0) / callRecords.length)
+  const totalSeconds = callRecords.reduce((sum, c) => sum + parseDurationToSeconds(c.duration), 0);
+  const avgDurationMinutes = callRecords.length > 0
+    ? Math.round(totalSeconds / callRecords.length / 60)
     : 0;
   const badEmotionCount = callRecords.filter(c =>
-    c.emotionLevel?.toUpperCase() === 'NEGATIVE' || c.hasDangerResponse
+    c.emotionLevel?.toUpperCase() === 'BAD' || c.hasDangerResponse
   ).length;
 
   if (isLoading) {
@@ -121,7 +254,7 @@ const CounselorCalls = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">통화 기록</h1>
+            <h1 className="text-2xl font-bold text-foreground">통화 기록 통계</h1>
             <p className="text-muted-foreground mt-1">어르신들과의 통화 내역을 확인하세요</p>
           </div>
         </div>
@@ -161,7 +294,7 @@ const CounselorCalls = () => {
                   <Clock className="h-5 w-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{avgDuration}분</p>
+                  <p className="text-2xl font-bold">{avgDurationMinutes}분</p>
                   <p className="text-sm text-muted-foreground">평균 통화시간</p>
                 </div>
               </div>
@@ -170,8 +303,8 @@ const CounselorCalls = () => {
           <Card className="shadow-card border-0">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-warning/10">
-                  <Frown className="h-5 w-5 text-warning" />
+                <div className="p-2 rounded-full bg-destructive/10">
+                  <Frown className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{badEmotionCount}</p>
@@ -182,7 +315,7 @@ const CounselorCalls = () => {
           </Card>
         </div>
 
-        {/* Filters */}
+        {/* Search Bar */}
         <Card className="shadow-card border-0">
           <CardContent className="pt-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center">
@@ -195,19 +328,16 @@ const CounselorCalls = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="flex gap-2">
-                <Select value={emotionFilter} onValueChange={setEmotionFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="감정 상태" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">전체 감정</SelectItem>
-                    <SelectItem value="POSITIVE">좋음</SelectItem>
-                    <SelectItem value="NEUTRAL">보통</SelectItem>
-                    <SelectItem value="NEGATIVE">주의</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {hasActiveFilters && (
+                <button
+                  onClick={resetFilters}
+                  className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md flex items-center gap-1"
+                  title="필터 초기화"
+                >
+                  <X className="w-4 h-4" />
+                  필터 초기화
+                </button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -216,23 +346,62 @@ const CounselorCalls = () => {
         <Card className="shadow-card border-0">
           <CardHeader>
             <CardTitle>통화 기록 목록</CardTitle>
-            <CardDescription>클릭하여 상세 내용을 확인하세요</CardDescription>
+            <CardDescription>헤더를 클릭하여 필터링하세요</CardDescription>
           </CardHeader>
           <CardContent>
             {filteredCalls.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {callRecords.length === 0 ? '통화 기록이 없습니다.' : '검색 결과가 없습니다.'}
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">
+                  {callRecords.length === 0 ? '통화 기록이 없습니다.' : '조건에 맞는 통화 기록이 없습니다.'}
+                </p>
+                {hasActiveFilters && callRecords.length > 0 && (
+                  <button
+                    onClick={resetFilters}
+                    className="mt-3 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                  >
+                    <X className="w-4 h-4" />
+                    필터 초기화
+                  </button>
+                )}
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>어르신</TableHead>
-                    <TableHead>일시</TableHead>
+                    <TableHead>
+                      <FilterableHeader
+                        label="어르신"
+                        value={elderlyFilter}
+                        options={elderlyOptions}
+                        onSelect={setElderlyFilter}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <FilterableHeader
+                        label="일시"
+                        value={dateFilter}
+                        options={dateOptions}
+                        onSelect={setDateFilter}
+                      />
+                    </TableHead>
                     <TableHead>통화시간</TableHead>
-                    <TableHead>감정상태</TableHead>
+                    <TableHead>
+                      <FilterableHeader
+                        label="감정상태"
+                        value={emotionFilter}
+                        options={emotionOptions}
+                        onSelect={setEmotionFilter}
+                      />
+                    </TableHead>
                     <TableHead>요약</TableHead>
-                    <TableHead>리뷰</TableHead>
+                    <TableHead>
+                      <FilterableHeader
+                        label="상담사 코멘트"
+                        value={reviewFilter}
+                        options={reviewOptions}
+                        onSelect={setReviewFilter}
+                      />
+                    </TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -244,42 +413,40 @@ const CounselorCalls = () => {
                       onClick={() => navigate(`/counselor/calls/${call.callId}`)}
                     >
                       <TableCell>
-                        <p className="font-medium">{call.elderlyName}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{call.elderlyName}</p>
+                          {call.state === 'ANSWERED' && (
+                            <Badge variant="outline" className="animate-pulse text-green-600 border-green-600 text-xs px-1.5 py-0">
+                              <Radio className="w-3 h-3 mr-1" />
+                              통화 중
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div>
                           <p>{call.callAt?.split('T')[0]}</p>
                           <p className="text-xs text-muted-foreground">
-                            {call.callAt?.split('T')[1]?.substring(0, 5)}
+                            {formatTimeAMPM(call.callAt)}
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {(call.state === 'ONGOING' || call.state === 'CONNECTING') ? (
-                          <div className="flex items-center gap-2">
-                            <span className="relative flex h-3 w-3">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                            </span>
-                            <span className="text-red-500 font-medium text-xs">통화 중</span>
-                          </div>
-                        ) : (
-                          call.duration
-                        )}
-                      </TableCell>
+                      <TableCell>{call.duration}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <EmotionIcon emotion={call.emotionLevel || 'NEUTRAL'} />
+                          <EmotionIcon emotion={call.emotionLevel || 'NORMAL'} />
                           <span className="text-sm">
-                            {call.emotionLevelKorean || (
-                              call.emotionLevel?.toUpperCase() === "POSITIVE" ? "좋음" :
-                                call.emotionLevel?.toUpperCase() === "NEUTRAL" ? "보통" : "주의"
-                            )}
+                            {call.emotionLevel?.toUpperCase() === "GOOD" ? "좋음" :
+                              call.emotionLevel?.toUpperCase() === "NORMAL" ? "보통" : "주의"}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[300px]">
-                        <p className="truncate text-sm text-muted-foreground">{call.summaryPreview}</p>
+                      <TableCell className="max-w-[200px]">
+                        <p className="truncate text-sm text-muted-foreground">
+                          {call.summaryPreview?.length > 30
+                            ? call.summaryPreview.substring(0, 30) + '...'
+                            : call.summaryPreview || '요약 없음'}
+                        </p>
                       </TableCell>
                       <TableCell>
                         {call.reviewed ? (

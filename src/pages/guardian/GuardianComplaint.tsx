@@ -256,9 +256,11 @@ const GuardianComplaint = () => {
           </Card>
         </div>
 
+        <div className="h-px bg-border my-6" />
+
         {/* Complaints List */}
         <Card className="shadow-card border-0">
-          <CardHeader>
+          <CardHeader className="border-b bg-muted/20">
             <CardTitle className="text-lg">접수 내역</CardTitle>
             <CardDescription>불편 사항 접수 및 처리 현황</CardDescription>
           </CardHeader>
