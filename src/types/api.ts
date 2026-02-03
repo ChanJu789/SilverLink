@@ -418,6 +418,7 @@ export interface ReviewResponse {
 export interface ReviewRequest {
     callId: number;
     comment: string;
+    urgent?: boolean;
 }
 
 export interface GuardianCallReviewResponse {

@@ -10,8 +10,6 @@ import {
   Utensils,
   Activity,
   AlertTriangle,
-  Play,
-  Pause,
   Volume2,
   MessageCircle,
   Heart,
@@ -19,7 +17,9 @@ import {
   MessageSquare,
   User,
   Loader2,
-  Radio
+  Radio,
+  Edit3,
+  Save
 } from "lucide-react";
 import { counselorNavItems } from "@/config/counselorNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -32,16 +32,15 @@ import usersApi from "@/api/users";
 import { CallRecordDetailResponse, MyProfileResponse } from "@/types/api";
 import { useAuth } from "@/contexts/AuthContext";
 
-const EmotionDisplay = ({ emotion, score }: { emotion: string; score: number }) => {
+const EmotionDisplay = ({ emotion, emotionKorean }: { emotion: string; emotionKorean?: string }) => {
   const config: Record<string, { icon: typeof Smile; color: string; bg: string; label: string }> = {
-    POSITIVE: { icon: Smile, color: "text-success", bg: "bg-success/10", label: "좋음" },
-    good: { icon: Smile, color: "text-success", bg: "bg-success/10", label: "좋음" },
-    NEUTRAL: { icon: Meh, color: "text-warning", bg: "bg-warning/10", label: "보통" },
-    neutral: { icon: Meh, color: "text-warning", bg: "bg-warning/10", label: "보통" },
-    NEGATIVE: { icon: Frown, color: "text-destructive", bg: "bg-destructive/10", label: "주의" },
-    bad: { icon: Frown, color: "text-destructive", bg: "bg-destructive/10", label: "주의" },
+    GOOD: { icon: Smile, color: "text-success", bg: "bg-success/10", label: "좋음" },
+    NORMAL: { icon: Meh, color: "text-warning", bg: "bg-warning/10", label: "보통" },
+    BAD: { icon: Frown, color: "text-destructive", bg: "bg-destructive/10", label: "나쁨" },
+    DEPRESSED: { icon: Frown, color: "text-destructive", bg: "bg-destructive/10", label: "우울" },
   };
-  const { icon: Icon, color, bg, label } = config[emotion] || config.NEUTRAL;
+  const { icon: Icon, color, bg, label } = config[emotion?.toUpperCase()] || config.NORMAL;
+  const displayLabel = emotionKorean || label;
 
   return (
     <div className={`p-6 rounded-2xl ${bg}`}>
@@ -51,8 +50,7 @@ const EmotionDisplay = ({ emotion, score }: { emotion: string; score: number }) 
         </div>
         <div>
           <p className="text-sm text-muted-foreground">감정 상태</p>
-          <p className={`text-2xl font-bold ${color}`}>{label}</p>
-          <p className="text-sm text-muted-foreground">점수: {score}/100</p>
+          <p className={`text-2xl font-bold ${color}`}>{displayLabel}</p>
         </div>
       </div>
     </div>
@@ -78,7 +76,6 @@ const formatTimeAMPM = (date: Date) => {
 const CounselorCallDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [callDetail, setCallDetail] = useState<CallRecordDetailResponse | null>(null);
   const { user } = useAuth();
@@ -93,16 +90,60 @@ const CounselorCallDetail = () => {
   const liveContainerRef = useRef<HTMLDivElement>(null);
   const prevIsCallActiveRef = useRef<boolean | null>(null);
 
+  // 상담 일지(리뷰) 상태
+  const [reviewComment, setReviewComment] = useState('');
+  const [isSavingReview, setIsSavingReview] = useState(false);
+  const [isEditingReview, setIsEditingReview] = useState(false);
+
   const fetchCallDetail = async (showLoading = true) => {
     if (!id) return;
     try {
       if (showLoading) setIsLoading(true);
       const detail = await callReviewsApi.getCallRecordDetail(parseInt(id));
       setCallDetail(detail);
+      // 기존 리뷰가 있으면 코멘트 초기화
+      if (detail.review?.comment) {
+        setReviewComment(detail.review.comment);
+      }
     } catch (error) {
       console.error('Failed to fetch call detail:', error);
     } finally {
       if (showLoading) setIsLoading(false);
+    }
+  };
+
+  // 상담 일지 저장
+  const handleSaveReview = async () => {
+    if (!callDetail || !id || !reviewComment.trim()) return;
+
+    try {
+      setIsSavingReview(true);
+
+      if (callDetail.review) {
+        // 기존 리뷰 수정
+        await callReviewsApi.updateReview(callDetail.review.reviewId, {
+          callId: parseInt(id),
+          comment: reviewComment.trim(),
+          urgent: false
+        });
+      } else {
+        // 새 리뷰 생성
+        await callReviewsApi.createReview({
+          callId: parseInt(id),
+          comment: reviewComment.trim(),
+          urgent: false
+        });
+      }
+
+      // 데이터 리프레시
+      await fetchCallDetail(false);
+      setIsEditingReview(false); // 저장 후 보기 모드로 전환
+      alert('상담 일지가 저장되었습니다.');
+    } catch (error) {
+      console.error('Failed to save review:', error);
+      alert('상담 일지 저장에 실패했습니다.');
+    } finally {
+      setIsSavingReview(false);
     }
   };
 
@@ -269,13 +310,13 @@ const CounselorCallDetail = () => {
     );
   }
 
-  // 어르신 이름 (elderlyName이 비어있으면 elderly.name 사용)
-  const elderlyDisplayName = callDetail.elderlyName || callDetail.elderly?.name || '어르신';
+  // 어르신 이름 (elderly.name 사용)
+  const elderlyDisplayName = callDetail.elderly?.name || '어르신';
 
   // 감정 상태 추출
   const latestEmotion = callDetail.emotions?.[callDetail.emotions.length - 1];
-  const emotion = latestEmotion?.emotionLevel || 'NEUTRAL';
-  const emotionScore = 60; // 현재 백엔드에서 점수를 반환하지 않음
+  const emotion = latestEmotion?.emotionLevel || 'NORMAL';
+  const emotionKorean = latestEmotion?.emotionLevelKorean;
 
   // 날짜/시간 추출
   const callDateTime = new Date(callDetail.callAt);
@@ -285,11 +326,11 @@ const CounselorCallDetail = () => {
   // 요약 추출
   const summary = callDetail.summaries?.[0]?.content || '요약 정보가 없습니다.';
 
-  // 위험 응답 여부
-  const hasRisk = callDetail.hasDangerResponse;
+  // 위험 응답 여부 (responses에서 danger 필드 확인)
+  const hasRisk = callDetail.responses?.some(r => r.danger) || false;
 
-  // 리뷰 상태
-  const isReviewed = callDetail.reviewed;
+  // 리뷰 상태 (review 여부로 확인)
+  const isReviewed = !!callDetail.review;
 
   return (
     <DashboardLayout
@@ -434,85 +475,84 @@ const CounselorCallDetail = () => {
                 <CardDescription>AI 안부 전화 녹음을 들어보세요</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="bg-secondary/50 rounded-xl p-4">
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="default"
-                      size="icon"
-                      className="w-12 h-12 rounded-full"
-                      onClick={() => setIsPlaying(!isPlaying)}
+                {callDetail.recordingUrl ? (
+                  <div className="bg-secondary/50 rounded-xl p-4">
+                    <audio
+                      controls
+                      className="w-full"
+                      src={callDetail.recordingUrl}
                     >
-                      {isPlaying ? (
-                        <Pause className="w-5 h-5" />
-                      ) : (
-                        <Play className="w-5 h-5 ml-0.5" />
-                      )}
-                    </Button>
-                    <div className="flex-1">
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full w-1/3 bg-primary rounded-full" />
-                      </div>
-                      <div className="flex justify-between mt-1 text-xs text-muted-foreground">
-                        <span>00:00</span>
-                        <span>{callDetail.duration}</span>
-                      </div>
-                    </div>
+                      브라우저가 오디오 재생을 지원하지 않습니다.
+                    </audio>
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      통화 시간: {callDetail.duration}
+                    </p>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-secondary/50 rounded-xl p-6 text-center">
+                    <Volume2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground">녹음 파일이 없습니다.</p>
+                    {isCallActive && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        통화 종료 후 녹음 파일이 생성됩니다.
+                      </p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             {/* Transcript - 통화 종료 후에만 표시 */}
             {!isCallActive && (
-            <Card className="shadow-card border-0">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  대화 내용
-                </CardTitle>
-                <CardDescription>AI와 어르신의 대화 기록입니다</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {transcript.length > 0 ? (
-                    transcript.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
-                      >
-                        <div className="max-w-[80%]">
-                          <div
-                            className={`rounded-lg p-3 ${msg.type === 'PROMPT'
-                              ? 'bg-primary/10 text-foreground'
-                              : 'bg-primary text-primary-foreground'
-                              }`}
-                          >
-                            <div className="text-xs opacity-70 mb-1">
-                              {msg.type === 'PROMPT' ? 'AI 상담봇' : elderlyDisplayName}
+              <Card className="shadow-card border-0">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    대화 내용
+                  </CardTitle>
+                  <CardDescription>AI와 어르신의 대화 기록입니다</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {transcript.length > 0 ? (
+                      transcript.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
+                        >
+                          <div className="max-w-[80%]">
+                            <div
+                              className={`rounded-lg p-3 ${msg.type === 'PROMPT'
+                                ? 'bg-primary/10 text-foreground'
+                                : 'bg-primary text-primary-foreground'
+                                }`}
+                            >
+                              <div className="text-xs opacity-70 mb-1">
+                                {msg.type === 'PROMPT' ? 'AI 상담봇' : elderlyDisplayName}
+                              </div>
+                              <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                             </div>
-                            <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
-                          </div>
-                          <div className={`text-[11px] opacity-50 mt-1 ${msg.type === 'PROMPT' ? 'text-left' : 'text-right'}`}>
-                            {formatTimeAMPM(msg.timestamp)}
+                            <div className={`text-[11px] opacity-50 mt-1 ${msg.type === 'PROMPT' ? 'text-left' : 'text-right'}`}>
+                              {formatTimeAMPM(msg.timestamp)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted-foreground text-center py-4">
-                      대화 내용이 없습니다.
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">
+                        대화 내용이 없습니다.
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Emotion */}
-            <EmotionDisplay emotion={emotion} score={emotionScore} />
+            <EmotionDisplay emotion={emotion} emotionKorean={emotionKorean} />
 
             {/* Status Cards */}
             <Card className="shadow-card border-0">
@@ -541,15 +581,79 @@ const CounselorCallDetail = () => {
                     {isReviewed ? '리뷰 완료' : '리뷰 대기'}
                   </p>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Counselor Note from Review */}
-                {callDetail.review?.comment && (
-                  <div className="p-4 rounded-xl bg-info/10">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertTriangle className="w-4 h-4 text-info" />
-                      <span className="font-medium text-info">상담사 리뷰</span>
+            {/* 상담 일지 (Review Journal) */}
+            <Card className="shadow-card border-0">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Edit3 className="w-5 h-5 text-primary" />
+                  상담 일지
+                </CardTitle>
+                <CardDescription>
+                  {callDetail.review ? '작성된 상담 일지입니다.' : '상담 내용을 기록해주세요.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* 보기 모드: 리뷰가 있고 편집 중이 아닐 때 */}
+                {callDetail.review && !isEditingReview ? (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-lg bg-secondary/50">
+                      <p className="text-sm whitespace-pre-wrap">{callDetail.review.comment}</p>
                     </div>
-                    <p className="text-sm">{callDetail.review.comment}</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        마지막 수정: {new Date(callDetail.review.reviewedAt).toLocaleString('ko-KR')}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setReviewComment(callDetail.review?.comment || '');
+                          setIsEditingReview(true);
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        수정
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* 편집 모드: 리뷰가 없거나 편집 중일 때 */
+                  <div className="space-y-4">
+                    <textarea
+                      className="w-full min-h-[120px] p-3 rounded-lg border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="상담 내용을 기록해주세요..."
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                    />
+                    <div className="flex justify-end gap-2">
+                      {callDetail.review && (
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsEditingReview(false);
+                            setReviewComment(callDetail.review?.comment || '');
+                          }}
+                        >
+                          취소
+                        </Button>
+                      )}
+                      <Button
+                        onClick={handleSaveReview}
+                        disabled={isSavingReview || !reviewComment.trim()}
+                        className="flex items-center gap-2"
+                      >
+                        {isSavingReview ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4" />
+                        )}
+                        저장
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
