@@ -19,7 +19,8 @@ import {
   Loader2,
   Radio,
   Edit3,
-  Save
+  Save,
+  Moon
 } from "lucide-react";
 import { counselorNavItems } from "@/config/counselorNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -35,8 +36,8 @@ import { useAuth } from "@/contexts/AuthContext";
 const EmotionDisplay = ({ emotion, emotionKorean }: { emotion: string; emotionKorean?: string }) => {
   const config: Record<string, { icon: typeof Smile; color: string; bg: string; label: string }> = {
     GOOD: { icon: Smile, color: "text-success", bg: "bg-success/10", label: "좋음" },
-    NORMAL: { icon: Meh, color: "text-warning", bg: "bg-warning/10", label: "보통" },
-    BAD: { icon: Frown, color: "text-destructive", bg: "bg-destructive/10", label: "나쁨" },
+    NORMAL: { icon: Meh, color: "text-muted-foreground", bg: "bg-muted", label: "보통" },
+    BAD: { icon: Frown, color: "text-destructive", bg: "bg-destructive/10", label: "주의" },
     DEPRESSED: { icon: Frown, color: "text-destructive", bg: "bg-destructive/10", label: "우울" },
   };
   const { icon: Icon, color, bg, label } = config[emotion?.toUpperCase()] || config.NORMAL;
@@ -80,9 +81,8 @@ const CounselorCallDetail = () => {
   const [callDetail, setCallDetail] = useState<CallRecordDetailResponse | null>(null);
   const { user } = useAuth();
 
-  // 실시간 모니터링 상태 (통화 진행 중일 때만 자동 시작)
+  // 실시간 모니터링 상태 (통화 진행 중일 때 자동 시작)
   const isCallActive = callDetail?.state === 'ANSWERED';
-  const [isLiveMonitoring, setIsLiveMonitoring] = useState(false);
   const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([]);
   const [sseConnected, setSseConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -151,16 +151,11 @@ const CounselorCallDetail = () => {
     fetchCallDetail();
   }, [id]);
 
-  // 통화 진행 중일 때 자동으로 모니터링 UI 시작 + 종료 감지
+  // 통화 종료 감지 후 데이터 리페치
   useEffect(() => {
-    if (isCallActive) {
-      setIsLiveMonitoring(true);
-    } else {
-      setIsLiveMonitoring(false);
+    if (!isCallActive && prevIsCallActiveRef.current === true) {
       // 통화가 진행 중이었다가 종료된 경우 → 데이터 리페치
-      if (prevIsCallActiveRef.current === true) {
-        setTimeout(() => fetchCallDetail(false), 2000);
-      }
+      setTimeout(() => fetchCallDetail(false), 2000);
     }
     prevIsCallActiveRef.current = isCallActive ?? null;
   }, [isCallActive]);
@@ -257,10 +252,10 @@ const CounselorCallDetail = () => {
 
   // 모니터링 카드 내부에서만 자동 스크롤 (페이지 스크롤에 영향 없음)
   useEffect(() => {
-    if (liveContainerRef.current && isLiveMonitoring && isCallActive) {
+    if (liveContainerRef.current && isCallActive) {
       liveContainerRef.current.scrollTop = liveContainerRef.current.scrollHeight;
     }
-  }, [liveMessages, isLiveMonitoring, isCallActive]);
+  }, [liveMessages, isCallActive]);
 
   // 대화 내용 조합 (prompts + responses 시간순 정렬)
   const transcript = useMemo(() => {
@@ -389,64 +384,51 @@ const CounselorCallDetail = () => {
                       <Radio className="w-5 h-5 text-primary" />
                       실시간 통화 모니터링
                     </CardTitle>
-                    <div className="flex items-center gap-2">
-                      {sseConnected && (
-                        <Badge variant="outline" className="animate-pulse text-green-600 border-green-600">
-                          ● Live
-                        </Badge>
-                      )}
-                      <Button
-                        variant={isLiveMonitoring ? "destructive" : "default"}
-                        size="sm"
-                        onClick={() => setIsLiveMonitoring(!isLiveMonitoring)}
-                      >
-                        {isLiveMonitoring ? "모니터링 중지" : "모니터링 시작"}
-                      </Button>
-                    </div>
+                    {sseConnected && (
+                      <Badge variant="outline" className="animate-pulse text-red-600 border-red-600">
+                        ● Live
+                      </Badge>
+                    )}
                   </div>
                   <CardDescription>
-                    {isLiveMonitoring
-                      ? "실시간으로 통화 내용을 확인하고 있습니다"
-                      : "버튼을 클릭하여 실시간 모니터링을 시작하세요"}
+                    실시간으로 통화 내용을 확인하고 있습니다
                   </CardDescription>
                 </CardHeader>
-                {isLiveMonitoring && (
-                  <CardContent>
-                    <div ref={liveContainerRef} className="bg-secondary/30 rounded-xl p-4 h-[400px] overflow-y-auto">
-                      <div className="space-y-3">
-                        {liveMessages.length === 0 ? (
-                          <div className="flex h-full items-center justify-center text-muted-foreground">
-                            대화 내용을 기다리고 있습니다...
-                          </div>
-                        ) : (
-                          liveMessages.map((msg) => (
-                            <div
-                              key={msg.id}
-                              className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
-                            >
-                              <div className="max-w-[80%]">
-                                <div
-                                  className={`rounded-lg p-3 ${msg.type === 'PROMPT'
-                                    ? 'bg-primary/10 text-foreground'
-                                    : 'bg-primary text-primary-foreground'
-                                    }`}
-                                >
-                                  <div className="text-xs opacity-70 mb-1">
-                                    {msg.type === 'PROMPT' ? 'AI 상담봇' : elderlyDisplayName}
-                                  </div>
-                                  <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                <CardContent>
+                  <div ref={liveContainerRef} className="bg-secondary/30 rounded-xl p-4 h-[400px] overflow-y-auto">
+                    <div className="space-y-3">
+                      {liveMessages.length === 0 ? (
+                        <div className="flex h-full items-center justify-center text-muted-foreground">
+                          대화 내용을 기다리고 있습니다...
+                        </div>
+                      ) : (
+                        liveMessages.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`flex ${msg.type === 'PROMPT' ? 'justify-start' : 'justify-end'}`}
+                          >
+                            <div className="max-w-[80%]">
+                              <div
+                                className={`rounded-lg p-3 ${msg.type === 'PROMPT'
+                                  ? 'bg-primary/10 text-foreground'
+                                  : 'bg-primary text-primary-foreground'
+                                  }`}
+                              >
+                                <div className="text-xs opacity-70 mb-1">
+                                  {msg.type === 'PROMPT' ? 'AI 상담봇' : elderlyDisplayName}
                                 </div>
-                                <div className={`text-[11px] opacity-50 mt-1 ${msg.type === 'PROMPT' ? 'text-left' : 'text-right'}`}>
-                                  {formatTimeAMPM(msg.timestamp)}
-                                </div>
+                                <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                              </div>
+                              <div className="text-[11px] opacity-50 mt-1 text-right">
+                                {formatTimeAMPM(msg.timestamp)}
                               </div>
                             </div>
-                          ))
-                        )}
-                      </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  </CardContent>
-                )}
+                  </div>
+                </CardContent>
               </Card>
             )}
 
@@ -532,7 +514,7 @@ const CounselorCallDetail = () => {
                               </div>
                               <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                             </div>
-                            <div className={`text-[11px] opacity-50 mt-1 ${msg.type === 'PROMPT' ? 'text-left' : 'text-right'}`}>
+                            <div className="text-[11px] opacity-50 mt-1 text-right">
                               {formatTimeAMPM(msg.timestamp)}
                             </div>
                           </div>
@@ -560,7 +542,66 @@ const CounselorCallDetail = () => {
                 <CardTitle className="text-lg">오늘의 상태</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Meal Status */}
+                <div className="p-4 rounded-xl bg-secondary/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Utensils className="w-4 h-4 text-orange-500" />
+                    <span className="font-medium">식사</span>
+                  </div>
+                  <p className={`text-sm font-medium ${
+                    callDetail.dailyStatus?.meal?.taken === true ? 'text-success' :
+                    callDetail.dailyStatus?.meal?.taken === false ? 'text-warning' :
+                    'text-muted-foreground'
+                  }`}>
+                    {callDetail.dailyStatus?.meal?.status || '미확인'}
+                  </p>
+                </div>
+
                 {/* Health Status */}
+                <div className="p-4 rounded-xl bg-secondary/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Heart className="w-4 h-4 text-red-500" />
+                    <span className="font-medium">건강</span>
+                  </div>
+                  <p className={`text-sm font-medium ${
+                    callDetail.dailyStatus?.health?.level === 'GOOD' ? 'text-success' :
+                    callDetail.dailyStatus?.health?.level === 'NORMAL' ? 'text-warning' :
+                    callDetail.dailyStatus?.health?.level === 'BAD' ? 'text-destructive' :
+                    'text-muted-foreground'
+                  }`}>
+                    {callDetail.dailyStatus?.health?.levelKorean || '미확인'}
+                  </p>
+                  {callDetail.dailyStatus?.health?.detail && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {callDetail.dailyStatus.health.detail}
+                    </p>
+                  )}
+                </div>
+
+                {/* Sleep Status */}
+                <div className="p-4 rounded-xl bg-secondary/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Moon className="w-4 h-4 text-indigo-500" />
+                    <span className="font-medium">수면</span>
+                  </div>
+                  <p className={`text-sm font-medium ${
+                    callDetail.dailyStatus?.sleep?.level === 'GOOD' ? 'text-success' :
+                    callDetail.dailyStatus?.sleep?.level === 'NORMAL' ? 'text-warning' :
+                    callDetail.dailyStatus?.sleep?.level === 'BAD' ? 'text-destructive' :
+                    'text-muted-foreground'
+                  }`}>
+                    {callDetail.dailyStatus?.sleep?.levelKorean || '미확인'}
+                  </p>
+                  {callDetail.dailyStatus?.sleep?.detail && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {callDetail.dailyStatus.sleep.detail}
+                    </p>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Risk Response Status */}
                 <div className="p-4 rounded-xl bg-secondary/50">
                   <div className="flex items-center gap-2 mb-2">
                     <Activity className="w-4 h-4 text-primary" />

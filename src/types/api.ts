@@ -347,6 +347,31 @@ export interface WelfareSearchRequest {
 // =====================
 // 통화 리뷰 관련 타입
 // =====================
+
+// 오늘의 상태 (식사, 건강, 수면) 타입
+export interface MealInfo {
+    taken: boolean | null;
+    status: string; // "식사함", "식사 안함", "미확인"
+}
+
+export interface HealthInfo {
+    level: string | null;      // "GOOD", "NORMAL", "BAD", or null
+    levelKorean: string;       // "좋음", "보통", "나쁨", "미확인"
+    detail: string | null;
+}
+
+export interface SleepInfo {
+    level: string | null;      // "GOOD", "NORMAL", "BAD", or null
+    levelKorean: string;       // "좋음", "보통", "나쁨", "미확인"
+    detail: string | null;
+}
+
+export interface DailyStatusInfo {
+    meal: MealInfo;
+    health: HealthInfo;
+    sleep: SleepInfo;
+}
+
 export interface CallRecordSummaryResponse {
     callId: number;
     elderlyId: number;
@@ -355,7 +380,7 @@ export interface CallRecordSummaryResponse {
     duration: string; // Changed from number to string ("분:초")
     state: string;
     stateKorean: string;
-    emotionLevel: 'GOOD' | 'NEUTRAL' | 'BAD' | null;
+    emotionLevel: 'GOOD' | 'NORMAL' | 'BAD' | null;
     emotionLevelKorean: string | null;
     hasDangerResponse: boolean;
     reviewed: boolean;
@@ -403,6 +428,7 @@ export interface CallRecordDetailResponse extends CallRecordSummaryResponse {
         comment: string;
         urgent: boolean;
     };
+    dailyStatus?: DailyStatusInfo;
 }
 
 export interface ReviewResponse {
@@ -448,6 +474,7 @@ export interface GuardianCallReviewResponse {
         danger: boolean;
         dangerReason?: string;
     }>;
+    dailyStatus?: DailyStatusInfo;
 }
 
 export interface UnreviewedCountResponse {

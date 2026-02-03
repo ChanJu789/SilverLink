@@ -18,7 +18,8 @@ import {
   FileText,
   MessageSquare,
   Loader2,
-  Radio
+  Radio,
+  Moon
 } from "lucide-react";
 import { guardianNavItems } from "@/config/guardianNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -33,7 +34,7 @@ import { GuardianCallReviewResponse, MyProfileResponse } from "@/types/api";
 const EmotionDisplay = ({ emotion }: { emotion: string }) => {
   const config = {
     good: { icon: Smile, color: "text-success", bg: "bg-success/10", label: "좋음" },
-    neutral: { icon: Meh, color: "text-warning", bg: "bg-warning/10", label: "보통" },
+    neutral: { icon: Meh, color: "text-muted-foreground", bg: "bg-muted", label: "보통" },
     bad: { icon: Frown, color: "text-destructive", bg: "bg-destructive/10", label: "주의" },
   };
   const emotionKey = emotion?.toLowerCase() as keyof typeof config;
@@ -521,6 +522,83 @@ const GuardianCallDetail = () => {
           <div className="space-y-6">
             {/* Emotion */}
             <EmotionDisplay emotion={callDetail.emotionLevel?.toLowerCase() || 'neutral'} />
+
+            {/* 오늘의 상태 */}
+            <Card className="shadow-card border-0">
+              <CardHeader>
+                <CardTitle className="text-lg">오늘의 상태</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* 식사 상태 */}
+                <div className="p-4 rounded-xl bg-secondary/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Utensils className="w-4 h-4 text-orange-500" />
+                    <span className="font-medium">식사</span>
+                  </div>
+                  <p className={`text-sm font-medium ${
+                    callDetail.dailyStatus?.meal?.taken === true ? 'text-success' :
+                    callDetail.dailyStatus?.meal?.taken === false ? 'text-warning' :
+                    'text-muted-foreground'
+                  }`}>
+                    {callDetail.dailyStatus?.meal?.status || '미확인'}
+                  </p>
+                </div>
+
+                {/* 건강 상태 */}
+                <div className="p-4 rounded-xl bg-secondary/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Heart className="w-4 h-4 text-red-500" />
+                    <span className="font-medium">건강</span>
+                  </div>
+                  <p className={`text-sm font-medium ${
+                    callDetail.dailyStatus?.health?.level === 'GOOD' ? 'text-success' :
+                    callDetail.dailyStatus?.health?.level === 'NORMAL' ? 'text-warning' :
+                    callDetail.dailyStatus?.health?.level === 'BAD' ? 'text-destructive' :
+                    'text-muted-foreground'
+                  }`}>
+                    {callDetail.dailyStatus?.health?.levelKorean || '미확인'}
+                  </p>
+                  {callDetail.dailyStatus?.health?.detail && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {callDetail.dailyStatus.health.detail}
+                    </p>
+                  )}
+                </div>
+
+                {/* 수면 상태 */}
+                <div className="p-4 rounded-xl bg-secondary/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Moon className="w-4 h-4 text-indigo-500" />
+                    <span className="font-medium">수면</span>
+                  </div>
+                  <p className={`text-sm font-medium ${
+                    callDetail.dailyStatus?.sleep?.level === 'GOOD' ? 'text-success' :
+                    callDetail.dailyStatus?.sleep?.level === 'NORMAL' ? 'text-warning' :
+                    callDetail.dailyStatus?.sleep?.level === 'BAD' ? 'text-destructive' :
+                    'text-muted-foreground'
+                  }`}>
+                    {callDetail.dailyStatus?.sleep?.levelKorean || '미확인'}
+                  </p>
+                  {callDetail.dailyStatus?.sleep?.detail && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {callDetail.dailyStatus.sleep.detail}
+                    </p>
+                  )}
+                </div>
+
+                {/* 위험 응답 상태 */}
+                <Separator />
+                <div className="p-4 rounded-xl bg-secondary/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Activity className="w-4 h-4 text-primary" />
+                    <span className="font-medium">위험 응답</span>
+                  </div>
+                  <p className={`font-medium ${callDetail.hasDangerResponse ? 'text-destructive' : 'text-success'}`}>
+                    {callDetail.hasDangerResponse ? '위험 응답 감지됨' : '이상 없음'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Elderly Info */}
             <Card className="shadow-card border-0">
