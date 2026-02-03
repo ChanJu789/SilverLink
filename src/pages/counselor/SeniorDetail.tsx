@@ -59,7 +59,9 @@ import { counselorNavItems } from "@/config/counselorNavItems";
 import { useAuth } from "@/contexts/AuthContext";
 import elderlyApi from "@/api/elderly";
 import medicationsApi, { MedicationResponse } from "@/api/medications";
-import { ElderlySummaryResponse, HealthInfoResponse } from "@/types/api";
+import counselingApi from "@/api/counseling";
+import callReviewsApi from "@/api/callReviews";
+import { ElderlySummaryResponse, HealthInfoResponse, CounselingRecordResponse, CallRecordSummaryResponse } from "@/types/api";
 
 // Mock data
 const seniorData = {
@@ -161,6 +163,8 @@ export default function SeniorDetail() {
   const [profile, setProfile] = useState<ElderlySummaryResponse | null>(null);
   const [healthInfo, setHealthInfo] = useState<HealthInfoResponse | null>(null);
   const [medications, setMedications] = useState<MedicationResponse[]>([]);
+  const [counselingRecords, setCounselingRecords] = useState<CounselingRecordResponse[]>([]);
+  const [callRecords, setCallRecords] = useState<CallRecordSummaryResponse[]>([]);
 
   const [activeTab, setActiveTab] = useState("overview");
   const [newRecord, setNewRecord] = useState({
@@ -176,11 +180,11 @@ export default function SeniorDetail() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        
+
         // 프로필 정보는 필수
         const profileData = await elderlyApi.getSummary(numericId);
         setProfile(profileData);
-        
+
         // 건강 정보와 복약 정보는 선택적 (에러 발생해도 계속 진행)
         try {
           const healthData = await elderlyApi.getHealthInfo(numericId);
@@ -189,13 +193,31 @@ export default function SeniorDetail() {
           console.warn("건강 정보 조회 실패 (권한 없음 또는 데이터 없음):", error);
           setHealthInfo(null);
         }
-        
+
         try {
           const medicationData = await medicationsApi.getMedicationsByElderly(numericId);
           setMedications(medicationData);
         } catch (error) {
           console.warn("복약 정보 조회 실패:", error);
           setMedications([]);
+        }
+
+        try {
+          const counselingData = await counselingApi.getRecordsByElderly(numericId);
+          setCounselingRecords(counselingData);
+        } catch (error) {
+          console.warn("상담 기록 조회 실패:", error);
+          setCounselingRecords([]);
+        }
+
+        try {
+          const callData = await callReviewsApi.getCallRecordsForCounselor({ page: 0, size: 100 });
+          // 해당 어르신의 통화 기록만 필터링
+          const filteredCalls = callData.content.filter(call => call.elderlyId === numericId);
+          setCallRecords(filteredCalls);
+        } catch (error) {
+          console.warn("통화 기록 조회 실패:", error);
+          setCallRecords([]);
         }
       } catch (error) {
         console.error("Failed to fetch elderly detail:", error);
@@ -369,11 +391,10 @@ export default function SeniorDetail() {
         </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
+          <TabsList className="grid w-full grid-cols-3 lg:w-[300px]">
             <TabsTrigger value="overview">종합 분석</TabsTrigger>
             <TabsTrigger value="health">건강 정보</TabsTrigger>
             <TabsTrigger value="records">상담 기록</TabsTrigger>
-            <TabsTrigger value="settings">설정</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -507,25 +528,52 @@ export default function SeniorDetail() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {chartData.recentCalls.map((call, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-4 border rounded-xl hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Phone className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">{call.date}</span>
-                              <span className="text-sm text-muted-foreground">({call.duration})</span>
+                    {callRecords.length > 0 ? callRecords.slice(0, 10).map((call) => {
+                      // 통화 시간 포맷팅
+                      const formatDuration = (seconds: number) => {
+                        const mins = Math.floor(seconds / 60);
+                        const secs = seconds % 60;
+                        if (mins > 0) {
+                          return `${mins}분 ${secs}초`;
+                        }
+                        return `${secs}초`;
+                      };
+
+                      // 감정 한글 변환
+                      const emotionMap: Record<string, string> = {
+                        'GOOD': '좋음',
+                        'NORMAL': '보통',
+                        'BAD': '나쁨',
+                        'VERY_GOOD': '매우 좋음',
+                        'VERY_BAD': '매우 나쁨'
+                      };
+                      const emotionLabel = emotionMap[call.emotionSummary] || call.emotionSummary || '보통';
+
+                      return (
+                        <div key={call.callId} className="flex items-center justify-between p-4 border rounded-xl hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/counselor/calls/${call.callId}`)}>
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Phone className="w-5 h-5 text-primary" />
                             </div>
-                            <p className="text-sm text-muted-foreground mt-1">{call.summary}</p>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold">{call.callAt?.split('T')[0] || '-'}</span>
+                                <span className="text-sm text-muted-foreground">({formatDuration(call.durationSeconds || 0)})</span>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{call.summary || '통화 내용 없음'}</p>
+                            </div>
                           </div>
+                          <Badge className={`${getEmotionBadge(emotionLabel)} border-0`}>
+                            감정: {emotionLabel}
+                          </Badge>
                         </div>
-                        <Badge className={`${getEmotionBadge(call.emotion)} border-0`}>
-                          감정: {call.emotion}
-                        </Badge>
+                      );
+                    }) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Phone className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>통화 기록이 없습니다.</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -589,7 +637,7 @@ export default function SeniorDetail() {
                               {med.reminder ? "알림 ON" : "알림 OFF"}
                             </Badge>
                           </div>
-                          
+
                           {/* 복용 시간 */}
                           <div className="flex flex-wrap gap-2 ml-6">
                             {med.times.map((time) => {
@@ -599,9 +647,9 @@ export default function SeniorDetail() {
                                 evening: { icon: Sunset, label: "저녁", time: "18:00" },
                                 night: { icon: Moon, label: "취침전", time: "22:00" },
                               }[time] || { icon: Clock, label: time, time: "-" };
-                              
+
                               const Icon = timeConfig.icon;
-                              
+
                               return (
                                 <Badge key={time} variant="outline" className="gap-1.5 py-1 px-3">
                                   <Icon className="w-3.5 h-3.5" />
@@ -701,27 +749,42 @@ export default function SeniorDetail() {
                 )}
 
                 <div className="space-y-4">
-                  {chartData.counselingRecords.map((record, idx) => (
-                    <div key={idx} className="relative pl-8 pb-8 border-l last:pb-0">
-                      <div className="absolute left-[-5px] top-0 w-2.5 h-2.5 rounded-full bg-primary" />
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-lg">{record.date}</span>
-                          <Badge variant="outline">{record.type}</Badge>
-                        </div>
-                        <span className="text-sm text-muted-foreground">상담사: {record.counselor}</span>
-                      </div>
-                      <div className="p-4 bg-muted/30 rounded-lg space-y-3">
-                        <p className="text-foreground">{record.content}</p>
-                        {record.followUp && (
-                          <div className="flex items-start gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-                            <CheckCircle2 className="w-4 h-4 mt-0.5" />
-                            <span>후속 조치: {record.followUp}</span>
+                  {counselingRecords.length > 0 ? counselingRecords.map((record) => {
+                    // 타입 한글 변환
+                    const typeMap: Record<string, string> = {
+                      'PHONE': '전화 상담',
+                      'VISIT': '방문 상담',
+                      'VIDEO': '영상 상담'
+                    };
+                    const typeLabel = typeMap[record.type] || record.type;
+
+                    return (
+                      <div key={record.id} className="relative pl-8 pb-8 border-l last:pb-0">
+                        <div className="absolute left-[-5px] top-0 w-2.5 h-2.5 rounded-full bg-primary" />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-lg">{record.date}</span>
+                            <Badge variant="outline">{typeLabel}</Badge>
                           </div>
-                        )}
+                          <span className="text-sm text-muted-foreground">카테고리: {record.category || '-'}</span>
+                        </div>
+                        <div className="p-4 bg-muted/30 rounded-lg space-y-3">
+                          <p className="text-foreground">{record.content || record.summary || '내용 없음'}</p>
+                          {record.followUp && (
+                            <div className="flex items-start gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
+                              <CheckCircle2 className="w-4 h-4 mt-0.5" />
+                              <span>후속 조치: {record.followUp}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
+                    );
+                  }) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>상담 기록이 없습니다.</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
