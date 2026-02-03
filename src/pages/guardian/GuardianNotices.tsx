@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import noticesApi from "@/api/notices";
+import apiClient from "@/api/index";
 import usersApi from "@/api/users";
 import { NoticeResponse, MyProfileResponse } from "@/types/api";
 
@@ -223,10 +224,10 @@ const GuardianNotices = () => {
                 <div
                   key={notice.id}
                   className={`p-4 rounded-xl transition-colors cursor-pointer ${notice.isPriority
-                      ? 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100'
-                      : notice.isRead
-                        ? 'bg-secondary/30 hover:bg-secondary/50'
-                        : 'bg-primary/5 hover:bg-primary/10'
+                    ? 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100'
+                    : notice.isRead
+                      ? 'bg-secondary/30 hover:bg-secondary/50'
+                      : 'bg-primary/5 hover:bg-primary/10'
                     }`}
                   onClick={() => handleNoticeClick(notice)}
                 >
@@ -298,19 +299,17 @@ const GuardianNotices = () => {
                     key={index}
                     onClick={async () => {
                       try {
-                        // fetch로 파일 다운로드 (원본 파일명 유지)
-                        const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
-                        const downloadUrl = `${baseUrl}/api/files/download?filePath=${encodeURIComponent(file.filePath)}&originalFileName=${encodeURIComponent(file.originalFileName)}`;
-
-                        const response = await fetch(downloadUrl);
-                        if (!response.ok) {
-                          throw new Error('파일 다운로드 실패');
-                        }
-
-                        // Blob으로 변환
-                        const blob = await response.blob();
+                        // apiClient를 사용해서 파일 다운로드 (baseURL + 인증 자동 처리)
+                        const response = await apiClient.get('/api/files/download', {
+                          params: {
+                            filePath: file.filePath,
+                            originalFileName: file.originalFileName
+                          },
+                          responseType: 'blob'
+                        });
 
                         // Blob URL 생성 및 다운로드
+                        const blob = new Blob([response.data]);
                         const blobUrl = window.URL.createObjectURL(blob);
                         const link = document.createElement('a');
                         link.href = blobUrl;

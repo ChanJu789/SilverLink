@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { counselorNavItems } from "@/config/counselorNavItems";
 import noticesApi from "@/api/notices";
+import apiClient from "@/api/index";
 // import usersApi from "@/api/users"; // Removed unused
 import { NoticeResponse } from "@/types/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -75,9 +76,9 @@ const CounselorNotices = () => {
       "SYSTEM": "시스템",
       "NEWS": "소식",
     };
-    
+
     const displayName = categoryNameMap[category] || category;
-    
+
     const styles: Record<string, string> = {
       "NOTICE": "bg-primary/10 text-primary border-0",
       "EVENT": "bg-success/10 text-success border-0",
@@ -92,7 +93,7 @@ const CounselorNotices = () => {
       "이벤트": "bg-success/10 text-success border-0",
       "소식": "bg-info/10 text-info border-0",
     };
-    
+
     const style = styles[category] || styles[displayName] || "bg-muted text-muted-foreground";
     return { style, displayName };
   };
@@ -210,13 +211,12 @@ const CounselorNotices = () => {
               filteredNotices.map((notice) => (
                 <div
                   key={notice.id}
-                  className={`p-4 rounded-xl transition-colors cursor-pointer ${
-                    notice.isPriority 
-                      ? 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100' 
-                      : notice.isRead 
-                        ? 'bg-secondary/30 hover:bg-secondary/50' 
-                        : 'bg-primary/5 hover:bg-primary/10'
-                  }`}
+                  className={`p-4 rounded-xl transition-colors cursor-pointer ${notice.isPriority
+                    ? 'bg-red-50 border-l-4 border-l-red-500 hover:bg-red-100'
+                    : notice.isRead
+                      ? 'bg-secondary/30 hover:bg-secondary/50'
+                      : 'bg-primary/5 hover:bg-primary/10'
+                    }`}
                   onClick={() => handleNoticeClick(notice)}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -232,9 +232,8 @@ const CounselorNotices = () => {
                           {getCategoryBadge(notice.category).displayName}
                         </Badge>
                       </div>
-                      <h3 className={`font-medium text-foreground ${
-                        notice.isPriority ? "text-red-800 font-semibold" : ""
-                      }`}>
+                      <h3 className={`font-medium text-foreground ${notice.isPriority ? "text-red-800 font-semibold" : ""
+                        }`}>
                         {notice.isPriority && "📌 "}
                         {notice.title}
                       </h3>
@@ -272,7 +271,7 @@ const CounselorNotices = () => {
           <div className="mt-4 whitespace-pre-wrap text-foreground">
             {selectedNotice?.content}
           </div>
-          
+
           {/* 첨부파일 섹션 */}
           {selectedNotice?.attachments && selectedNotice.attachments.length > 0 && (
             <div className="mt-6 border-t pt-4">
@@ -288,18 +287,17 @@ const CounselorNotices = () => {
                     key={index}
                     onClick={async () => {
                       try {
-                        // fetch로 파일 다운로드 (원본 파일명 유지)
-                        const downloadUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/files/download?filePath=${encodeURIComponent(file.filePath)}&originalFileName=${encodeURIComponent(file.originalFileName)}`;
-                        
-                        const response = await fetch(downloadUrl);
-                        if (!response.ok) {
-                          throw new Error('파일 다운로드 실패');
-                        }
-                        
-                        // Blob으로 변환
-                        const blob = await response.blob();
-                        
+                        // apiClient를 사용해서 파일 다운로드 (baseURL + 인증 자동 처리)
+                        const response = await apiClient.get('/api/files/download', {
+                          params: {
+                            filePath: file.filePath,
+                            originalFileName: file.originalFileName
+                          },
+                          responseType: 'blob'
+                        });
+
                         // Blob URL 생성 및 다운로드
+                        const blob = new Blob([response.data]);
                         const blobUrl = window.URL.createObjectURL(blob);
                         const link = document.createElement('a');
                         link.href = blobUrl;
@@ -307,7 +305,7 @@ const CounselorNotices = () => {
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
-                        
+
                         // Blob URL 해제
                         window.URL.revokeObjectURL(blobUrl);
                       } catch (error) {
