@@ -75,6 +75,13 @@ interface ConversationMessage {
   isLive?: boolean;
 }
 
+interface LiveMessage {
+  id: number;
+  type: 'PROMPT' | 'REPLY';
+  content: string;
+  timestamp: Date;
+}
+
 const formatTimeAMPM = (date: Date) => {
   const hours = date.getHours();
   const minutes = date.getMinutes();
@@ -222,26 +229,24 @@ const CounselorCallDetail = () => {
 
     eventSource.addEventListener('prompt', (e: MessageEvent) => {
       console.log(`📤 [SSE] AI 발화 수신: callId=${id}, data=${e.data.substring(0, 50)}...`);
-      const newLog: ConversationMessage = {
+      const newLog: LiveMessage = {
         id: Date.now(),
-        type: 'prompt',
+        type: 'PROMPT',
         content: e.data,
-        timestamp: new Date(),
-        isLive: true
+        timestamp: new Date()
       };
-      setMessages(prev => [...prev, newLog]);
+      setLiveMessages(prev => [...prev, newLog]);
     });
 
     eventSource.addEventListener('reply', (e: MessageEvent) => {
       console.log(`📥 [SSE] 어르신 응답 수신: callId=${id}, data=${e.data.substring(0, 50)}...`);
-      const newLog: ConversationMessage = {
+      const newLog: LiveMessage = {
         id: Date.now(),
-        type: 'response',
+        type: 'REPLY',
         content: e.data,
-        timestamp: new Date(),
-        isLive: true
+        timestamp: new Date()
       };
-      setMessages(prev => [...prev, newLog]);
+      setLiveMessages(prev => [...prev, newLog]);
     });
 
     eventSource.addEventListener('callEnded', () => {
@@ -563,11 +568,10 @@ const CounselorCallDetail = () => {
                     <Utensils className="w-4 h-4 text-orange-500" />
                     <span className="font-medium">식사</span>
                   </div>
-                  <p className={`text-sm font-medium ${
-                    callDetail.dailyStatus?.meal?.taken === true ? 'text-success' :
+                  <p className={`text-sm font-medium ${callDetail.dailyStatus?.meal?.taken === true ? 'text-success' :
                     callDetail.dailyStatus?.meal?.taken === false ? 'text-warning' :
-                    'text-muted-foreground'
-                  }`}>
+                      'text-muted-foreground'
+                    }`}>
                     {callDetail.dailyStatus?.meal?.status || '미확인'}
                   </p>
                 </div>
@@ -578,12 +582,11 @@ const CounselorCallDetail = () => {
                     <Heart className="w-4 h-4 text-red-500" />
                     <span className="font-medium">건강</span>
                   </div>
-                  <p className={`text-sm font-medium ${
-                    callDetail.dailyStatus?.health?.level === 'GOOD' ? 'text-success' :
+                  <p className={`text-sm font-medium ${callDetail.dailyStatus?.health?.level === 'GOOD' ? 'text-success' :
                     callDetail.dailyStatus?.health?.level === 'NORMAL' ? 'text-warning' :
-                    callDetail.dailyStatus?.health?.level === 'BAD' ? 'text-destructive' :
-                    'text-muted-foreground'
-                  }`}>
+                      callDetail.dailyStatus?.health?.level === 'BAD' ? 'text-destructive' :
+                        'text-muted-foreground'
+                    }`}>
                     {callDetail.dailyStatus?.health?.levelKorean || '미확인'}
                   </p>
                   {callDetail.dailyStatus?.health?.detail && (
@@ -599,12 +602,11 @@ const CounselorCallDetail = () => {
                     <Moon className="w-4 h-4 text-indigo-500" />
                     <span className="font-medium">수면</span>
                   </div>
-                  <p className={`text-sm font-medium ${
-                    callDetail.dailyStatus?.sleep?.level === 'GOOD' ? 'text-success' :
+                  <p className={`text-sm font-medium ${callDetail.dailyStatus?.sleep?.level === 'GOOD' ? 'text-success' :
                     callDetail.dailyStatus?.sleep?.level === 'NORMAL' ? 'text-warning' :
-                    callDetail.dailyStatus?.sleep?.level === 'BAD' ? 'text-destructive' :
-                    'text-muted-foreground'
-                  }`}>
+                      callDetail.dailyStatus?.sleep?.level === 'BAD' ? 'text-destructive' :
+                        'text-muted-foreground'
+                    }`}>
                     {callDetail.dailyStatus?.sleep?.levelKorean || '미확인'}
                   </p>
                   {callDetail.dailyStatus?.sleep?.detail && (
