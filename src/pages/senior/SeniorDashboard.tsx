@@ -98,8 +98,8 @@ const SeniorDashboard = () => {
     },
     {
       id: "ocr",
-      title: "문서 읽기",
-      description: "카메라로 문서를 읽어드려요",
+      title: "약봉투 촬영",
+      description: "약봉투를 찍으면 일정에 등록해요",
       icon: <Camera className="w-12 h-12" />,
       color: "bg-info",
       action: () => navigate("/senior/ocr"),
@@ -149,149 +149,149 @@ const SeniorDashboard = () => {
         className="min-h-screen bg-background"
         style={{ fontSize: `${fontSize}px` }}
       >
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground p-6 rounded-b-3xl shadow-lg">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-primary-foreground/20 flex items-center justify-center">
-              <Heart className="w-8 h-8" />
+        {/* Header */}
+        <header className="bg-primary text-primary-foreground p-6 rounded-b-3xl shadow-lg">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-2xl bg-primary-foreground/20 flex items-center justify-center">
+                <Heart className="w-8 h-8" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">마음돌봄</h1>
+                <p className="text-primary-foreground/80 text-sm">어르신님</p>
+              </div>
             </div>
+            <Button
+              variant="ghost"
+              size="lg"
+              onClick={handleLogout}
+              className="text-primary-foreground hover:bg-primary-foreground/20 p-3 flex items-center gap-2"
+            >
+              <LogOut className="w-6 h-6" />
+              <span className="text-lg font-medium">로그아웃</span>
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {isDaytime ? (
+              <Sun className="w-10 h-10 text-yellow-300" />
+            ) : (
+              <Moon className="w-10 h-10 text-yellow-200" />
+            )}
             <div>
-              <h1 className="text-2xl font-bold">마음돌봄</h1>
-              <p className="text-primary-foreground/80 text-sm">어르신님</p>
+              <p className="text-2xl font-bold">{greeting}</p>
+              <p className="text-primary-foreground/80">
+                {currentTime.toLocaleDateString("ko-KR", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  weekday: "long",
+                })}
+              </p>
             </div>
           </div>
+        </header>
+
+        {/* Font Size Controls */}
+        <div className="px-6 py-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="font-medium flex items-center gap-2">
+                  <Volume2 className="w-5 h-5" />
+                  글자 크기
+                </span>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={decreaseFontSize}
+                    className="w-14 h-14 rounded-xl"
+                  >
+                    <Minus className="w-6 h-6" />
+                  </Button>
+                  <span className="w-12 text-center font-bold text-xl">{fontSize}</span>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={increaseFontSize}
+                    className="w-14 h-14 rounded-xl"
+                  >
+                    <Plus className="w-6 h-6" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Menu */}
+        <main className="px-6 pb-32">
+          <div className="grid grid-cols-2 gap-4">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={item.action}
+                className="block"
+              >
+                <Card className="h-full hover:shadow-lg transition-all duration-200 active:scale-95">
+                  <CardContent className="p-6 flex flex-col items-center text-center gap-4">
+                    <div className={`w-20 h-20 rounded-2xl ${item.color} text-primary-foreground flex items-center justify-center`}>
+                      {item.icon}
+                    </div>
+                    <div>
+                      <p className="font-bold text-lg">{item.title}</p>
+                      <p className="text-muted-foreground text-sm mt-1">{item.description}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </button>
+            ))}
+          </div>
+        </main>
+
+        {/* Emergency Button - Fixed at bottom */}
+        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent">
           <Button
-            variant="ghost"
-            size="lg"
-            onClick={handleLogout}
-            className="text-primary-foreground hover:bg-primary-foreground/20 p-3 flex items-center gap-2"
+            onClick={handleEmergencyCall}
+            className="w-full h-20 text-xl font-bold bg-destructive hover:bg-destructive/90 rounded-2xl shadow-lg"
           >
-            <LogOut className="w-6 h-6" />
-            <span className="text-lg font-medium">로그아웃</span>
+            <AlertTriangle className="w-8 h-8 mr-3" />
+            긴급 연락하기
           </Button>
         </div>
 
-        <div className="flex items-center gap-4">
-          {isDaytime ? (
-            <Sun className="w-10 h-10 text-yellow-300" />
-          ) : (
-            <Moon className="w-10 h-10 text-yellow-200" />
-          )}
-          <div>
-            <p className="text-2xl font-bold">{greeting}</p>
-            <p className="text-primary-foreground/80">
-              {currentTime.toLocaleDateString("ko-KR", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                weekday: "long",
-              })}
-            </p>
-          </div>
-        </div>
-      </header>
-
-      {/* Font Size Controls */}
-      <div className="px-6 py-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="font-medium flex items-center gap-2">
-                <Volume2 className="w-5 h-5" />
-                글자 크기
-              </span>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={decreaseFontSize}
-                  className="w-14 h-14 rounded-xl"
-                >
-                  <Minus className="w-6 h-6" />
-                </Button>
-                <span className="w-12 text-center font-bold text-xl">{fontSize}</span>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={increaseFontSize}
-                  className="w-14 h-14 rounded-xl"
-                >
-                  <Plus className="w-6 h-6" />
-                </Button>
+        {/* Emergency Confirmation Dialog */}
+        <Dialog open={isEmergencyOpen} onOpenChange={setIsEmergencyOpen}>
+          <DialogContent className="max-w-sm mx-auto">
+            <DialogHeader className="text-center">
+              <div className="mx-auto w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                <AlertTriangle className="w-10 h-10 text-destructive" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <DialogTitle className="text-2xl">긴급 연락</DialogTitle>
+              <DialogDescription className="text-lg">
+                상담사에게 긴급 연락을 하시겠습니까?<br />
+                곧 전화가 갈 거예요.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex flex-col gap-3 sm:flex-col">
+              <Button
+                onClick={confirmEmergency}
+                className="w-full h-16 text-lg font-bold bg-destructive hover:bg-destructive/90"
+              >
+                네, 연락해주세요
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsEmergencyOpen(false)}
+                className="w-full h-16 text-lg font-bold"
+              >
+                아니요, 괜찮아요
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      {/* Main Menu */}
-      <main className="px-6 pb-32">
-        <div className="grid grid-cols-2 gap-4">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={item.action}
-              className="block"
-            >
-              <Card className="h-full hover:shadow-lg transition-all duration-200 active:scale-95">
-                <CardContent className="p-6 flex flex-col items-center text-center gap-4">
-                  <div className={`w-20 h-20 rounded-2xl ${item.color} text-primary-foreground flex items-center justify-center`}>
-                    {item.icon}
-                  </div>
-                  <div>
-                    <p className="font-bold text-lg">{item.title}</p>
-                    <p className="text-muted-foreground text-sm mt-1">{item.description}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </button>
-          ))}
-        </div>
-      </main>
-
-      {/* Emergency Button - Fixed at bottom */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background via-background to-transparent">
-        <Button
-          onClick={handleEmergencyCall}
-          className="w-full h-20 text-xl font-bold bg-destructive hover:bg-destructive/90 rounded-2xl shadow-lg"
-        >
-          <AlertTriangle className="w-8 h-8 mr-3" />
-          긴급 연락하기
-        </Button>
-      </div>
-
-      {/* Emergency Confirmation Dialog */}
-      <Dialog open={isEmergencyOpen} onOpenChange={setIsEmergencyOpen}>
-        <DialogContent className="max-w-sm mx-auto">
-          <DialogHeader className="text-center">
-            <div className="mx-auto w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-              <AlertTriangle className="w-10 h-10 text-destructive" />
-            </div>
-            <DialogTitle className="text-2xl">긴급 연락</DialogTitle>
-            <DialogDescription className="text-lg">
-              상담사에게 긴급 연락을 하시겠습니까?<br />
-              곧 전화가 갈 거예요.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex flex-col gap-3 sm:flex-col">
-            <Button
-              onClick={confirmEmergency}
-              className="w-full h-16 text-lg font-bold bg-destructive hover:bg-destructive/90"
-            >
-              네, 연락해주세요
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setIsEmergencyOpen(false)}
-              className="w-full h-16 text-lg font-bold"
-            >
-              아니요, 괜찮아요
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
     </>
   );
 };

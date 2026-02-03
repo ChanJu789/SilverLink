@@ -39,10 +39,6 @@ import { toast } from "sonner";
 import medicationsApi, { MedicationResponse, MedicationRequest } from "@/api/medications";
 import ocrApi from "@/api/ocr";
 import { getErrorMessage } from "@/utils/errorUtils";
-import medications from "@/api/medications";
-import medications from "@/api/medications";
-import medications from "@/api/medications";
-import medications from "@/api/medications";
 
 interface Medication {
   id: number;
@@ -116,13 +112,13 @@ const cleanOCRText = (text: string): string => {
   for (let line of lines) {
     // 앞뒤 공백 제거
     line = line.trim();
-    
+
     // 빈 줄 건너뛰기
     if (!line) continue;
-    
+
     // 마크다운 리스트 기호 제거 (-, *, +)
     line = line.replace(/^[-*+]\s+/, '');
-    
+
     // 불필요한 메타데이터 라인 필터링 (더 강력하게)
     const skipPatterns = [
       /^환자정보/i,
@@ -146,22 +142,22 @@ const cleanOCRText = (text: string): string => {
       /^만\d+세/,              // 나이 정보
       /^\(.*\)$/,              // 괄호만 있는 라인
     ];
-    
+
     // 메타데이터 라인이면 건너뛰기
     if (skipPatterns.some(pattern => pattern.test(line))) {
       continue;
     }
-    
+
     // 콜론(:)이 포함된 라벨 라인 건너뛰기
     if (/^[가-힣\s]+:\s*$/.test(line) || /^[가-힣\s]+:$/.test(line)) {
       continue;
     }
-    
+
     // 너무 짧은 라인 건너뛰기 (1글자)
     if (line.length < 2) {
       continue;
     }
-    
+
     cleanedLines.push(line);
   }
 
@@ -173,20 +169,20 @@ const extractMedicationNames = (text: string): string[] => {
   const cleanedText = cleanOCRText(text);
   const lines = cleanedText.split('.').map(l => l.trim()).filter(l => l);
   const medications: string[] = [];
-  
+
   for (const line of lines) {
     // 너무 짧거나 긴 라인 제외
     if (line.length < 2 || line.length > 50) continue;
-    
+
     // 숫자나 특수문자로만 이루어진 라인 제외
     if (/^[\d\s\-\/\(\)]+$/.test(line)) continue;
-    
+
     // 약 이름 패턴 (정, 캡슐, 시럽 등)
     if (/정|캡슐|시럽|액|크림|연고|주사|약/.test(line)) {
       medications.push(line);
     }
   }
-  
+
   // 최대 5개까지
   return medications.slice(0, 5);
 };
@@ -200,12 +196,12 @@ const extractMedicationName = (text: string): string => {
 // 음성 읽기용 텍스트 생성 - 더 자연스럽게
 const generateSpeechText = (medication: Partial<Medication>, timeLabels: string): string => {
   const parts: string[] = [];
-  
+
   // 약 이름
   if (medication.name) {
     parts.push(medication.name);
   }
-  
+
   // 복용량
   if (medication.dosage) {
     // "1정", "2알" 등의 단위가 있으면 그대로, 없으면 추가
@@ -216,12 +212,12 @@ const generateSpeechText = (medication: Partial<Medication>, timeLabels: string)
       parts.push(dosage);
     }
   }
-  
+
   // 복용 시간
   if (timeLabels) {
     parts.push(`${timeLabels}에 드세요`);
   }
-  
+
   // 복용 방법
   if (medication.instructions) {
     const instructions = cleanOCRText(medication.instructions);
@@ -229,7 +225,7 @@ const generateSpeechText = (medication: Partial<Medication>, timeLabels: string)
       parts.push(instructions);
     }
   }
-  
+
   return parts.filter(p => p).join('. ');
 };
 
@@ -296,8 +292,8 @@ const SeniorMedication = () => {
 
       // 라이브러리가 압축 및 EXIF 회전 보정을 자동 수행
       const compressedFile = await imageCompression(file, options);
-      
-      console.log(`📸 압축 완료: ${(file.size/1024/1024).toFixed(2)}MB -> ${(compressedFile.size/1024/1024).toFixed(2)}MB`);
+
+      console.log(`📸 압축 완료: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
 
       // 압축된 파일로 미리보기 생성
       const reader = new FileReader();
@@ -305,7 +301,7 @@ const SeniorMedication = () => {
         setCapturedImage(reader.result as string);
       };
       reader.readAsDataURL(compressedFile);
-      
+
       // 압축된 파일로 OCR 처리
       processImage(compressedFile);
     } catch (error) {
@@ -340,7 +336,7 @@ const SeniorMedication = () => {
 
         // 여러 약 감지
         const allMedications = extractMedicationNames(text);
-        
+
         if (allMedications.length > 1) {
           // 여러 약이 감지되면 SeniorOCR 페이지로 안내
           toast.info(`${allMedications.length}개의 약이 감지되었어요. 약봉지 읽기 페이지를 이용해주세요.`, {
@@ -366,7 +362,7 @@ const SeniorMedication = () => {
       toast.success("약 정보를 읽었어요!");
     } catch (error: any) {
       console.error("OCR 처리 실패:", error);
-      
+
       // 타임아웃 에러 처리
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         toast.error("처리 시간이 너무 오래 걸려요. 더 밝은 곳에서 다시 찍어보세요.");
@@ -405,12 +401,12 @@ const SeniorMedication = () => {
     if (ocrResult) {
       try {
         setSubmitting(true);
-        
+
         // times 배열 검증
-        const validTimes = ocrResult.times && ocrResult.times.length > 0 
-          ? ocrResult.times 
+        const validTimes = ocrResult.times && ocrResult.times.length > 0
+          ? ocrResult.times
           : ["morning"];
-        
+
         const request: MedicationRequest = {
           medicationName: ocrResult.name || "새 약",
           dosageText: ocrResult.dosage || undefined,
@@ -429,11 +425,11 @@ const SeniorMedication = () => {
       } catch (error: any) {
         console.error("복약 등록 실패:", error);
         console.error("에러 응답:", error.response?.data);
-        
-        const errorMessage = error.response?.data?.message 
-          || error.response?.data?.error 
+
+        const errorMessage = error.response?.data?.message
+          || error.response?.data?.error
           || "등록에 실패했습니다.";
-        
+
         toast.error(errorMessage);
       } finally {
         setSubmitting(false);
@@ -497,11 +493,11 @@ const SeniorMedication = () => {
     } catch (error: any) {
       console.error("복약 등록 실패:", error);
       console.error("에러 응답:", error.response?.data);
-      
-      const errorMessage = error.response?.data?.message 
-        || error.response?.data?.error 
+
+      const errorMessage = error.response?.data?.message
+        || error.response?.data?.error
         || "등록에 실패했습니다.";
-      
+
       toast.error(errorMessage);
     } finally {
       setSubmitting(false);
@@ -597,47 +593,29 @@ const SeniorMedication = () => {
       </header>
 
       <main className="p-6 space-y-6">
-        {/* Camera Capture Section */}
-        <Card className="border-2 border-dashed border-success/30">
-          <CardContent className="p-6">
-            {!capturedImage && !isProcessing ? (
-              <div className="text-center space-y-4">
-                <div className="w-20 h-20 mx-auto rounded-full bg-success/10 flex items-center justify-center">
-                  <Camera className="w-10 h-10 text-success" />
+        {/* 약봉투 촬영 안내 카드 */}
+        <Card className="bg-info/5 border-info/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                  <Camera className="w-6 h-6 text-info" />
                 </div>
                 <div>
-                  <p className="text-lg font-bold mb-1">약봉투를 촬영해주세요</p>
-                  <p className="text-muted-foreground text-sm">
-                    약봉투를 카메라로 찍으면<br />
-                    복약 일정을 자동으로 등록해드려요
-                  </p>
-                </div>
-                <Button
-                  onClick={handleCameraCapture}
-                  className="w-full h-16 text-lg font-bold rounded-2xl gap-3 bg-success hover:bg-success/90"
-                  size="lg"
-                >
-                  <Camera className="w-7 h-7" />
-                  약봉투 촬영하기
-                </Button>
-              </div>
-            ) : isProcessing ? (
-              <div className="text-center py-8 space-y-4">
-                <div className="w-20 h-20 mx-auto rounded-full bg-success/10 flex items-center justify-center animate-pulse">
-                  <ImageIcon className="w-10 h-10 text-success" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold">분석 중이에요...</p>
-                  <p className="text-muted-foreground">잠시만 기다려주세요</p>
+                  <p className="font-bold">약봉투 촬영으로 등록하기</p>
+                  <p className="text-sm text-muted-foreground">사진으로 간편하게 등록해요</p>
                 </div>
               </div>
-            ) : capturedImage && showOCRResult && ocrResult ? (
-              <div className="text-center py-8">
-                <Check className="w-16 h-16 mx-auto text-success mb-4" />
-                <p className="text-lg font-bold">약 정보를 읽었어요!</p>
-                <p className="text-muted-foreground">확인 창에서 내용을 확인해주세요</p>
-              </div>
-            ) : null}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/senior/ocr")}
+                className="gap-2"
+              >
+                <Camera className="w-4 h-4" />
+                촬영하기
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -666,7 +644,7 @@ const SeniorMedication = () => {
                   <Pill className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">
                     등록된 복약 일정이 없어요<br />
-                    약봉투를 촬영하거나 직접 추가해주세요
+                    위의 '촬영하기' 또는 '직접 추가'를 눌러주세요
                   </p>
                 </CardContent>
               </Card>
@@ -777,7 +755,7 @@ const SeniorMedication = () => {
                   <Label className="text-sm text-muted-foreground">💊 약 이름</Label>
                   <p className="text-2xl font-bold mt-1">{ocrResult.name}</p>
                 </div>
-                
+
                 {ocrResult.dosage && (
                   <div>
                     <Label className="text-sm text-muted-foreground">📋 복용량</Label>
@@ -813,9 +791,8 @@ const SeniorMedication = () => {
               <Button
                 onClick={speakOCRResult}
                 variant="outline"
-                className={`w-full h-16 text-lg font-bold gap-3 ${
-                  isSpeakingOCR ? "bg-warning/10 border-warning text-warning" : ""
-                }`}
+                className={`w-full h-16 text-lg font-bold gap-3 ${isSpeakingOCR ? "bg-warning/10 border-warning text-warning" : ""
+                  }`}
               >
                 <Volume2 className="w-6 h-6" />
                 {isSpeakingOCR ? "읽기 중지" : "소리로 읽어주기"}
