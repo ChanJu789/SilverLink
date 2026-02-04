@@ -9,10 +9,9 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 5173,
     proxy: {
-      '/api': {
+      '/api/internal': {
         target: 'http://localhost:8080',
         changeOrigin: true,
-        secure: false,
       },
     },
   },

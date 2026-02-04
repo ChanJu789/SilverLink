@@ -10,6 +10,7 @@ import {
   Eye,
   Send,
   X,
+  FileText,
 } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -53,27 +55,99 @@ const infoTypes = [
   { value: "CALL_RECORDS", label: "통화기록" },
 ];
 
+const mapScopeToLabel = (scope: string) => {
+  const found = infoTypes.find(t => t.value === scope);
+  return found ? found.label : scope;
+};
+
+interface RequestItem {
+  id: number;
+  elderlyName: string;
+  infoType: string;
+  scope: string;
+  status: string;
+  statusDescription: string;
+  documentVerified: boolean;
+  requestDate: string;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  reviewedBy: string | null;
+  accessGranted: boolean;
+}
+
+interface GroupedRequest {
+  key: string;
+  elderlyName: string;
+  requestDate: string;
+  items: RequestItem[];
+  // 그룹의 대표 상태 (모든 항목 중 가장 낮은 우선순위 상태)
+  overallStatus: string;
+  decidedAt: string | null;
+}
+
+const statusPriority: Record<string, number> = {
+  pending: 0,
+  rejected: 1,
+  revoked: 2,
+  expired: 3,
+  cancelled: 4,
+  approved: 5,
+};
+
+function groupRequests(requests: RequestItem[]): GroupedRequest[] {
+  const groups: Record<string, RequestItem[]> = {};
+
+  for (const req of requests) {
+    const key = `${req.elderlyName}__${req.requestDate}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(req);
+  }
+
+  return Object.entries(groups).map(([key, items]) => {
+    // 대표 상태: 가장 낮은 priority (아직 처리 안 된 것이 있으면 pending)
+    const overallStatus = items.reduce((worst, item) => {
+      const wp = statusPriority[worst] ?? 99;
+      const ip = statusPriority[item.status] ?? 99;
+      return ip < wp ? item.status : worst;
+    }, items[0].status);
+
+    const decidedDates = items.map(i => i.decidedAt).filter(Boolean);
+    const latestDecided = decidedDates.length > 0
+      ? decidedDates.sort().reverse()[0]
+      : null;
+
+    return {
+      key,
+      elderlyName: items[0].elderlyName,
+      requestDate: items[0].requestDate,
+      items,
+      overallStatus,
+      decidedAt: latestDecided,
+    };
+  }).sort((a, b) => b.requestDate.localeCompare(a.requestDate));
+}
+
 const GuardianSensitiveInfo = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [myElderly, setMyElderly] = useState<GuardianElderlyResponse[]>([]);
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<RequestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [cancelTargetId, setCancelTargetId] = useState<number | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<GroupedRequest | null>(null);
+  const [detailGroup, setDetailGroup] = useState<GroupedRequest | null>(null);
 
   const [newRequest, setNewRequest] = useState({
     elderlyName: "",
     elderlyUserId: 0,
-    infoType: "",
+    infoTypes: [] as string[],
   });
 
   const fetchMyElderly = async () => {
     try {
       const data = await guardiansApi.getMyElderly();
-      // getMyElderly returns a single object or array depending on API
       if (Array.isArray(data)) {
         setMyElderly(data);
       } else {
@@ -84,16 +158,11 @@ const GuardianSensitiveInfo = () => {
     }
   };
 
-  const mapScopeToLabel = (scope: string) => {
-    const found = infoTypes.find(t => t.value === scope);
-    return found ? found.label : scope;
-  };
-
   const fetchRequests = async () => {
     try {
       setLoading(true);
       const data = await accessRequestsApi.getMyRequests();
-      const mappedRequests = data.map(r => ({
+      const mappedRequests: RequestItem[] = data.map(r => ({
         id: r.id,
         elderlyName: r.elderlyName,
         infoType: mapScopeToLabel(r.scope),
@@ -136,15 +205,17 @@ const GuardianSensitiveInfo = () => {
     });
   };
 
-  const filteredRequests = requests.filter((req) => {
-    const matchesSearch = req.elderlyName.includes(searchTerm);
-    const matchesStatus = statusFilter === "all" || req.status === statusFilter;
+  const grouped = groupRequests(requests);
+
+  const filteredGroups = grouped.filter((group) => {
+    const matchesSearch = group.elderlyName.includes(searchTerm);
+    const matchesStatus = statusFilter === "all" || group.overallStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const pendingCount = requests.filter(r => r.status === "pending").length;
-  const approvedCount = requests.filter(r => r.status === "approved").length;
-  const rejectedCount = requests.filter(r => r.status === "rejected").length;
+  const pendingCount = grouped.filter(g => g.overallStatus === "pending").length;
+  const approvedCount = grouped.filter(g => g.overallStatus === "approved").length;
+  const rejectedCount = grouped.filter(g => g.overallStatus === "rejected").length;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -165,22 +236,49 @@ const GuardianSensitiveInfo = () => {
     }
   };
 
+  const handleInfoTypeToggle = (value: string, checked: boolean) => {
+    setNewRequest(prev => ({
+      ...prev,
+      infoTypes: checked
+        ? [...prev.infoTypes, value]
+        : prev.infoTypes.filter(t => t !== value),
+    }));
+  };
+
   const handleSubmitRequest = async () => {
-    if (!newRequest.elderlyUserId || !newRequest.infoType) {
-      toast.error("모든 필수 항목을 입력해주세요.");
+    if (!newRequest.elderlyUserId || newRequest.infoTypes.length === 0) {
+      toast.error("어르신과 정보 유형을 선택해주세요.");
       return;
     }
 
     try {
-      await accessRequestsApi.createRequest({
-        elderlyUserId: newRequest.elderlyUserId,
-        scope: newRequest.infoType as AccessScope,
-        reason: "",
-      });
+      const results = await Promise.allSettled(
+        newRequest.infoTypes.map(type =>
+          accessRequestsApi.createRequest({
+            elderlyUserId: newRequest.elderlyUserId,
+            scope: type as AccessScope,
+            reason: "",
+          })
+        )
+      );
 
-      toast.success("민감정보 열람 요청이 전송되었습니다.");
+      const succeeded = results.filter(r => r.status === "fulfilled").length;
+      const failed = results.filter(r => r.status === "rejected");
+
+      if (succeeded > 0) {
+        toast.success(`${succeeded}건의 민감정보 열람 요청이 전송되었습니다.`);
+      }
+      if (failed.length > 0) {
+        failed.forEach(r => {
+          if (r.status === "rejected") {
+            const message = (r.reason as any)?.response?.data?.message || "일부 요청 전송에 실패했습니다.";
+            toast.error(message);
+          }
+        });
+      }
+
       setIsDialogOpen(false);
-      setNewRequest({ elderlyName: "", elderlyUserId: 0, infoType: "" });
+      setNewRequest({ elderlyName: "", elderlyUserId: 0, infoTypes: [] });
       fetchRequests();
     } catch (error: any) {
       console.error("Request failed:", error);
@@ -189,13 +287,14 @@ const GuardianSensitiveInfo = () => {
     }
   };
 
-  const handleCancelRequest = async () => {
-    if (!cancelTargetId) return;
+  const handleCancelGroup = async () => {
+    if (!cancelTarget) return;
     try {
-      await accessRequestsApi.cancelRequest(cancelTargetId);
+      const pendingItems = cancelTarget.items.filter(i => i.status === "pending");
+      await Promise.all(pendingItems.map(item => accessRequestsApi.cancelRequest(item.id)));
       toast.success("요청이 취소되었습니다.");
       setCancelDialogOpen(false);
-      setCancelTargetId(null);
+      setCancelTarget(null);
       fetchRequests();
     } catch (error: any) {
       console.error("Cancel failed:", error);
@@ -248,22 +347,26 @@ const GuardianSensitiveInfo = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>정보 유형</Label>
-                  <Select
-                    value={newRequest.infoType}
-                    onValueChange={(value) => setNewRequest({ ...newRequest, infoType: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="열람할 정보 유형을 선택하세요" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {infoTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
+                  <Label>정보 유형 (복수 선택 가능)</Label>
+                  <div className="space-y-3 pt-1">
+                    {infoTypes.map((type) => (
+                      <div key={type.value} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`info-type-${type.value}`}
+                          checked={newRequest.infoTypes.includes(type.value)}
+                          onCheckedChange={(checked) =>
+                            handleInfoTypeToggle(type.value, checked === true)
+                          }
+                        />
+                        <Label
+                          htmlFor={`info-type-${type.value}`}
+                          className="text-sm font-normal cursor-pointer"
+                        >
                           {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               <DialogFooter className="mt-4">
@@ -304,7 +407,7 @@ const GuardianSensitiveInfo = () => {
                   <Lock className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{requests.length}</p>
+                  <p className="text-2xl font-bold">{grouped.length}</p>
                   <p className="text-sm text-muted-foreground">전체 신청</p>
                 </div>
               </div>
@@ -398,31 +501,35 @@ const GuardianSensitiveInfo = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRequests.length === 0 ? (
+                {filteredGroups.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       {loading ? "불러오는 중..." : "신청 내역이 없습니다."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredRequests.map((request) => (
-                    <TableRow key={request.id}>
-                      <TableCell className="font-medium">{request.elderlyName}</TableCell>
+                  filteredGroups.map((group) => (
+                    <TableRow key={group.key}>
+                      <TableCell className="font-medium">{group.elderlyName}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{request.infoType}</Badge>
+                        <div className="flex flex-wrap gap-1">
+                          {group.items.map(item => (
+                            <Badge key={item.id} variant="outline">{item.infoType}</Badge>
+                          ))}
+                        </div>
                       </TableCell>
-                      <TableCell>{request.requestDate}</TableCell>
-                      <TableCell>{getStatusBadge(request.status)}</TableCell>
-                      <TableCell>{request.decidedAt || "-"}</TableCell>
+                      <TableCell>{group.requestDate}</TableCell>
+                      <TableCell>{getStatusBadge(group.overallStatus)}</TableCell>
+                      <TableCell>{group.decidedAt || "-"}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          {request.status === "pending" && (
+                          {group.overallStatus === "pending" && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="gap-1 text-destructive hover:text-destructive"
                               onClick={() => {
-                                setCancelTargetId(request.id);
+                                setCancelTarget(group);
                                 setCancelDialogOpen(true);
                               }}
                             >
@@ -430,10 +537,15 @@ const GuardianSensitiveInfo = () => {
                               취소
                             </Button>
                           )}
-                          {request.status === "approved" && (
-                            <Button variant="ghost" size="sm" className="gap-1">
+                          {(group.overallStatus === "approved" || group.overallStatus === "rejected") && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1"
+                              onClick={() => setDetailGroup(group)}
+                            >
                               <Eye className="w-4 h-4" />
-                              열람
+                              상세
                             </Button>
                           )}
                         </div>
@@ -453,14 +565,99 @@ const GuardianSensitiveInfo = () => {
               <DialogTitle>신청 취소</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
-              이 민감정보 열람 신청을 취소하시겠습니까? 취소 후에는 다시 신청해야 합니다.
+              {cancelTarget?.elderlyName}님에 대한 민감정보 열람 신청({cancelTarget?.items.map(i => i.infoType).join(', ')})을 취소하시겠습니까? 취소 후에는 다시 신청해야 합니다.
             </p>
             <DialogFooter className="mt-4">
               <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
                 아니오
               </Button>
-              <Button variant="destructive" onClick={handleCancelRequest}>
+              <Button variant="destructive" onClick={handleCancelGroup}>
                 취소하기
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Detail Dialog */}
+        <Dialog open={!!detailGroup} onOpenChange={() => setDetailGroup(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>신청 상세 정보</DialogTitle>
+            </DialogHeader>
+            {detailGroup && (
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4 p-4 bg-secondary/30 rounded-xl">
+                  <div>
+                    <p className="text-sm text-muted-foreground">대상 어르신</p>
+                    <p className="font-medium">{detailGroup.elderlyName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">신청일</p>
+                    <p className="font-medium">{detailGroup.requestDate}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">신청 항목별 처리 현황</p>
+                  {detailGroup.items.map(item => (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium text-sm">{item.infoType}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {getStatusBadge(item.status)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {detailGroup.items.some(i => i.decidedAt) && (
+                  <div className="p-4 bg-secondary/30 rounded-xl space-y-2">
+                    <p className="text-sm text-muted-foreground">처리일</p>
+                    <p className="font-medium text-sm">{detailGroup.decidedAt}</p>
+                  </div>
+                )}
+
+                {detailGroup.items.some(i => i.reviewedBy) && (
+                  <div className="p-4 bg-secondary/30 rounded-xl space-y-2">
+                    <p className="text-sm text-muted-foreground">처리자</p>
+                    <p className="font-medium text-sm">{detailGroup.items.find(i => i.reviewedBy)?.reviewedBy}</p>
+                  </div>
+                )}
+
+                {detailGroup.items.some(i => i.decisionNote) && (
+                  <div className="p-4 bg-secondary/30 rounded-xl space-y-2">
+                    <p className="text-sm text-muted-foreground">처리 사유</p>
+                    {detailGroup.items
+                      .filter(i => i.decisionNote)
+                      .map(i => (
+                        <p key={i.id} className="text-sm">
+                          <span className="font-medium">{i.infoType}:</span> {i.decisionNote}
+                        </p>
+                      ))
+                    }
+                  </div>
+                )}
+
+                {detailGroup.overallStatus === "approved" && (
+                  <div className="flex items-center gap-2 p-4 rounded-xl bg-success/10">
+                    <CheckCircle2 className="w-5 h-5 text-success" />
+                    <span className="text-sm font-medium">승인된 정보는 해당 메뉴에서 열람하실 수 있습니다.</span>
+                  </div>
+                )}
+
+                {detailGroup.overallStatus === "rejected" && (
+                  <div className="flex items-center gap-2 p-4 rounded-xl bg-destructive/10">
+                    <XCircle className="w-5 h-5 text-destructive" />
+                    <span className="text-sm font-medium">거부된 요청은 사유 확인 후 다시 신청하실 수 있습니다.</span>
+                  </div>
+                )}
+              </div>
+            )}
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setDetailGroup(null)}>
+                닫기
               </Button>
             </DialogFooter>
           </DialogContent>

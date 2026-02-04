@@ -39,7 +39,7 @@ const EmotionIcon = memo(({ emotionLevel }: { emotionLevel: string | null }) => 
     case "GOOD":
       return <Smile className="w-5 h-5 text-success" />;
     case "NORMAL":
-      return <Meh className="w-5 h-5 text-warning" />;
+      return <Meh className="w-5 h-5 text-muted-foreground" />;
     case "BAD":
     case "DEPRESSED":
       return <Frown className="w-5 h-5 text-destructive" />;
@@ -58,7 +58,7 @@ const EmotionBadge = memo(({ emotionLevel }: { emotionLevel: string | null }) =>
     case "GOOD":
       return <Badge className="bg-success/10 text-success border-0">좋음</Badge>;
     case "NORMAL":
-      return <Badge className="bg-warning/10 text-warning border-0">보통</Badge>;
+      return <Badge className="bg-muted text-muted-foreground border-0">보통</Badge>;
     case "BAD":
       return <Badge className="bg-destructive/10 text-destructive border-0">주의</Badge>;
     case "DEPRESSED":

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Heart,
@@ -32,6 +32,7 @@ import { SessionTimer } from "@/components/auth/SessionTimer";
 import { toast } from "sonner";
 import ChatbotWidget from "@/components/chatbot/ChatbotWidget";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
+import accessRequestsApi from "@/api/accessRequests";
 
 interface NavItem {
   title: string;
@@ -56,9 +57,38 @@ const DashboardLayout = ({
   navItems
 }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pendingAccessCount, setPendingAccessCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+
+  // 관리자일 때 민감정보 대기 건수 조회
+  useEffect(() => {
+    if (role !== "admin") return;
+
+    const fetchPendingCount = async () => {
+      try {
+        const stats = await accessRequestsApi.getPendingStats();
+        setPendingAccessCount(stats.total || 0);
+      } catch (error) {
+        console.error("Failed to fetch pending stats:", error);
+      }
+    };
+
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, [role]);
+
+  // navItems에 badge 주입
+  const enrichedNavItems = useMemo(() => {
+    if (role !== "admin" || pendingAccessCount === 0) return navItems;
+    return navItems.map(item =>
+      item.href === "/admin/sensitive-info"
+        ? { ...item, badge: pendingAccessCount }
+        : item
+    );
+  }, [navItems, role, pendingAccessCount]);
 
   // 로고 클릭 핸들러
   const handleLogoClick = () => {
@@ -138,7 +168,7 @@ const DashboardLayout = ({
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 min-h-0 pb-12 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {navItems.map((item) => {
+            {enrichedNavItems.map((item) => {
               const isActive = location.pathname === item.href;
               return (
                 <Link
@@ -158,7 +188,6 @@ const DashboardLayout = ({
                       {item.badge}
                     </Badge>
                   )}
-                  {isActive && <ChevronRight className="w-4 h-4" />}
                 </Link>
               );
             })}

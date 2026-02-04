@@ -10,7 +10,8 @@ import {
   Users,
   MessageSquare,
   Clock,
-  Loader2
+  Loader2,
+  XCircle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -25,6 +26,7 @@ import usersApi from "@/api/users";
 import counselorsApi from "@/api/counselors";
 import callReviewsApi from "@/api/callReviews";
 import noticesApi from "@/api/notices";
+import emergencyAlertsApi, { EmergencyAlertSummary } from "@/api/emergencyAlerts";
 import { MyProfileResponse, CounselorResponse, CallRecordSummaryResponse, UnreviewedCountResponse, NoticeResponse } from "@/types/api";
 import UnreadNoticeAlert from "@/components/notice/UnreadNoticeAlert";
 import { NoticePopup } from "@/components/notice/NoticePopup";
@@ -34,11 +36,11 @@ const EmotionBadge = ({ emotion }: { emotion: string | null }) => {
   if (!emotion) return <Badge variant="outline">대기중</Badge>;
 
   switch (emotion) {
-    case "good":
+    case "GOOD":
       return <Badge className="bg-success/10 text-success border-0">좋음</Badge>;
-    case "neutral":
+    case "NEUTRAL":
       return <Badge className="bg-warning/10 text-warning border-0">보통</Badge>;
-    case "bad":
+    case "BAD":
       return <Badge className="bg-destructive/10 text-destructive border-0">주의</Badge>;
     default:
       return <Badge variant="outline">-</Badge>;
@@ -47,14 +49,20 @@ const EmotionBadge = ({ emotion }: { emotion: string | null }) => {
 
 const StatusIcon = ({ status }: { status: string }) => {
   switch (status) {
-    case "completed":
+    case "COMPLETED":
       return <CheckCircle2 className="w-4 h-4 text-success" />;
-    case "alert":
+    case "FAILED":
       return <AlertCircle className="w-4 h-4 text-destructive" />;
-    case "pending":
-      return <Clock className="w-4 h-4 text-muted-foreground" />;
+    case "CANCELLED":
+      return <XCircle className="w-4 h-4 text-muted-foreground" />;
+    case "ANSWERED":
+      return <PhoneCall className="w-4 h-4 text-primary" />;
+    case "REQUESTED":
+    case "IN_PROGRESS":
+      return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
+    case "PENDING":
     default:
-      return null;
+      return <Clock className="w-4 h-4 text-muted-foreground" />;
   }
 };
 
@@ -62,12 +70,13 @@ const CounselorDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  // userProfile state removed
+
   const [counselorInfo, setCounselorInfo] = useState<CounselorResponse | null>(null);
   const [callRecords, setCallRecords] = useState<CallRecordSummaryResponse[]>([]);
-  const [unreviewedCount, setUnreviewedCount] = useState(0);
+  const [realUrgentAlerts, setRealUrgentAlerts] = useState<EmergencyAlertSummary[]>([]);
   const [unreadNotices, setUnreadNotices] = useState<NoticeResponse[]>([]);
   const [showUnreadAlert, setShowUnreadAlert] = useState(false);
+
   const [stats, setStats] = useState({
     totalSeniors: 0,
     todayCalls: 0,
@@ -80,30 +89,30 @@ const CounselorDashboard = () => {
       try {
         setIsLoading(true);
 
-        // 사용자 프로필 조회 (Removed)
-
-
-        // 상담사 정보 조회
+        // 1. 상담사 정보 조회
         const counselor = await counselorsApi.getMyInfo();
         setCounselorInfo(counselor);
 
-        // 통화 기록 조회
+        // 2. 통화 기록 조회 (최근 10건)
         const callsResponse = await callReviewsApi.getCallRecordsForCounselor({ size: 10 });
         setCallRecords(callsResponse.content);
 
-        // 미확인 통화 건수
+        // 3. 미확인 통화 건수
         const unreviewedResponse = await callReviewsApi.getUnreviewedCount();
-        setUnreviewedCount(unreviewedResponse.count);
 
-        // 통계 설정
+        // 4. 긴급 알림 (미처리) 조회 - NEW
+        const pendingAlerts = await emergencyAlertsApi.getPendingAlertsForCounselor();
+        setRealUrgentAlerts(pendingAlerts);
+
+        // 5. 통계 설정
         setStats({
           totalSeniors: counselor.assignedElderlyCount || 0,
-          todayCalls: callsResponse.content.length,
+          todayCalls: callsResponse.content.length, // This might need a proper "Today's calls" API if records are historical
           pendingReviews: unreviewedResponse.count,
-          urgentAlerts: callsResponse.content.filter(c => c.emotion === 'BAD').length,
+          urgentAlerts: pendingAlerts.length,
         });
 
-        // 읽지 않은 공지사항 조회
+        // 6. 읽지 않은 공지사항 조회
         await fetchUnreadNotices();
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
@@ -129,10 +138,9 @@ const CounselorDashboard = () => {
     };
   }, []);
 
-  // 팝업 공지사항 조회
+  // 팝업 공지사항 조회 logic...
   const fetchUnreadNotices = async () => {
     try {
-      // 팝업 공지사항 조회
       const popupNotices = await noticesApi.getPopups();
 
       console.log("=== 팝업 공지사항 필터링 (상담사) ===");
@@ -160,7 +168,6 @@ const CounselorDashboard = () => {
         setUnreadNotices(visibleList);
         setShowUnreadAlert(true);
       } else {
-        console.log("표시할 팝업 공지사항이 없습니다.");
         setShowUnreadAlert(false);
       }
     } catch (error) {
@@ -168,7 +175,6 @@ const CounselorDashboard = () => {
     }
   };
 
-  // 오늘 하루 보지 않기로 설정한 공지 목록 가져오기
   const getHiddenNotices = (): number[] => {
     const stored = localStorage.getItem('hidden_popup_notices');
     if (!stored) return [];
@@ -199,6 +205,10 @@ const CounselorDashboard = () => {
 
   const handleViewDetail = (callId: number) => {
     navigate(`/counselor/calls/${callId}`);
+  };
+
+  const handleAlertClick = (alertId: number) => {
+    navigate(`/counselor/alerts`); // Or specific detail? Alerts page seems safer
   };
 
   if (isLoading) {
@@ -417,6 +427,19 @@ const CounselorDashboard = () => {
           />
         )}
       </DashboardLayout>
+      {/* 읽지 않은 공지사항 알림 */}
+      {showUnreadAlert && (
+        <UnreadNoticeAlert
+          notices={unreadNotices.map(notice => ({
+            id: notice.id,
+            title: notice.title,
+            isPriority: notice.isPriority
+          }))}
+          onClose={handleCloseUnreadAlert}
+          noticesPath="/counselor/notices"
+        />
+      )}
+    </DashboardLayout >
     </>
   );
 };

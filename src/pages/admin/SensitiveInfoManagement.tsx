@@ -120,6 +120,16 @@ const SensitiveInfoManagement = () => {
     fetchRequests();
   }, []);
 
+  const mapErrorMessage = (message: string): string => {
+    const errorMap: Record<string, string> = {
+      'DOCUMENT_NOT_VERIFIED': '서류 확인이 완료되지 않았습니다.',
+      'REQUEST_NOT_FOUND': '해당 요청을 찾을 수 없습니다.',
+      'REQUEST_ALREADY_PROCESSED': '이미 처리된 요청입니다.',
+      'INVALID_REQUEST_STATUS': '유효하지 않은 요청 상태입니다.',
+    };
+    return errorMap[message] || message;
+  };
+
   const mapScopeToKorean = (scope: string): string => {
     switch (scope) {
       case 'HEALTH_INFO': return '건강정보';
@@ -183,8 +193,8 @@ const SensitiveInfoManagement = () => {
       setSelectedRequest(null);
     } catch (error: any) {
       console.error("승인 실패:", error);
-      const message = error.response?.data?.message || "요청 승인에 실패했습니다.";
-      toast.error(message);
+      const rawMessage = error.response?.data?.message || "요청 승인에 실패했습니다.";
+      toast.error(mapErrorMessage(rawMessage));
     } finally {
       setSubmitting(false);
     }
@@ -215,17 +225,21 @@ const SensitiveInfoManagement = () => {
       setRejectReason("");
     } catch (error: any) {
       console.error("거부 실패:", error);
-      const message = error.response?.data?.message || "요청 거부에 실패했습니다.";
-      toast.error(message);
+      const rawMessage = error.response?.data?.message || "요청 거부에 실패했습니다.";
+      toast.error(mapErrorMessage(rawMessage));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleVerifyDocuments = async (requestId: number) => {
+  const [verifyConfirmId, setVerifyConfirmId] = useState<number | null>(null);
+
+  const handleVerifyDocuments = async () => {
+    if (!verifyConfirmId) return;
     try {
-      await accessRequestsApi.verifyDocuments(requestId);
+      await accessRequestsApi.verifyDocuments(verifyConfirmId);
       toast.success("서류 확인이 완료되었습니다.");
+      setVerifyConfirmId(null);
       await fetchRequests();
     } catch (error) {
       console.error("서류 확인 실패:", error);
@@ -395,7 +409,7 @@ const SensitiveInfoManagement = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleVerifyDocuments(request.id)}
+                            onClick={() => setVerifyConfirmId(request.id)}
                           >
                             서류확인
                           </Button>
@@ -427,6 +441,27 @@ const SensitiveInfoManagement = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Verify Documents Confirmation Dialog */}
+      <Dialog open={!!verifyConfirmId} onOpenChange={() => setVerifyConfirmId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>서류 확인</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            해당 요청의 서류 확인을 완료하시겠습니까? 확인 후에는 되돌릴 수 없습니다.
+          </p>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setVerifyConfirmId(null)}>
+              취소
+            </Button>
+            <Button onClick={handleVerifyDocuments} className="gap-1">
+              <CheckCircle2 className="w-4 h-4" />
+              확인 완료
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Process Dialog */}
       <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>

@@ -117,6 +117,12 @@ const NotificationDropdown = ({ role }: NotificationDropdownProps) => {
             if (role === 'counselor') return '/counselor/notices';
             return '/guardian/notices';
         }
+        if (linkUrl.startsWith('/admin/access-requests/') || linkUrl.startsWith('/access-requests/')) {
+            if (role === 'admin') return '/admin/sensitive-info';
+            if (role === 'guardian') return '/guardian/sensitive-info';
+            if (role === 'counselor') return '/counselor/sensitive-info';
+            return null;
+        }
 
         // 그 외는 원본 linkUrl 사용
         return linkUrl;
@@ -164,8 +170,8 @@ const NotificationDropdown = ({ role }: NotificationDropdownProps) => {
     return (
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="w-5 h-5" />
+                <Button variant="ghost" size="icon" className="relative w-10 h-10">
+                    <Bell className="w-6 h-6" />
                     {totalUnread > 0 && (
                         <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
                             {totalUnread > 99 ? "99+" : totalUnread}
@@ -272,8 +278,12 @@ const NotificationDropdown = ({ role }: NotificationDropdownProps) => {
                             className="justify-center text-primary cursor-pointer"
                             onClick={() => {
                                 setIsOpen(false);
-                                if (role === "counselor") {
-                                    navigate("/counselor/alerts");
+                                if (role === 'counselor') {
+                                    navigate("/counselor/notifications");
+                                } else if (role === 'admin') {
+                                    navigate("/admin/notifications"); // Assuming admin/notifications will be mapped
+                                } else {
+                                    navigate("/notifications");
                                 }
                             }}
                         >
