@@ -1,15 +1,9 @@
 import logging
 import uvicorn
-import logging
 from contextlib import asynccontextmanager  # [추가됨] Lifespan 관리를 위해 필요
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-# 로깅 설정
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 # from app.api.v1.routes import routers as v1_routers
 # from app.api.v2.routes import routers as v2_routers
 from app.api.routes import routers
@@ -17,6 +11,13 @@ from app.core.config import configs
 from app.core.container import Container
 from app.util.class_object import singleton
 from app.callbot.services.callbot_service import orchestrator_engine
+
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 
 # 로깅 설정 (Loguru 적용 및 중복 로그 방지)
 import sys
