@@ -76,6 +76,20 @@ def get_post_list(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
     
+@router.get("/memory/{elderly_id}")
+@inject_callbot
+def get_memory(
+    elderly_id: int,
+    service: CallbotService = Depends(Provide[Container.callbot_service])
+):
+    """특정 어르신의 장기 기억 조회"""
+    try:
+        memories = service.get_memories(elderly_id)
+        return {"elderly_id": elderly_id, "memories": memories}
+    except Exception as e:
+        logger.error(f"❌ [GET /memory] Error: {e}")
+        return {"error": str(e)}
+
 @router.post("/call")
 @inject_callbot
 def get_call(
@@ -128,9 +142,10 @@ async def voice(
         call_sid = form_data.get("CallSid", "unknown")
         phone_number = form_data.get("To")
         
-        # 쿼리 파라미터에서 데이터 추출 (elderly_id, elderly_name)
+        # 쿼리 파라미터에서 데이터 추출 (elderly_id, elderly_name, initial_mem)
         elderly_id = request.query_params.get("elderly_id")
         elderly_name = request.query_params.get("elderly_name")
+        initial_mem = request.query_params.get("initial_mem", "")
         
         # 2. 대화 히스토리 초기화
         logger.debug("2️⃣ 대화 히스토리 초기화...")
@@ -141,7 +156,8 @@ async def voice(
             call_sid=call_sid, 
             elderly_id=elderly_id, 
             elderly_name=elderly_name,
-            phone_number=phone_number
+            phone_number=phone_number,
+            initial_mem=initial_mem
         )
         return Response(content=twiml, media_type="application/xml")
         
@@ -246,22 +262,41 @@ async def gather(
         speech_result = form_data.get("SpeechResult")
         call_sid = form_data.get("CallSid", "unknown")
         
-        # logger.debug(f"   CallSid: {call_sid}")
-        # logger.debug(f"   SpeechResult: {speech_result}")
-            
-        if not speech_result:
-            twiml = """
-            <Response>
-                <Gather input="speech" action="/api/callbot/gather" method="POST" language="ko-KR" speechTimeout="auto">
-                </Gather>
-            </Response>
-            """
-            return Response(content=twiml, media_type="application/xml")
-
-        # 쿼리 파라미터에서 데이터 추출 (elderly_id, elderly_name)
+        # 쿼리 파라미터 추출
         elderly_id = request.query_params.get("elderly_id")
-        # elderly_name = request.query_params.get("elderly_name")
+        retry_count = int(request.query_params.get("retry", 0)) # 재시도 횟수
         
+        # [Case: No Input] 사용자가 아무 말도 안 했을 때 (None, 빈 문자열, 공백 포함)
+        if not speech_result or not speech_result.strip():
+            if retry_count < 1:
+                # 1차 재시도: 다시 물어봄
+                logger.info(f"🔇 [No Input] Retry {retry_count + 1}/2")
+                retry_msg = urllib.parse.quote("죄송해요, 제가 잘 못 들었어요. 다시 한번 말씀해 주시겠어요?")
+                stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={retry_msg}&amp;call_sid={call_sid}&amp;mode=tts"
+                
+                twiml = f"""
+                <Response>
+                    <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}&amp;retry={retry_count + 1}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true">
+                        <Play contentType="audio/basic">{stream_url}</Play>
+                    </Gather>
+                </Response>
+                """
+                return Response(content=twiml, media_type="application/xml")
+            else:
+                # 2차 무응답: 종료 안내 멘트 후 끊기
+                logger.info(f"🔇 [No Input] Max retries reached. Hanging up.")
+                bye_msg = urllib.parse.quote("답변이 없으셔서 통화를 종료할게요. 다음에 또 연락드릴게요. 건강하세요!")
+                stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={bye_msg}&amp;call_sid={call_sid}&amp;mode=tts"
+                
+                twiml = f"""
+                <Response>
+                    <Play contentType="audio/basic">{stream_url}</Play>
+                    <Hangup/>
+                </Response>
+                """
+                return Response(content=twiml, media_type="application/xml")
+
+        # [Case: Valid Input] 사용자가 말을 했을 때 (retry 초기화)
         logger.info(f"🎤 사용자 발화: {speech_result}")
         
         # --- Orchestrator Logic Call ---

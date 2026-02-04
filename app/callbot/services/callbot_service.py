@@ -11,8 +11,11 @@ import io
 import traceback
 import boto3
 import requests
+import uuid # UUID 추가
 from twilio.rest import Client as TwilioClient
 from datetime import datetime
+from qdrant_client import QdrantClient # Qdrant 직접 제어
+from qdrant_client.models import PointStruct
 
 # Disable Mem0 Telemetry to prevent PostHog connection errors
 os.environ["MEM0_TELEMETRY"] = "false"
@@ -62,8 +65,8 @@ class SlotItem(BaseModel):
     value: str = Field(description="사용자의 발화 내용을 요약한 값 (예: '밥 먹음', '허리가 아픔')")
 
 class DialogueDecision(BaseModel):
-    acknowledgment: str = Field(description="공감 문장. 짧고 간결하게.")
-    question: str = Field(description="단 하나의 질문.")
+    acknowledgment: str = Field(description="어르신의 말에 대한 공감과 과거 기억을 연결한 문장. (예: '목소리가 밝으셔서 다행이에요. 지난번에 무릎 아프다고 하셔서 걱정했거든요.')")
+    question: str = Field(description="다음에 물어볼 질문. (예: '오늘은 좀 어떠세요?')")
     next_action: str = Field(description="'DEEP_DIVE' 또는 'SLOT_QUESTION'")
     topic: Optional[str] = Field(description="현재 주제")
 
@@ -134,14 +137,43 @@ class OrchestratorEngine:
         # 3. Initialize Memory
         if MEM0_AVAILABLE:
             try:
+                from mem0 import Memory
+                
+                # 절대 경로 확보
+                abs_db_path = os.path.join(configs.PROJECT_ROOT, "mem_db")
+                os.makedirs(abs_db_path, exist_ok=True)
+                
+                print(f"📁 [Mem0] Setting standard path: {abs_db_path}")
+                
+                # Mem0 표준 설정 방식 (path 문자열 직접 전달)
                 mem0_config = {
-                    "vector_store": {"provider": "qdrant", "config": {"path": "./mem_db", "collection_name": "silverlink_memories"}},
-                    "embedder": {"provider": "huggingface", "config": {"model": EMBEDDING_MODEL_NAME}}
+                    "vector_store": {
+                        "provider": "qdrant", 
+                        "config": {
+                            "path": abs_db_path,
+                            "collection_name": "silverlink_memories",
+                            "embedding_model_dims": 768, # [Critical] 여기에 설정해야 함
+                        }
+                    },
+                    "llm": {
+                        "provider": "openai",
+                        "config": {
+                            "model": "gpt-4o-mini",
+                            "temperature": 0.1
+                        }
+                    },
+                    "embedder": {
+                        "provider": "huggingface", 
+                        "config": {
+                            "model": EMBEDDING_MODEL_NAME,
+                        }
+                    }
                 }
                 self.memory = Memory.from_config(mem0_config)
-                print("✅ Mem0 Memory Ready.")
+                print(f"✅ Mem0 Memory Initialized with path: {abs_db_path}")
             except Exception as e:
                 print(f"⚠️ Memory Load Failed: {e}")
+                traceback.print_exc()
 
 # Call Session State Manager (In-Memory for Demo)
 # In production, use Redis.
@@ -193,7 +225,33 @@ class CallbotService(BaseService):
     def test(self):
         print('test')
         
-    async def build_greeting_gather_twiml(self, call_sid: str, elderly_id: str = None, elderly_name: str = None, phone_number: str = None):
+    async def _generate_personalized_greeting(self, elderly_name: str, memories: str) -> str:
+        """장기 기억을 바탕으로 자연스러운 첫 인사말 생성"""
+        name = elderly_name or "어르신"
+        prompt = f"""
+        역할: 노인 돌봄 AI 상담사 (실버링크)
+        상황: 어르신에게 안부 전화를 거는 첫 순간
+        어르신 성함: {name}
+        과거 기억: {memories}
+        
+        미션: 과거 기억을 언급하며 아주 반갑고 따뜻하게 첫 인사말 한 문장을 작성하세요.
+        - 형식: "안녕하세요! {name}님, 목소리 들으니 정말 반갑네요. 지난번에 [기억 언급] 하셨는데, 그동안 좀 어떠셨어요?"
+        - 말투: 해요체 (친절하고 공손하게)
+        - 길이: 50자 내외
+        """
+        try:
+            response = await self.llm_client.aclient.chat.completions.create(
+                model=configs.INFERENCE_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=150,
+                temperature=0.8
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"⚠️ Greeting Generation Error: {e}")
+            return f"안녕하세요! {name}님, 목소리 들으니 정말 반갑네요. 잘 지내셨죠?"
+
+    async def build_greeting_gather_twiml(self, call_sid: str, elderly_id: str = None, elderly_name: str = None, phone_number: str = None, initial_mem: str = ""):
         # Reset Session
         CallSession.clear_session(call_sid)
         session = CallSession.get_session(call_sid)
@@ -201,10 +259,9 @@ class CallbotService(BaseService):
         session["elderly_name"] = elderly_name
 
         # [New] Start Call in Backend to get call_id
+        call_id = None
         if elderly_id:
             try:
-                # Phone number is required by backend. If None, we might use a dummy or skip.
-                # Assuming phone_number is passed from controller.
                 p_num = phone_number if phone_number else "unknown"
                 call_id = await self._send_start_call_to_backend(elderly_id, elderly_name, p_num)
                 if call_id:
@@ -215,16 +272,19 @@ class CallbotService(BaseService):
             except Exception as e:
                 print(f"❌ [Call Start] Backend Error: {e}")
         
-        name_part = f"{elderly_name}님 " if elderly_name else ""
-        greeting = f"안녕하세요! {name_part}실버링크에서 연락드렸습니다. 잘 지내시죠?"
+        # [Improved] 전달받은 초기 기억 활용
+        greeting = ""
+        if initial_mem:
+            print(f"🧠 [Greeting] Using pre-fetched memory: {initial_mem}")
+            greeting = await self._generate_personalized_greeting(elderly_name, initial_mem)
+        else:
+            name_part = f"{elderly_name} 어르신 " if elderly_name else ""
+            greeting = f"안녕하세요! {name_part}목소리 들으니 정말 반갑네요. 잘 지내셨죠?"
 
         # [New] Save First Greeting to Backend
         if call_id:
             try:
-                # 첫 인사말 저장 (비동기 대신 await로 순서 보장 추천, 하지만 성능상 create_task도 가능. 
-                # 여기선 순서가 중요하므로 await를 고려하거나, 서버가 타임스탬프로 정렬하길 기대)
-                # 안전하게 await로 저장 후 진행하거나, create_task로 던짐.
-                # 에러 메시지("연결할 발화 없음")를 피하려면 어르신 답변보다 이게 먼저 DB에 들어가야 함.
+                # 첫 인사말 저장
                 await self._send_message_to_backend(call_id, "CALLBOT", greeting)
                 print("✅ [Call Start] Saved initial greeting to backend.")
             except Exception as e:
@@ -235,17 +295,35 @@ class CallbotService(BaseService):
         # Initial greeting is pure TTS
         stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={encoded_greeting}&amp;call_sid={call_sid}&amp;mode=tts&amp;elderly_id={elderly_id}"
 
+        # [Updated] TwiML 구조 개선: 명확한 Gather 설정 및 힌트 추가
+        # bargeIn=true: 말하면 바로 듣기 시작
+        # timeout=5: 말 끝난 후 5초 대기
         twiml = f"""
         <Response>
-            <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true">
+            <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true" timeout="5" speechModel="phone_call">
                 <Play contentType="audio/basic">{stream_url}</Play>
             </Gather>
+            <Redirect>/api/callbot/gather?elderly_id={elderly_id}&amp;retry=0</Redirect>
         </Response>
         """
         return twiml
         
     def make_call(self, elderly_id: int, phone_number: str, elderly_name: str):
-        return self.call.calling(elderly_id, phone_number, elderly_name)
+        """[Improved] 전화를 걸기 전에 기억을 먼저 검색하여 전달"""
+        initial_mem = ""
+        try:
+            mem_user_id = f"elderly_{elderly_id}"
+            all_mems = self.get_memories(elderly_id)
+            res_list = all_mems.get("results", []) if isinstance(all_mems, dict) else all_mems
+            if res_list:
+                facts = [m.get('memory', m.get('data', '')) for m in res_list if m]
+                initial_mem = facts[-1] if facts else ""
+                print(f"🚀 [Pre-Call Search] Found memory: {initial_mem}")
+        except Exception as e:
+            print(f"⚠️ Pre-Call Search Error: {e}")
+
+        # 통화 연결 (검색된 기억을 인자로 전달)
+        return self.call.calling(elderly_id, phone_number, elderly_name, initial_mem)
 
     # --- Backend Communication (Token based) ---
 
@@ -339,7 +417,7 @@ class CallbotService(BaseService):
         
         # 제공해주신 EndCallRequest DTO 구조와 100% 일치시킴
         payload = {
-            "callTimeSec": int(duration),
+            "callTimeSec": int(duration),   
             "recordingUrl": recording_url,
             "summary": {"content": summary},
             "emotion": {"emotionLevel": emotion},
@@ -427,6 +505,9 @@ Output:<|im_end|>
         session = CallSession.get_session(call_sid)
         timeouts = {}
         
+        # [Updated] 대화 턴 수 계산 (현재 턴 포함) - 맨 위로 이동
+        current_turn_count = len(session.get("history", [])) + 1
+        
         # [Updated] Use call_id if available (registered at start)
         call_id = session.get("call_id")
         print(f"🕵️ [Process Conversation] CallSID: {call_sid} | Session CallID: {call_id}")
@@ -442,17 +523,57 @@ Output:<|im_end|>
         relevant_memories_text = "No relevant memories."
         if orchestrator_engine.memory:
             try:
-                # Search memory asynchronously
-                mem_results = await asyncio.to_thread(
-                    orchestrator_engine.memory.search, 
-                    user_input, 
-                    user_id=call_sid, 
-                    limit=3
-                )
-                if mem_results:
-                    relevant_memories_text = "\n".join([f"- {m['memory']}" for m in mem_results])
+                # elderly_id가 int일 경우를 대비해 확실히 str로 변환
+                str_eid = str(elderly_id)
+                mem_user_id = f"elderly_{str_eid}"
+                
+                print(f"🔍 [Memory Search] Looking for memories of: {mem_user_id} (Turn: {current_turn_count})")
+                
+                # 1단계: 일단 해당 사용자의 모든 기억을 다 긁어옴 (초반 턴 전수 검색)
+                all_mems = orchestrator_engine.memory.get_all(user_id=mem_user_id)
+                
+                # Mem0 결과 구조 정규화 (버전 대응)
+                results_list = []
+                if isinstance(all_mems, dict) and "results" in all_mems:
+                    results_list = all_mems["results"]
+                elif isinstance(all_mems, list):
+                    results_list = all_mems
+                
+                if results_list:
+                    facts = [m.get('memory', m.get('data', '')) for m in results_list if m]
+                    relevant_memories_text = "\n".join([f"- {f}" for f in facts if f])
+                    print(f"✅ [Memory Found] Success! {len(results_list)} facts retrieved for {mem_user_id}")
+                else:
+                    # 2단계: get_all 실패 시 유사도 검색으로 한 번 더 시도
+                    print(f"ℹ️ [Memory Search] get_all empty, trying semantic search...")
+                    mem_results = await asyncio.to_thread(
+                        orchestrator_engine.memory.search, 
+                        user_input, 
+                        user_id=mem_user_id, 
+                        limit=3
+                    )
+                    if mem_results:
+                        # 결과가 딕셔너리 리스트인지, 문자열 리스트인지 대응
+                        extracted_facts = []
+                        for m in mem_results:
+                            if isinstance(m, dict):
+                                extracted_facts.append(m.get('memory', m.get('data', str(m))))
+                            else:
+                                extracted_facts.append(str(m))
+                        
+                        relevant_memories_text = "\n".join([f"- {f}" for f in extracted_facts if f])
+                        print(f"✅ [Memory Found] Semantic search success!")
+                
+                if relevant_memories_text != "No relevant memories.":
+                    print("="*60)
+                    print(f"🧠 [활용될 기억 데이터]\n{relevant_memories_text}")
+                    print("="*60)
+                else:
+                    print(f"📭 [Memory Search] No memories found for {mem_user_id}")
+                    
             except Exception as e:
-                print(f"Memory Search Error: {e}")
+                print(f"❌ [Memory Search] Error: {e}")
+                traceback.print_exc()
         timeouts['memory_search'] = time.time() - t_mem_search_start
         
         # 2. Intent Classification
@@ -486,7 +607,7 @@ Output:<|im_end|>
         current_missing = [s for s, v in session["slots"].items() if v is None]
         target_slot = current_missing[0] if current_missing else "작별 인사 및 건강 당부"
         
-        exit_keywords = ["그만", "다음", "됐어", "종료", "아니"]
+        exit_keywords = ["그만", "다음", "됐어", "종료", "아니","끊어"]
         clean_input = user_input.strip()
         force_slot_question = any(k in clean_input for k in exit_keywords) or (session["deep_dive_count"] >= MAX_DEEP_DIVE_TURNS)
         
@@ -500,23 +621,38 @@ Output:<|im_end|>
     [Long-term Memory (Previous Conversations)]
     {relevant_memories_text}
     
-    [Task 1: Information Extraction]
-    Extract slots into `extracted_slots`. Categories: {MANDATORY_SLOTS}
-    * CRITICAL RULES:
-    1. If the user's input answers the current 'Target' question, YOU MUST extract it into that category.
-    2. Keywords Mapping:
-       - "밥", "식사", "먹었어", "배불러" -> [식사 여부]
-       - "아파", "쑤셔", "약", "병원" -> [건강 상태]
-       - "좋아", "슬퍼", "우울해", "살기 싫어" -> [기분]
-       - "잤어", "못 잤어", "잠" -> [수면 상태]
-       - "갈거야", "할거야", "복지관", "경로당" -> [하루 일정]
-    3. Do NOT misclassify "밥 먹었다" as "기분". It is "식사 여부".
+    [Current Context]
+    - Turn: {current_turn_count}
+    - Missing Slots: {current_missing}
     
-    [Task 2: Dialogue Generation]
-    Generate a warm, short response (under 50 chars).
-    - Guidelines: Emotional Support, Contextual Awareness, Polite & Friendly (Haeyo-che).
-    - Context: Target="{target_slot}", Force="{force_slot_question}"
-    - Use 'Long-term Memory' to personalize the conversation if relevant.
+    [Task: Dialogue Generation Strategy]
+    
+    **PHASE 1: Rapport Building (Turn 1~2)**
+    - Check `Long-term Memory` content:
+      - **CASE A: Memories EXIST (Not "No relevant memories.")**
+        - **Rule**: Mention the memory in `acknowledgment`.
+        - **Format**: 
+          - `acknowledgment`: "Reaction + Memory Recall" (NO QUESTIONS HERE!)
+          - `question`: "Follow-up Question based on Memory"
+        - **Example**: 
+          - Ack: "목소리가 밝으셔서 다행이에요! 지난번에 허리가 아파서 고생하셨다고 했는데,"
+          - Q: "오늘은 좀 괜찮으세요?"
+      
+      - **CASE B: NO Memories (Empty or "No relevant memories.")**
+        - **Rule**: Just empathy. Do NOT invent past events.
+        - **Format**:
+          - `acknowledgment`: "Warm reaction" (NO QUESTIONS HERE!)
+          - `question`: "Simple well-being question"
+        - **Example**:
+          - Ack: "목소리가 밝으셔서 다행이에요!"
+          - Q: "오늘 컨디션은 좀 어떠세요?"
+    
+    **PHASE 2: Slot Filling (Turn 3+)**
+    - Only AFTER discussing the memory enough, start asking about '{target_slot}'.
+    - Try to connect the slot question naturally to the previous topic.
+    
+    [Task: Information Extraction]
+    - Even in Phase 1, if the user mentions any slot info (e.g., "밥 먹었어"), extract it immediately.
     """
         
         try:
@@ -622,10 +758,9 @@ Output:<|im_end|>
             print(f"Summary Generation Error: {e}")
             return "요약 실패"
 
-    async def _analyze_sentiment_with_llm(self, text: str) -> str:
+    async def _analyze_sentiment_with_llm(self, text: str) -> Optional[str]:
         """Analyzes sentiment (GOOD, BAD, NORMAL) using LLM."""
-        if not text: 
-            return "NORMAL"
+        if not text: return None
         
         prompt = f"""
         Analyze the sentiment of the following text regarding health or sleep condition.
@@ -643,19 +778,17 @@ Output:<|im_end|>
                 temperature=0.0
             )
             result = response.choices[0].message.content.strip().upper()
-            if "GOOD" in result: 
-                return "GOOD"
-            if "BAD" in result: 
-                return "BAD"
-            return "NORMAL"
+            if "GOOD" in result: return "GOOD"
+            if "BAD" in result: return "BAD"
+            if "NORMAL" in result: return "NORMAL"
+            return None
         except Exception as e:
             print(f"Sentiment Analysis Error: {e}")
-            return "NORMAL"
+            return None
 
-    async def _analyze_meal_status_with_llm(self, text: str) -> bool:
+    async def _analyze_meal_status_with_llm(self, text: str) -> Optional[bool]:
         """Analyzes meal status (True/False) using LLM."""
-        if not text: 
-            return False
+        if not text: return None
         
         prompt = f"""
         Determine if the user has eaten a meal based on the text.
@@ -663,6 +796,7 @@ Output:<|im_end|>
         
         If they ate (or are full), output "TRUE".
         If they did not eat (or skipped), output "FALSE".
+        If it's unclear or not mentioned, output "UNKNOWN".
         """
         try:
             response = await self.llm_client.aclient.chat.completions.create(
@@ -672,10 +806,12 @@ Output:<|im_end|>
                 temperature=0.0
             )
             result = response.choices[0].message.content.strip().upper()
-            return "TRUE" in result
+            if "TRUE" in result: return True
+            if "FALSE" in result: return False
+            return None
         except Exception as e:
             print(f"Meal Analysis Error: {e}")
-            return False
+            return None
 
     async def _map_slots_to_daily_status(self, slots: Dict) -> Dict:
         """Maps slots to DailyStatusRequest format (Async with LLM)"""
@@ -701,7 +837,7 @@ Output:<|im_end|>
     async def _analyze_overall_emotion(self, history: List[Dict]) -> str:
         """Infers overall emotion from conversation history using LLM"""
         if not history: 
-            return "NORMAL"
+            return None
         
         conversation_text = "\n".join([f"User: {turn['user']}\nAI: {turn['ai']}" for turn in history])
         
@@ -854,11 +990,12 @@ Output:<|im_end|>
         session = CallSession.get_session(call_sid)
         history = session.get("history", [])
         call_id = session.get("call_id")
+        elderly_id = session.get("elderly_id")
         
         print(f"🏁 [Finalize Call] Sid: {call_sid}, CallID: {call_id}, History: {len(history)} turns")
 
         if not call_id:
-            print("⚠️ [Finalize Call] No call_id found. Clearing session.")
+            print(f"⚠️ [Finalize Call] No call_id found. Clearing session.")
             CallSession.clear_session(call_sid)
             return
 
@@ -867,12 +1004,23 @@ Output:<|im_end|>
             summary = await self._summarize_conversation(history)
             daily_status = await self._map_slots_to_daily_status(session.get("slots", {}))
             emotion = await self._analyze_overall_emotion(history)
+            
+            # [Updated] Long-term Memory 저장 (어르신 고유 ID 사용)
             if orchestrator_engine.memory:
-                await self._save_full_history_async(call_sid, history)
+                mem_user_id = f"elderly_{elderly_id}"
+                print(f"📞 [Call End] Saving history to long-term memory for {mem_user_id}")
+                await self._save_full_history_async(mem_user_id, history)
         else:
             summary = "통화 내용 없음 (짧은 통화)"
-            daily_status = {"mealTaken": False, "healthStatus": "NORMAL", "healthDetail": "", "sleepStatus": "NORMAL", "sleepDetail": ""}
-            emotion = "NORMAL"
+            # 값이 없으면 None으로 전송 (백엔드에서 null 처리)
+            daily_status = {
+                "mealTaken": None, 
+                "healthStatus": None, 
+                "healthDetail": None, 
+                "sleepStatus": None, 
+                "sleepDetail": None
+            }
+            emotion = "NORMAL" # 감정은 분석 불가 시 NORMAL 유지 (또는 None)
 
         # 2. 분석 결과 세션에 저장
         session["final_analysis"] = {
@@ -907,23 +1055,50 @@ Output:<|im_end|>
                     await self._perform_final_backend_update(call_sid, active_session)
             asyncio.create_task(_safety_fallback())
 
+    def get_memories(self, elderly_id: int) -> List[Dict]:
+        """특정 어르신의 모든 기억 조회"""
+        if not orchestrator_engine.memory:
+            return []
+        
+        # 디버깅: 현재 사용 중인 실제 DB 경로 출력
+        try:
+            actual_path = getattr(orchestrator_engine.memory.vector_store.client, "_path", "Unknown")
+            print(f"🔍 [Mem0 Debug] Active DB Path: {actual_path}")
+        except: pass
+
+        try:
+            user_id = f"elderly_{elderly_id}"
+            return orchestrator_engine.memory.get_all(user_id=user_id)
+        except Exception as e:
+            print(f"❌ Memory Fetch Error: {e}")
+            return []
+
     async def _save_full_history_async(self, user_id: str, history: List[Dict]):
-        """Helper to save full history to Mem0 in background"""
+        """Helper to save summarized facts to Mem0 for better update performance"""
         if not orchestrator_engine.memory: 
             return
-        
+            
         def _batch_save():
-            for turn in history:
-                try:
-                    orchestrator_engine.memory.add(
-                        f"사용자: {turn['user']} | 상담사: {turn['ai']}", 
-                        user_id=user_id
-                    )
-                except Exception as e:
-                    print(f"Mem0 Save Error: {e}")
+            print(f"💾 [Mem0] Extracting facts and updating for {user_id}...")
+            try:
+                # 1. 이번 대화의 내용을 텍스트로 병합
+                conversation_text = ""
+                for turn in history:
+                    conversation_text += f"사용자: {turn['user']}\n상담사: {turn['ai']}\n"
+                
+                # 2. Mem0 add 호출 (timestamp를 제거하여 동일 주제 업데이트 유도)
+                res = orchestrator_engine.memory.add(
+                    conversation_text, 
+                    user_id=user_id,
+                    metadata={"source": "callbot"} # 고정된 메타데이터 사용
+                )
+                print(f"✅ [Mem0] Memory update success: {res}")
+
+            except Exception as e:
+                print(f"❌ [Mem0] Update Failed: {e}")
+                traceback.print_exc()
         
         await asyncio.to_thread(_batch_save)
-
     # --- Audio Utils ---
     def wav_to_ulaw(self, wav_bytes: bytes) -> bytes:
         """Converts WAV bytes to raw Mu-law audio (8kHz, Mono) without headers"""
