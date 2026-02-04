@@ -52,6 +52,7 @@ class Configs(BaseSettings):
 
     # Spring Boot backend
     SPRING_BOOT_URL: str = os.getenv("SPRING_BOOT_URL", "http://localhost:8080")
+    SPRING_BOOT_API_TOKEN: str = os.getenv("SPRING_BOOT_API_TOKEN", "")
 
     # database
     # DB: str = os.getenv("DB", "postgresql")
@@ -102,6 +103,13 @@ class Configs(BaseSettings):
     RDS_USER: str = os.getenv("RDS_USER", "root")
     RDS_PASSWORD: str = os.getenv("RDS_PASSWORD", "")
     RDS_DATABASE: str = os.getenv("RDS_DATABASE", "silverlink")
+    # AWS SQS Configuration
+    AWS_REGION: str = os.getenv("AWS_REGION", "ap-northeast-2")
+    AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+    SQS_QUEUE_URL: str = os.getenv("SQS_QUEUE_URL", "")
+    SQS_DLQ_URL: str = os.getenv("SQS_DLQ_URL", "")
+    AWS_S3_BUCKET_NAME: str = os.getenv("AWS_S3_BUCKET_NAME", "silverlink-storage")
 
     class Config:
         case_sensitive = True
