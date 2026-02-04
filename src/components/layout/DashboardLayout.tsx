@@ -229,7 +229,7 @@ const DashboardLayout = ({
                     <User className="w-4 h-4 mr-2" />
                     내 프로필
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
                     <Settings className="w-4 h-4 mr-2" />
                     설정
                   </DropdownMenuItem>
