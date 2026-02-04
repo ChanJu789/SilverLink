@@ -71,7 +71,7 @@ class DialogueDecision(BaseModel):
     topic: Optional[str] = Field(description="현재 주제")
 
 class UnifiedAnalysisResult(BaseModel):
-    extracted_slots: List[SlotItem] = Field(description="발견된 정보 리스트. 없으면 빈 리스트 [] 반환.")
+    extracted_slots: List[SlotItem] = Field(description="사용자가 '명시적으로' 언급한 정보만 추출하세요. 추측 금지. 없으면 빈 리스트 [] 반환.")
     dialogue_decision: DialogueDecision = Field(description="대화 전략")
 
 # --- Global State & Configuration ---
@@ -262,22 +262,39 @@ class CallbotService(BaseService):
         call_id = None
         if elderly_id:
             try:
+                # Phone number is required by backend. If None, we might use a dummy or skip.
+                # Assuming phone_number is passed from controller.
                 p_num = phone_number if phone_number else "unknown"
                 call_id = await self._send_start_call_to_backend(elderly_id, elderly_name, p_num)
                 if call_id:
                     session["call_id"] = call_id
-                    print(f"✅ [Call Start] Assigned Call ID: {call_id}")
-                else:
-                    print("⚠️ [Call Start] Failed to get Call ID from Backend.")
             except Exception as e:
-                print(f"❌ [Call Start] Backend Error: {e}")
+                pass
         
-        # [Improved] 전달받은 초기 기억 활용
+        # [Improved] 장기 기억 검색 및 인사말 생성
         greeting = ""
-        if initial_mem:
-            print(f"🧠 [Greeting] Using pre-fetched memory: {initial_mem}")
-            greeting = await self._generate_personalized_greeting(elderly_name, initial_mem)
+        memories_text = ""
+        if orchestrator_engine.memory and elderly_id:
+            try:
+                mem_user_id = f"elderly_{elderly_id}"
+                all_mems = orchestrator_engine.memory.get_all(user_id=mem_user_id)
+                res_list = []
+                if isinstance(all_mems, dict) and "results" in all_mems:
+                    res_list = all_mems["results"]
+                elif isinstance(all_mems, list):
+                    res_list = all_mems
+                
+                if res_list:
+                    facts = [m.get('memory', m.get('data', '')) for m in res_list if m]
+                    memories_text = ", ".join(facts[:2]) # 핵심 기억 2개만 추출
+            except Exception as e:
+                pass
+
+        if memories_text:
+            # 기억이 있다면 LLM으로 개인화된 인사말 생성
+            greeting = await self._generate_personalized_greeting(elderly_name, memories_text)
         else:
+            # 기억이 없다면 기본 인사말
             name_part = f"{elderly_name} 어르신 " if elderly_name else ""
             greeting = f"안녕하세요! {name_part}목소리 들으니 정말 반갑네요. 잘 지내셨죠?"
 
@@ -286,9 +303,8 @@ class CallbotService(BaseService):
             try:
                 # 첫 인사말 저장
                 await self._send_message_to_backend(call_id, "CALLBOT", greeting)
-                print("✅ [Call Start] Saved initial greeting to backend.")
             except Exception as e:
-                print(f"⚠️ [Call Start] Failed to save greeting: {e}")
+                pass
 
         encoded_greeting = urllib.parse.quote(greeting)
         
@@ -318,9 +334,8 @@ class CallbotService(BaseService):
             if res_list:
                 facts = [m.get('memory', m.get('data', '')) for m in res_list if m]
                 initial_mem = facts[-1] if facts else ""
-                print(f"🚀 [Pre-Call Search] Found memory: {initial_mem}")
         except Exception as e:
-            print(f"⚠️ Pre-Call Search Error: {e}")
+            pass
 
         # 통화 연결 (검색된 기억을 인자로 전달)
         return self.call.calling(elderly_id, phone_number, elderly_name, initial_mem)
@@ -338,16 +353,13 @@ class CallbotService(BaseService):
             "password": admin_pw
         }
         
-        print(f"🔑 [Backend] Logging in as '{admin_id}' to {url}...")
         res = await send_data_to_backend(url, payload)
         
         if res and isinstance(res, dict) and "accessToken" in res:
             access_token = res["accessToken"]
             configs.SPRING_BOOT_API_TOKEN = access_token
-            print("✅ [Backend] Login Successful! Access Token acquired.")
             return True
         else:
-            print(f"❌ [Backend] Login Failed. Response: {res}")
             return False
 
     async def _get_auth_headers(self):
@@ -367,12 +379,10 @@ class CallbotService(BaseService):
         
         # 401 Unauthorized Error Handling
         if res and isinstance(res, dict) and res.get("error") == "UNAUTHORIZED_401":
-            print("⚠️ [Backend] Token expired (401). Retrying login...")
             configs.SPRING_BOOT_API_TOKEN = None # Clear token
             await self._login_backend() # Re-login
             
             headers = await self._get_auth_headers() # Get new headers
-            print(f"🔄 [Backend] Retrying request to {url}...")
             res = await send_data_to_backend(url, payload, method=method, headers=headers)
         
         return res
@@ -386,9 +396,7 @@ class CallbotService(BaseService):
             "phoneNumber": phone_number,
             "callAt": datetime.now().isoformat()
         }
-        print(f"🚀 [Call Start] Requesting Call Creation: {payload}")
         res = await self._call_backend_api(url, payload)
-        print(f"📥 [Call Start] Backend Response: {res}")
         
         if res and "data" in res and "callId" in res["data"]:
             return res["data"]["callId"]
@@ -406,7 +414,6 @@ class CallbotService(BaseService):
             "danger": danger,
             "dangerReason": danger_reason
         }
-        print(f"📤 [_send_message_to_backend] Sending to {url}...")
         await self._call_backend_api(url, payload)
 
     async def _send_end_call_to_backend(self, call_id: int, duration: int, summary: str, emotion: str, daily_status: dict, recording_url: str = None):
@@ -423,10 +430,6 @@ class CallbotService(BaseService):
             "emotion": {"emotionLevel": emotion},
             "dailyStatus": daily_status
         }
-        
-        # 디버깅을 위해 전송 직전 데이터를 정제해서 출력
-        print(f"📤 [Backend Request] POST {url}")
-        print(f"📦 [Payload] {json.dumps(payload, ensure_ascii=False)}")
         
         await self._call_backend_api(url, payload)
 
@@ -527,8 +530,6 @@ Output:<|im_end|>
                 str_eid = str(elderly_id)
                 mem_user_id = f"elderly_{str_eid}"
                 
-                print(f"🔍 [Memory Search] Looking for memories of: {mem_user_id} (Turn: {current_turn_count})")
-                
                 # 1단계: 일단 해당 사용자의 모든 기억을 다 긁어옴 (초반 턴 전수 검색)
                 all_mems = orchestrator_engine.memory.get_all(user_id=mem_user_id)
                 
@@ -542,10 +543,8 @@ Output:<|im_end|>
                 if results_list:
                     facts = [m.get('memory', m.get('data', '')) for m in results_list if m]
                     relevant_memories_text = "\n".join([f"- {f}" for f in facts if f])
-                    print(f"✅ [Memory Found] Success! {len(results_list)} facts retrieved for {mem_user_id}")
                 else:
                     # 2단계: get_all 실패 시 유사도 검색으로 한 번 더 시도
-                    print(f"ℹ️ [Memory Search] get_all empty, trying semantic search...")
                     mem_results = await asyncio.to_thread(
                         orchestrator_engine.memory.search, 
                         user_input, 
@@ -562,20 +561,28 @@ Output:<|im_end|>
                                 extracted_facts.append(str(m))
                         
                         relevant_memories_text = "\n".join([f"- {f}" for f in extracted_facts if f])
-                        print(f"✅ [Memory Found] Semantic search success!")
                 
-                if relevant_memories_text != "No relevant memories.":
-                    print("="*60)
-                    print(f"🧠 [활용될 기억 데이터]\n{relevant_memories_text}")
-                    print("="*60)
-                else:
-                    print(f"📭 [Memory Search] No memories found for {mem_user_id}")
-                    
             except Exception as e:
-                print(f"❌ [Memory Search] Error: {e}")
-                traceback.print_exc()
+                pass
         timeouts['memory_search'] = time.time() - t_mem_search_start
         
+        # [New] 종료 키워드 즉시 감지 로직
+        exit_keywords = ["그만", "그만해", "됐어", "종료", "아니", "끊어", "끊을게", "다음에 하자"]
+        clean_input = user_input.replace(" ", "") # 공백 제거 후 비교
+        if any(kw in clean_input for kw in exit_keywords):
+            print(f"🛑 [Exit Keyword Detected] User wants to end the call: {user_input}")
+            final_response = "네, 알겠습니다. 어르신, 편히 쉬시고 다음에 또 목소리 들려주세요. 건강하세요!"
+            
+            # 히스토리에 마지막 인사 저장
+            if "history" not in session: session["history"] = []
+            session["history"].append({"user": user_input, "ai": final_response})
+            
+            return {
+                "intent": "END_CALL", # 종료 전용 인텐트 반환
+                "response": final_response,
+                "session": session
+            }
+
         # 2. Intent Classification
         t_intent_start = time.time()
         intent = await self.get_intent_async(user_input)
@@ -586,7 +593,7 @@ Output:<|im_end|>
             asyncio.create_task(self._send_message_to_backend(call_id, "ELDERLY", raw_user_input, danger=(intent=="EMERGENCY")))
         
         if intent == "EMERGENCY":
-            final_response = "어르신, 지금 바로 119에 도움을 요청하겠습니다! 잠시만 기다려주세요."
+            final_response = "어르신 확인했습니다. 안전을 위해 담당 상담사님과 보호자님께 긴급알림을 즉시 전송하겠습니다."
             
             # Update History for Emergency
             if "history" not in session: 
@@ -616,43 +623,48 @@ Output:<|im_end|>
             target_slot = "작별 인사 및 건강 당부"
 
         unified_system_prompt = f"""
-    Role: Elderly Care AI (실버링크).
+    # MISSION
+    You are '실버링크', a warm and caring AI companion for the elderly.
+    Your goal is to extract key information (Slots) AND generate a empathetic response in a SINGLE turn.
     
-    [Long-term Memory (Previous Conversations)]
+    [Long-term Memory]
     {relevant_memories_text}
     
-    [Current Context]
+    [Current Status]
     - Turn: {current_turn_count}
     - Missing Slots: {current_missing}
     
-    [Task: Dialogue Generation Strategy]
+    # STEP 1: FACT EXTRACTION (Information Extraction)
+    - Scan user input for keywords related to: {MANDATORY_SLOTS}.
+    - **Mapping Rules**:
+        - "밥 먹었어", "배불러", "입맛 없어" -> [식사 여부]
+        - "아파", "쑤셔", "약 먹었어", "병원" -> [건강 상태]
+        - "좋아", "슬퍼", "우울해", "심심해" -> [기분]
+        - "잤어", "못 잤어", "꿈꿨어" -> [수면 상태]
+        - "노인정 갔어", "산책 할거야", "집에 있었어" -> [하루 일정]
+    - **Constraint**: Extract ONLY what is explicitly stated. Do NOT guess.
     
-    **PHASE 1: Rapport Building (Turn 1~2)**
-    - Check `Long-term Memory` content:
-      - **CASE A: Memories EXIST (Not "No relevant memories.")**
-        - **Rule**: Mention the memory in `acknowledgment`.
-        - **Format**: 
-          - `acknowledgment`: "Reaction + Memory Recall" (NO QUESTIONS HERE!)
-          - `question`: "Follow-up Question based on Memory"
-        - **Example**: 
-          - Ack: "목소리가 밝으셔서 다행이에요! 지난번에 허리가 아파서 고생하셨다고 했는데,"
-          - Q: "오늘은 좀 괜찮으세요?"
-      
-      - **CASE B: NO Memories (Empty or "No relevant memories.")**
-        - **Rule**: Just empathy. Do NOT invent past events.
-        - **Format**:
-          - `acknowledgment`: "Warm reaction" (NO QUESTIONS HERE!)
-          - `question`: "Simple well-being question"
-        - **Example**:
-          - Ack: "목소리가 밝으셔서 다행이에요!"
-          - Q: "오늘 컨디션은 좀 어떠세요?"
+    # STEP 2: DIALOGUE GENERATION (Response)
+    - **Strategy**:
+        - **Phase A (Rapport, Turn 1-2)**: IF Memory exists, IGNORE missing slots. Talk about the memory FIRST.
+        - **Phase B (Inquiry, Turn 3+)**: If Memory topic is done, ask about the first item in 'Missing Slots'.
+    - **Tone**: Warm, Respectful, Polite (Haeyo-che).
     
-    **PHASE 2: Slot Filling (Turn 3+)**
-    - Only AFTER discussing the memory enough, start asking about '{target_slot}'.
-    - Try to connect the slot question naturally to the previous topic.
+    # EXAMPLES (Few-Shot Learning)
     
-    [Task: Information Extraction]
-    - Even in Phase 1, if the user mentions any slot info (e.g., "밥 먹었어"), extract it immediately.
+    **Example 1: Memory Usage (Phase A)**
+    - Memory: "User had back pain last week."
+    - Input: "응, 반가워."
+    - Extraction: []
+    - Acknowledgment: "목소리가 밝으셔서 다행이에요! 지난번에 허리가 아파서 고생하셨다고 했는데,"
+    - Question: "그동안 좀 괜찮으셨어요?" (Memory Check)
+    
+    **Example 2: Slot Filling (Phase B)**
+    - Memory: None
+    - Input: "아침에 밥을 너무 많이 먹었더니 배부르네."
+    - Extraction: [Category: 식사 여부, Value: "밥 많이 먹어서 배부름"]
+    - Acknowledgment: "아이구, 식사를 든든하게 하셨다니 마음이 놓이네요!"
+    - Question: "그럼 오늘 밤에는 푹 주무실 수 있겠어요? 어제는 잘 주무셨나요?" (Next Slot: Sleep)
     """
         
         try:
@@ -927,10 +939,8 @@ Output:<|im_end|>
         duration = session.get("final_duration", 0)
 
         if not call_id or not final_data:
-            print(f"⚠️ [Final Update] Missing data for Call {call_sid}. ID: {call_id}, Analysis: {bool(final_data)}")
             return
 
-        print(f"🚀 [Final Update] Sending to Backend: CallID={call_id}, Duration={duration}, S3={s3_uri}")
         await self._send_end_call_to_backend(
             call_id, 
             int(duration), 
@@ -942,14 +952,12 @@ Output:<|im_end|>
         
         # 전송 완료 후 세션 삭제
         CallSession.clear_session(call_sid)
-        print(f"✅ [Final Update] Call {call_id} fully processed and session cleared.")
 
     async def upload_recording_from_url(self, recording_url: str, recording_sid: str, call_sid: str = None, duration: int = None) -> Optional[str]:
         """Twilio Callback에서 받은 URL로 S3에 업로드 후, 분석 결과가 있다면 백엔드 전송"""
         def _sync_upload():
             try:
                 media_url = f"{recording_url}.mp3"
-                print(f"📥 [Callback Upload] Downloading {media_url}...")
                 response = requests.get(media_url) 
                 if response.status_code == 200:
                     s3_client = boto3.client("s3", region_name=configs.AWS_REGION, 
@@ -961,7 +969,6 @@ Output:<|im_end|>
                     return f"s3://{configs.AWS_S3_BUCKET_NAME}/{file_key}"
                 return None
             except Exception as e:
-                print(f"❌ [Callback Upload] S3 Error: {e}")
                 return None
 
         s3_uri = await asyncio.to_thread(_sync_upload)
@@ -973,15 +980,12 @@ Output:<|im_end|>
             # 콜백으로 온 duration이 있다면 이를 최우선으로 사용 (0보다 클 때만)
             if duration is not None and int(duration) > 0:
                 session["final_duration"] = int(duration)
-                print(f"⏱️ [Callback Upload] Duration updated to recording length: {duration}s")
             
             session["recording_ready"] = True
             
             # finalize_call이 이미 분석을 마쳤다면 최종 전송
             if session.get("analysis_ready"):
                 await self._perform_final_backend_update(call_sid, session)
-            else:
-                print("⏳ [Callback Upload] Recording ready, waiting for analysis to complete...")
         
         return s3_uri
 
@@ -992,10 +996,7 @@ Output:<|im_end|>
         call_id = session.get("call_id")
         elderly_id = session.get("elderly_id")
         
-        print(f"🏁 [Finalize Call] Sid: {call_sid}, CallID: {call_id}, History: {len(history)} turns")
-
         if not call_id:
-            print(f"⚠️ [Finalize Call] No call_id found. Clearing session.")
             CallSession.clear_session(call_sid)
             return
 
@@ -1008,7 +1009,6 @@ Output:<|im_end|>
             # [Updated] Long-term Memory 저장 (어르신 고유 ID 사용)
             if orchestrator_engine.memory:
                 mem_user_id = f"elderly_{elderly_id}"
-                print(f"📞 [Call End] Saving history to long-term memory for {mem_user_id}")
                 await self._save_full_history_async(mem_user_id, history)
         else:
             summary = "통화 내용 없음 (짧은 통화)"
@@ -1039,19 +1039,16 @@ Output:<|im_end|>
         
         if (session.get("final_duration") or 0) == 0 and new_duration > 0:
             session["final_duration"] = new_duration
-            print(f"⏱️ [Finalize Call] Duration set from Call Status: {new_duration}s")
 
         # 3. 녹음 콜백이 이미 도착했는지 확인 후 전송
         if session.get("recording_ready"):
             await self._perform_final_backend_update(call_sid, session)
         else:
-            print("⏳ [Finalize Call] Analysis ready, waiting for Twilio Recording Callback...")
             # 안전장치: 만약 30초 내에 녹음 콜백이 안 오면 분석 결과만이라도 전송하도록 예약 가능 (생략 가능)
             async def _safety_fallback():
                 await asyncio.sleep(30)
                 active_session = CallSession.get_session(call_sid)
                 if active_session.get("analysis_ready") and not active_session.get("recording_ready"):
-                    print("🚨 [Safety Fallback] Recording callback timed out. Sending analysis only.")
                     await self._perform_final_backend_update(call_sid, active_session)
             asyncio.create_task(_safety_fallback())
 
@@ -1060,17 +1057,10 @@ Output:<|im_end|>
         if not orchestrator_engine.memory:
             return []
         
-        # 디버깅: 현재 사용 중인 실제 DB 경로 출력
-        try:
-            actual_path = getattr(orchestrator_engine.memory.vector_store.client, "_path", "Unknown")
-            print(f"🔍 [Mem0 Debug] Active DB Path: {actual_path}")
-        except: pass
-
         try:
             user_id = f"elderly_{elderly_id}"
             return orchestrator_engine.memory.get_all(user_id=user_id)
         except Exception as e:
-            print(f"❌ Memory Fetch Error: {e}")
             return []
 
     async def _save_full_history_async(self, user_id: str, history: List[Dict]):
@@ -1079,7 +1069,6 @@ Output:<|im_end|>
             return
             
         def _batch_save():
-            print(f"💾 [Mem0] Extracting facts and updating for {user_id}...")
             try:
                 # 1. 이번 대화의 내용을 텍스트로 병합
                 conversation_text = ""
@@ -1087,16 +1076,14 @@ Output:<|im_end|>
                     conversation_text += f"사용자: {turn['user']}\n상담사: {turn['ai']}\n"
                 
                 # 2. Mem0 add 호출 (timestamp를 제거하여 동일 주제 업데이트 유도)
-                res = orchestrator_engine.memory.add(
+                orchestrator_engine.memory.add(
                     conversation_text, 
                     user_id=user_id,
                     metadata={"source": "callbot"} # 고정된 메타데이터 사용
                 )
-                print(f"✅ [Mem0] Memory update success: {res}")
 
             except Exception as e:
-                print(f"❌ [Mem0] Update Failed: {e}")
-                traceback.print_exc()
+                pass
         
         await asyncio.to_thread(_batch_save)
     # --- Audio Utils ---

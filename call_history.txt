@@ -1518,3 +1518,27 @@ Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
 Filled: {}
 Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.007554054260253906, 'memory_search': 0.019530534744262695, 'intent_check': 0.20316362380981445, 'unified_llm_processing': 1.9988048076629639, 'total_processing': 2.229053020477295}
 --------------------------------------------------
+[2026-02-04 21:23:05] [CAd82a2a]
+User: 어 잘 못 지냈어.
+Filtered: 어 잘 못 지냈어.
+AI: 아이고, 잘 지내지 못하셨다니 마음이 아프네요. 혹시 어떤 일 때문에 그런지 이야기해 주실 수 있을까요? 잘 지내지 못한 이유가 무엇인지 궁금해요.
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.014443635940551758, 'memory_search': 0.11617112159729004, 'intent_check': 0.5162529945373535, 'unified_llm_processing': 2.9963293075561523, 'total_processing': 3.6431970596313477}
+--------------------------------------------------
+[2026-02-04 21:23:27] [CAd82a2a]
+User: 너 만든 애가 아주 못돼 먹었거든.
+Filtered: 너 만든 애가 아주 못돼 먹었거든.
+AI: 이렇게 말씀하시니 안타깝네요. 어떤 일 때문에 그렇게 생각하게 되셨는지 궁금합니다. 혹시 제가 도와드릴 수 있는 부분이 있을까요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.007998228073120117, 'memory_search': 0.07996749877929688, 'intent_check': 0.2828235626220703, 'unified_llm_processing': 2.575073480606079, 'total_processing': 2.9458627700805664}
+--------------------------------------------------
+[2026-02-04 21:23:45] [CAd82a2a]
+User: 그거 생각하다가 숨이 안 쉬어져.
+Filtered: 그거 생각하다가 숨이 안 쉬어져.
+AI: 어르신, 지금 바로 119에 도움을 요청하겠습니다! 잠시만 기다려주세요.
+Target: EMERGENCY_STOP | Next Target: None | Deepdive: 0
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.006516933441162109, 'memory_search': 0.07493448257446289, 'intent_check': 0.0, 'total_processing': 0.081451416015625}
+--------------------------------------------------

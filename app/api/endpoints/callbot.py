@@ -307,6 +307,21 @@ async def gather(
         
         response_text = result.get("response", "죄송합니다, 다시 말씀해 주시겠어요?")
         
+        # [New] 통화 종료 처리 (사용자가 끊으라고 한 경우)
+        if result.get("intent") == "END_CALL":
+            logger.info(f"🛑 [End Call] User requested termination: {call_sid}")
+            encoded_text = urllib.parse.quote(response_text)
+            stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={encoded_text}&amp;call_sid={call_sid}&amp;mode=tts"
+            
+            twiml = f"""
+            <Response>
+                <Play contentType="audio/basic">{stream_url}</Play>
+                <Pause length="1"/>
+                <Hangup/>
+            </Response>
+            """
+            return Response(content=twiml, media_type="application/xml")
+
         # 응급 상황 처리
         if result.get("intent") == "EMERGENCY":
             logger.critical(f"🚨 EMERGENCY DETECTED: {call_sid}")
