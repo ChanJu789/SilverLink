@@ -1,5 +1,6 @@
 import logging
 import uvicorn
+import sys
 from contextlib import asynccontextmanager  # [추가됨] Lifespan 관리를 위해 필요
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
@@ -11,6 +12,7 @@ from app.core.config import configs
 from app.core.container import Container
 from app.util.class_object import singleton
 from app.callbot.services.callbot_service import orchestrator_engine
+from loguru import logger as loguru_logger
 
 # 로깅 설정
 logging.basicConfig(
@@ -20,8 +22,7 @@ logging.basicConfig(
 
 
 # 로깅 설정 (Loguru 적용 및 중복 로그 방지)
-import sys
-from loguru import logger as loguru_logger
+
 
 class InterceptHandler(logging.Handler):
     def emit(self, record):
