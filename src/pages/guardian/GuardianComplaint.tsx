@@ -104,6 +104,10 @@ const GuardianComplaint = () => {
 
   // 민원 등록
   const handleSubmit = async () => {
+    if (!formCategory) {
+      toast.error("불편 유형을 선택해주세요.");
+      return;
+    }
     if (!formTitle.trim() || !formContent.trim()) {
       toast.error("제목과 내용을 입력해주세요.");
       return;

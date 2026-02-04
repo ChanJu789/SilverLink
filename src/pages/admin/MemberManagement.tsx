@@ -164,6 +164,15 @@ const MemberManagement = () => {
     pending: 0
   });
 
+  // Delete confirmation dialog state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string; role: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Edit dialog state
+  const [editTarget, setEditTarget] = useState<{ id: number; name: string; phone: string; email: string; role: string } | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', phone: '', email: '' });
+  const [isUpdating, setIsUpdating] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -407,7 +416,66 @@ const MemberManagement = () => {
     return nameMatch || phoneMatch || emailMatch || roleMatch;
   });
 
+  // Delete member handler
+  const handleDeleteMember = async () => {
+    if (!deleteTarget) return;
 
+    setIsDeleting(true);
+    try {
+      await usersApi.deleteUser(deleteTarget.id);
+
+      // Refresh data after deletion
+      await fetchData();
+
+      // Close dialog
+      setDeleteTarget(null);
+
+      alert(`${deleteTarget.name}님이 삭제되었습니다.`);
+    } catch (error) {
+      console.error('Failed to delete member:', error);
+      alert('회원 삭제에 실패했습니다.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Open delete confirmation dialog
+  const openDeleteDialog = (id: number, name: string, role: string) => {
+    setDeleteTarget({ id, name, role });
+  };
+
+  // Open edit dialog
+  const openEditDialog = (id: number, name: string, phone: string, email: string, role: string) => {
+    setEditTarget({ id, name, phone, email, role });
+    setEditForm({ name, phone, email: email || '' });
+  };
+
+  // Edit member handler
+  const handleEditMember = async () => {
+    if (!editTarget) return;
+
+    setIsUpdating(true);
+    try {
+      await usersApi.updateMember(editTarget.id, {
+        name: editForm.name,
+        phone: editForm.phone,
+        email: editForm.email || undefined
+      });
+
+      // Refresh data after update
+      await fetchData();
+
+      // Close dialog
+      setEditTarget(null);
+
+      alert(`${editForm.name}님의 정보가 수정되었습니다.`);
+    } catch (error) {
+      console.error('Failed to update member:', error);
+      alert('회원 수정에 실패했습니다.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -657,12 +725,19 @@ const MemberManagement = () => {
                                     <Eye className="w-4 h-4 mr-2" />
                                     상세보기
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem onClick={(e) => {
+                                    e.stopPropagation();
+                                    const email = (member.original as any).email || '';
+                                    openEditDialog(member.id, member.name || '', member.phone || '', email, member.role);
+                                  }}>
                                     <Pencil className="w-4 h-4 mr-2 text-blue-500" />
                                     수정
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuItem className="text-destructive" onClick={(e) => {
+                                    e.stopPropagation();
+                                    openDeleteDialog(member.id, member.name || '', member.role);
+                                  }}>
                                     <Trash2 className="w-4 h-4 mr-2" />
                                     삭제
                                   </DropdownMenuItem>
@@ -763,12 +838,12 @@ const MemberManagement = () => {
                                       <Eye className="w-4 h-4 mr-2" />
                                       상세보기
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditDialog(counselor.id, counselor.name || '', counselor.phone || '', counselor.email || '', 'COUNSELOR'); }}>
                                       <Pencil className="w-4 h-4 mr-2 text-blue-500" />
                                       수정
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); openDeleteDialog(counselor.id, counselor.name || '', 'COUNSELOR'); }}>
                                       <Trash2 className="w-4 h-4 mr-2" />
                                       삭제
                                     </DropdownMenuItem>
@@ -858,12 +933,12 @@ const MemberManagement = () => {
                                       <Eye className="w-4 h-4 mr-2" />
                                       상세보기
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditDialog(guardian.id, guardian.name || '', guardian.phone || '', guardian.email || '', 'GUARDIAN'); }}>
                                       <Pencil className="w-4 h-4 mr-2 text-blue-500" />
                                       수정
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); openDeleteDialog(guardian.id, guardian.name || '', 'GUARDIAN'); }}>
                                       <Trash2 className="w-4 h-4 mr-2" />
                                       삭제
                                     </DropdownMenuItem>
@@ -974,12 +1049,12 @@ const MemberManagement = () => {
                                       <Eye className="w-4 h-4 mr-2" />
                                       상세보기
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditDialog(elderlyMember.userId, elderlyMember.name || '', elderlyMember.phone || '', '', 'ELDERLY'); }}>
                                       <Pencil className="w-4 h-4 mr-2 text-blue-500" />
                                       수정
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); openDeleteDialog(elderlyMember.userId, elderlyMember.name || '', 'ELDERLY'); }}>
                                       <Trash2 className="w-4 h-4 mr-2" />
                                       삭제
                                     </DropdownMenuItem>
@@ -1190,6 +1265,102 @@ const MemberManagement = () => {
                   </div>
                 </>
               )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="w-5 h-5" />
+                회원 삭제
+              </DialogTitle>
+              <DialogDescription>
+                정말로 이 회원을 삭제하시겠습니까?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              {deleteTarget && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="font-medium">{deleteTarget.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {deleteTarget.role === 'COUNSELOR' && '상담사'}
+                    {deleteTarget.role === 'GUARDIAN' && '보호자'}
+                    {deleteTarget.role === 'ELDERLY' && '어르신'}
+                    {deleteTarget.role === 'ADMIN' && '관리자'}
+                  </p>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground mt-3">
+                {deleteTarget?.role === 'ELDERLY' && '※ 해당 어르신과 연결된 상담사 배정 및 보호자 관계도 함께 삭제됩니다.'}
+                {deleteTarget?.role === 'GUARDIAN' && '※ 해당 보호자와 어르신의 연결 관계가 삭제됩니다.'}
+                {deleteTarget?.role === 'COUNSELOR' && '※ 해당 상담사에게 배정된 어르신 배정이 해제됩니다.'}
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+                취소
+              </Button>
+              <Button variant="destructive" onClick={handleDeleteMember} disabled={isDeleting}>
+                {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                삭제
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Member Dialog */}
+        <Dialog open={!!editTarget} onOpenChange={() => setEditTarget(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-blue-500" />
+                회원 정보 수정
+              </DialogTitle>
+              <DialogDescription>
+                {editTarget?.role === 'COUNSELOR' && '상담사'}
+                {editTarget?.role === 'GUARDIAN' && '보호자'}
+                {editTarget?.role === 'ELDERLY' && '어르신'}
+                {editTarget?.role === 'ADMIN' && '관리자'} 정보를 수정합니다.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">이름</label>
+                <Input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder="이름을 입력하세요"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">전화번호</label>
+                <Input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  placeholder="010-0000-0000"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">이메일 (선택)</label>
+                <Input
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  placeholder="email@example.com"
+                  type="email"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditTarget(null)} disabled={isUpdating}>
+                취소
+              </Button>
+              <Button onClick={handleEditMember} disabled={isUpdating || !editForm.name || !editForm.phone}>
+                {isUpdating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
+                수정
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

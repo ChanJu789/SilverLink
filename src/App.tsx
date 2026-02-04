@@ -77,6 +77,7 @@ const WelfareServiceManagement = lazy(() => import("./pages/admin/WelfareService
 
 const CounselorRegistration = lazy(() => import("./pages/admin/CounselorRegistration"));
 const MyProfile = lazy(() => import("./pages/user/MyProfile"));
+const SettingsPage = lazy(() => import("./pages/user/SettingsPage"));
 
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -104,6 +105,7 @@ const App = () => (
                       {/* Common Protected Routes */}
                       <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
                       <Route path="/notifications" element={<ProtectedRoute><NotificationHistory /></ProtectedRoute>} />
+                      <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
 
                       {/* Guardian Routes - GUARDIAN role only */}
                       <Route path="/guardian" element={<ProtectedRoute allowedRoles={["GUARDIAN"]}><GuardianDashboard /></ProtectedRoute>} />
