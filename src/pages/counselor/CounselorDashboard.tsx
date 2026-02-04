@@ -427,21 +427,9 @@ const CounselorDashboard = () => {
           />
         )}
       </DashboardLayout>
-      {/* 읽지 않은 공지사항 알림 */}
-      {showUnreadAlert && (
-        <UnreadNoticeAlert
-          notices={unreadNotices.map(notice => ({
-            id: notice.id,
-            title: notice.title,
-            isPriority: notice.isPriority
-          }))}
-          onClose={handleCloseUnreadAlert}
-          noticesPath="/counselor/notices"
-        />
-      )}
-    </DashboardLayout >
     </>
   );
 };
 
 export default CounselorDashboard;
+
