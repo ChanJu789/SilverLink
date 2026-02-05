@@ -43,9 +43,15 @@ export const searchByName = async (name: string): Promise<ElderlySummaryResponse
     return response.data;
 };
 
+export const registerElderly = async (data: any): Promise<ElderlySummaryResponse> => {
+    const response = await apiClient.post<ElderlySummaryResponse>('/api/admin/elderly', data);
+    return response.data;
+};
+
 export default {
     getSummary,
     getHealthInfo,
     getAllElderlyForAdmin,
     searchByName,
+    registerElderly,
 };
