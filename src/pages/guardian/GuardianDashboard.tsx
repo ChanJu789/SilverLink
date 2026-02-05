@@ -306,57 +306,63 @@ const GuardianDashboard = () => {
                   <CardDescription>최근 어르신의 감정 상태 변화를 보여줍니다.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[200px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <defs>
-                          <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
-                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                        <XAxis
-                          dataKey="date"
-                          axisLine={false}
-                          tickLine={false}
-                          dy={10}
-                          tick={{ fill: '#6B7280', fontSize: 12 }}
-                        />
-                        <YAxis
-                          hide={true}
-                          domain={[0, 4]} // 1=BAD, 2=NORMAL, 3=GOOD. Padding for visual.
-                        />
-                        <Tooltip
-                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                          cursor={{ stroke: '#f43f5e', strokeWidth: 1, strokeDasharray: '5 5' }}
-                          formatter={(value: any, name: any, props: any) => {
-                            return [props.payload.emotion, '감정 상태'];
-                          }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="score"
-                          stroke="#f43f5e"
-                          strokeWidth={3}
-                          fillOpacity={1}
-                          fill="url(#colorScore)"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex justify-center gap-6 mt-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-success"></div>
-                      <span>좋음</span>
+                  <div className="flex items-start gap-2">
+                    <div className="h-[200px] flex-1 relative">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <defs>
+                            <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
+                              <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                          <XAxis
+                            dataKey="date"
+                            axisLine={false}
+                            tickLine={false}
+                            dy={10}
+                            tick={{ fill: '#6B7280', fontSize: 12 }}
+                          />
+                          <YAxis
+                            hide={true}
+                            domain={[0, 4]}
+                          />
+                          <Tooltip
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            cursor={{ stroke: '#f43f5e', strokeWidth: 1, strokeDasharray: '5 5' }}
+                            formatter={(value: any, name: any, props: any) => {
+                              return [props.payload.emotion, '감정 상태'];
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="score"
+                            stroke="#f43f5e"
+                            strokeWidth={3}
+                            fillOpacity={1}
+                            fill="url(#colorScore)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-warning"></div>
-                      <span>보통</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-destructive"></div>
-                      <span>나쁨</span>
+                    {/* 범례: Y축 레벨에 맞춰 배치 (0-4 도메인 기준, 그래프 영역 약 85% 사용) */}
+                    <div className="relative h-[170px] text-xs text-muted-foreground w-10 mt-1">
+                      {/* score 3 = 좋음: 상단에서 약 25% */}
+                      <div className="absolute flex items-center gap-1" style={{ top: '15%' }}>
+                        <div className="w-3 h-0.5 bg-rose-500 rounded"></div>
+                        <span>좋음</span>
+                      </div>
+                      {/* score 2 = 보통: 상단에서 약 50% */}
+                      <div className="absolute flex items-center gap-1" style={{ top: '50%', transform: 'translateY(-50%)' }}>
+                        <div className="w-3 h-0.5 bg-rose-400 rounded"></div>
+                        <span>보통</span>
+                      </div>
+                      {/* score 1 = 나쁨: 상단에서 약 75% */}
+                      <div className="absolute flex items-center gap-1" style={{ top: '85%' }}>
+                        <div className="w-3 h-0.5 bg-rose-300 rounded"></div>
+                        <span>나쁨</span>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
