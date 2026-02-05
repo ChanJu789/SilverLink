@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Save,
   Pill,
@@ -33,6 +33,8 @@ import elderlyApi, { registerElderly } from "@/api/elderly";
 import AddressSearch from "@/components/common/AddressSearch";
 import PhoneVerification from "@/components/common/PhoneVerification";
 import { AddressData } from "@/types/address";
+import { AddressResponse } from "@/types/api";
+import { addressApi } from "@/api/address";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const MemberRegistration = () => {
@@ -40,7 +42,177 @@ const MemberRegistration = () => {
   const [activeTab, setActiveTab] = useState("senior");
   const [loading, setLoading] = useState(false);
 
-  // 어르신 입력 데이터
+  // Address State
+  const [sidoList, setSidoList] = useState<AddressResponse[]>([]);
+  const [sigunguList, setSigunguList] = useState<AddressResponse[]>([]);
+  const [dongList, setDongList] = useState<AddressResponse[]>([]);
+
+  const [selectedSido, setSelectedSido] = useState<string>('');
+  const [selectedSigungu, setSelectedSigungu] = useState<string>('');
+  const [selectedDong, setSelectedDong] = useState<string>('');
+
+  // Load Sido on Mount
+  useEffect(() => {
+    loadSido();
+  }, []);
+
+  const loadSido = async () => {
+    try {
+      const data = await addressApi.getSido();
+      const uniqueData = data.filter((item, index, self) =>
+        index === self.findIndex((t) => t.sidoCode === item.sidoCode)
+      );
+      setSidoList(uniqueData);
+    } catch (error) {
+      console.error("Failed to load Sido:", error);
+    }
+  };
+
+  // Load Sigungu when Sido changes
+  useEffect(() => {
+    if (selectedSido) {
+      loadSigungu(selectedSido);
+      setSigunguList([]);
+      setDongList([]);
+      setSelectedSigungu('');
+      setSelectedDong('');
+    }
+  }, [selectedSido]);
+
+  const loadSigungu = async (sidoCode: string) => {
+    try {
+      const data = await addressApi.getSigungu(sidoCode);
+      const uniqueData = data.filter((item, index, self) =>
+        index === self.findIndex((t) => t.sigunguCode === item.sigunguCode)
+      );
+      setSigunguList(uniqueData);
+    } catch (error) {
+      console.error("Failed to load Sigungu:", error);
+    }
+  };
+
+  // Load Dong when Sigungu changes
+  useEffect(() => {
+    if (selectedSido && selectedSigungu) {
+      loadDong(selectedSido, selectedSigungu);
+      setDongList([]);
+      setSelectedDong('');
+    }
+  }, [selectedSigungu]);
+
+  const loadDong = async (sidoCode: string, sigunguCode: string) => {
+    try {
+      const data = await addressApi.getDong(sidoCode, sigunguCode);
+      const uniqueData = data.filter((item, index, self) =>
+        index === self.findIndex((t) => t.admCode === item.admCode)
+      );
+      setDongList(uniqueData);
+    } catch (error) {
+      console.error("Failed to load Dong:", error);
+    }
+  };
+
+  const handleAddressDropdownChange = (level: 'sido' | 'sigungu' | 'dong', value: string) => {
+    if (level === 'sido') {
+      setSelectedSido(value);
+      const sidoName = sidoList.find(s => s.sidoCode === value)?.sidoName || '';
+      setSeniorData(prev => ({ ...prev, address: sidoName }));
+    } else if (level === 'sigungu') {
+      setSelectedSigungu(value);
+      const sidoName = sidoList.find(s => s.sidoCode === selectedSido)?.sidoName || '';
+      const sigunguName = sigunguList.find(s => s.sigunguCode === value)?.sigunguName || '';
+      setSeniorData(prev => ({ ...prev, address: `${sidoName} ${sigunguName}` }));
+    } else if (level === 'dong') {
+      setSelectedDong(value);
+      const sidoName = sidoList.find(s => s.sidoCode === selectedSido)?.sidoName || '';
+      const sigunguName = sigunguList.find(s => s.sigunguCode === selectedSigungu)?.sigunguName || '';
+      const dongName = dongList.find(d => String(d.admCode) === value)?.dongName || '';
+
+      setSeniorData(prev => ({
+        ...prev,
+        admCode: value,
+        address: `${sidoName} ${sigunguName} ${dongName}`
+      }));
+    }
+  };
+
+  // Guardian Address State
+  const [guardianSigunguList, setGuardianSigunguList] = useState<AddressResponse[]>([]);
+  const [guardianDongList, setGuardianDongList] = useState<AddressResponse[]>([]);
+
+  const [guardianSelectedSido, setGuardianSelectedSido] = useState<string>('');
+  const [guardianSelectedSigungu, setGuardianSelectedSigungu] = useState<string>('');
+  const [guardianSelectedDong, setGuardianSelectedDong] = useState<string>('');
+
+  // Load Sigungu when Guardian Sido changes
+  useEffect(() => {
+    if (guardianSelectedSido) {
+      loadGuardianSigungu(guardianSelectedSido);
+      setGuardianSigunguList([]);
+      setGuardianDongList([]);
+      setGuardianSelectedSigungu('');
+      setGuardianSelectedDong('');
+    }
+  }, [guardianSelectedSido]);
+
+  const loadGuardianSigungu = async (sidoCode: string) => {
+    try {
+      const data = await addressApi.getSigungu(sidoCode);
+      const uniqueData = data.filter((item, index, self) =>
+        index === self.findIndex((t) => t.sigunguCode === item.sigunguCode)
+      );
+      setGuardianSigunguList(uniqueData);
+    } catch (error) {
+      console.error("Failed to load Guardian Sigungu:", error);
+    }
+  };
+
+  // Load Dong when Guardian Sigungu changes
+  useEffect(() => {
+    if (guardianSelectedSido && guardianSelectedSigungu) {
+      loadGuardianDong(guardianSelectedSido, guardianSelectedSigungu);
+      setGuardianDongList([]);
+      setGuardianSelectedDong('');
+    }
+  }, [guardianSelectedSigungu]);
+
+  const loadGuardianDong = async (sidoCode: string, sigunguCode: string) => {
+    try {
+      const data = await addressApi.getDong(sidoCode, sigunguCode);
+      const uniqueData = data.filter((item, index, self) =>
+        index === self.findIndex((t) => t.admCode === item.admCode)
+      );
+      setGuardianDongList(uniqueData);
+    } catch (error) {
+      console.error("Failed to load Guardian Dong:", error);
+    }
+  };
+
+  const handleGuardianAddressDropdownChange = (level: 'sido' | 'sigungu' | 'dong', value: string) => {
+    if (level === 'sido') {
+      setGuardianSelectedSido(value);
+      const sidoName = sidoList.find(s => s.sidoCode === value)?.sidoName || '';
+      setGuardianData(prev => ({ ...prev, address: sidoName }));
+    } else if (level === 'sigungu') {
+      setGuardianSelectedSigungu(value);
+      const sidoName = sidoList.find(s => s.sidoCode === guardianSelectedSido)?.sidoName || '';
+      const sigunguName = guardianSigunguList.find(s => s.sigunguCode === value)?.sigunguName || '';
+      setGuardianData(prev => ({ ...prev, address: `${sidoName} ${sigunguName}` }));
+    } else if (level === 'dong') {
+      setGuardianSelectedDong(value);
+      const sidoName = sidoList.find(s => s.sidoCode === guardianSelectedSido)?.sidoName || '';
+      const sigunguName = guardianSigunguList.find(s => s.sigunguCode === guardianSelectedSigungu)?.sigunguName || '';
+      const dongName = guardianDongList.find(d => String(d.admCode) === value)?.dongName || '';
+
+      setGuardianData(prev => ({
+        ...prev,
+        address: `${sidoName} ${sigunguName} ${dongName}`,
+        // Note: Guardian API currently doesn't require admCode strictly like Elderly, but we set address string.
+        // If admCode is needed later, add it to state.
+      }));
+    }
+  };
+
   const [seniorData, setSeniorData] = useState({
     loginId: "",
     password: "",
@@ -429,16 +601,57 @@ const MemberRegistration = () => {
                         <Label className="flex items-center gap-2">
                           <MapPin className="w-4 h-4" /> 주소 *
                         </Label>
+
+                        {/* 행정구역 선택 리스트 */}
+                        <div className="grid grid-cols-3 gap-2 mb-2">
+                          <Select value={selectedSido} onValueChange={(val) => handleAddressDropdownChange('sido', val)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="시/도 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sidoList.map((sido, index) => (
+                                <SelectItem key={`sido-${index}`} value={sido.sidoCode || ''}>
+                                  {sido.sidoName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <Select value={selectedSigungu} onValueChange={(val) => handleAddressDropdownChange('sigungu', val)} disabled={!selectedSido}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="시/군/구 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sigunguList.map((sigungu, index) => (
+                                <SelectItem key={`sigungu-${index}`} value={sigungu.sigunguCode || ''}>
+                                  {sigungu.sigunguName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <Select value={selectedDong} onValueChange={(val) => handleAddressDropdownChange('dong', val)} disabled={!selectedSigungu}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="읍/면/동 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {dongList.map((dong, index) => (
+                                <SelectItem key={`dong-${index}`} value={String(dong.admCode)}>
+                                  {dong.dongName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
                         <div className="flex gap-2">
                           <Input
                             value={seniorData.address}
                             onChange={e => setSeniorData({ ...seniorData, address: e.target.value })}
                             required
-                            placeholder="주소 검색 버튼을 클릭하세요"
-                            readOnly
+                            placeholder="기본 주소 (행정구역 선택 시 자동 입력)"
                             className="flex-1"
                           />
-                          <AddressSearch onSelect={handleSeniorAddressSelect} />
                         </div>
                         {seniorData.zipcode && (
                           <div className="flex gap-2 mt-1">
@@ -620,15 +833,56 @@ const MemberRegistration = () => {
                         <Label className="flex items-center gap-2">
                           <MapPin className="w-4 h-4" /> 주소 *
                         </Label>
+
+                        {/* 행정구역 선택 리스트 */}
+                        <div className="grid grid-cols-3 gap-2 mb-2">
+                          <Select value={guardianSelectedSido} onValueChange={(val) => handleGuardianAddressDropdownChange('sido', val)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="시/도 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sidoList.map((sido, index) => (
+                                <SelectItem key={`sido-${index}`} value={sido.sidoCode || ''}>
+                                  {sido.sidoName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <Select value={guardianSelectedSigungu} onValueChange={(val) => handleGuardianAddressDropdownChange('sigungu', val)} disabled={!guardianSelectedSido}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="시/군/구 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {guardianSigunguList.map((sigungu, index) => (
+                                <SelectItem key={`sigungu-${index}`} value={sigungu.sigunguCode || ''}>
+                                  {sigungu.sigunguName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <Select value={guardianSelectedDong} onValueChange={(val) => handleGuardianAddressDropdownChange('dong', val)} disabled={!guardianSelectedSigungu}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="읍/면/동 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {guardianDongList.map((dong, index) => (
+                                <SelectItem key={`dong-${index}`} value={String(dong.admCode)}>
+                                  {dong.dongName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
                         <div className="flex gap-2">
                           <Input
                             value={guardianData.address}
                             onChange={e => setGuardianData({ ...guardianData, address: e.target.value })}
-                            placeholder="주소 검색 버튼을 클릭하세요"
-                            readOnly
-                            className="flex-1"
+                            placeholder="기본 주소 (행정구역 선택 시 자동 입력)"
+                            className="flex-1" // Removed readOnly
                           />
-                          <AddressSearch onSelect={handleGuardianAddressSelect} />
                         </div>
                         {guardianData.zipcode && (
                           <Badge variant="secondary" className="mt-1">우편번호: {guardianData.zipcode}</Badge>
