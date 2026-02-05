@@ -1,68 +1,62 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   AlertTriangle,
   ChevronRight,
   TrendingUp,
   PhoneCall,
-  AlertCircle,
-  CheckCircle2,
-  Search,
   Users,
   MessageSquare,
-  Clock,
   Loader2,
-  XCircle
+  Radio,
+  Smile,
+  Meh,
+  Frown
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { counselorNavItems } from "@/config/counselorNavItems";
 import { useAuth } from "@/contexts/AuthContext";
-import usersApi from "@/api/users";
 import counselorsApi from "@/api/counselors";
 import callReviewsApi from "@/api/callReviews";
-import noticesApi from "@/api/notices";
 import emergencyAlertsApi, { EmergencyAlertSummary } from "@/api/emergencyAlerts";
-import { MyProfileResponse, CounselorResponse, CallRecordSummaryResponse, UnreviewedCountResponse, NoticeResponse } from "@/types/api";
+import { CounselorResponse, CallRecordSummaryResponse } from "@/types/api";
 
 import { NoticePopup } from "@/components/notice/NoticePopup";
-// Mock data removed - using real API data instead
 
-const EmotionBadge = ({ emotion }: { emotion: string | null }) => {
-  if (!emotion) return <Badge variant="outline">대기중</Badge>;
-
-  switch (emotion) {
-    case "GOOD":
-      return <Badge className="bg-success/10 text-success border-0">좋음</Badge>;
-    case "NEUTRAL":
-      return <Badge className="bg-warning/10 text-warning border-0">보통</Badge>;
-    case "BAD":
-      return <Badge className="bg-destructive/10 text-destructive border-0">주의</Badge>;
-    default:
-      return <Badge variant="outline">-</Badge>;
-  }
+// 12시간 형식 시간 변환 함수 (CounselorCalls와 동일)
+const formatTimeAMPM = (isoTime: string) => {
+  if (!isoTime) return '';
+  const timePart = isoTime.split('T')[1]?.substring(0, 5);
+  if (!timePart) return '';
+  const [hourStr, minute] = timePart.split(':');
+  const hour = parseInt(hourStr, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const h = hour % 12 || 12;
+  return `${h}:${minute} ${ampm}`;
 };
 
-const StatusIcon = ({ status }: { status: string }) => {
-  switch (status) {
-    case "COMPLETED":
-      return <CheckCircle2 className="w-4 h-4 text-success" />;
-    case "FAILED":
-      return <AlertCircle className="w-4 h-4 text-destructive" />;
-    case "CANCELLED":
-      return <XCircle className="w-4 h-4 text-muted-foreground" />;
-    case "ANSWERED":
-      return <PhoneCall className="w-4 h-4 text-primary" />;
-    case "REQUESTED":
-    case "IN_PROGRESS":
-      return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
-    case "PENDING":
+// 감정 상태 아이콘 (CounselorCalls와 동일)
+const EmotionIcon = ({ emotion }: { emotion: string }) => {
+  switch (emotion?.toUpperCase()) {
+    case "GOOD":
+      return <Smile className="w-5 h-5 text-success" />;
+    case "NORMAL":
+      return <Meh className="w-5 h-5 text-muted-foreground" />;
+    case "BAD":
+      return <Frown className="w-5 h-5 text-destructive" />;
     default:
-      return <Clock className="w-4 h-4 text-muted-foreground" />;
+      return <Meh className="w-5 h-5 text-muted-foreground" />;
   }
 };
 
@@ -83,57 +77,72 @@ const CounselorDashboard = () => {
     urgentAlerts: 0,
   });
 
+  // 데이터 조회 함수 (showLoading: 로딩 표시 여부)
+  const fetchData = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setIsLoading(true);
+
+      // 1. 상담사 정보 조회
+      const counselor = await counselorsApi.getMyInfo();
+      setCounselorInfo(counselor);
+
+      // 2. 통화 기록 조회 (최근 10건)
+      const callsResponse = await callReviewsApi.getCallRecordsForCounselor({ size: 10 });
+      setCallRecords(callsResponse.content);
+
+      // 3. 미확인 통화 건수
+      const unreviewedResponse = await callReviewsApi.getUnreviewedCount();
+
+      // 4. 긴급 알림 (미처리) 조회
+      const pendingAlerts = await emergencyAlertsApi.getPendingAlertsForCounselor();
+      setRealUrgentAlerts(pendingAlerts);
+
+      // 5. 오늘 통화 수 계산 (날짜 필터)
+      const today = new Date().toISOString().split('T')[0];
+      const todayCallsCount = callsResponse.content.filter(
+        (c) => c.callAt?.startsWith(today)
+      ).length;
+
+      // 6. 통계 설정
+      setStats({
+        totalSeniors: counselor.assignedElderlyCount || 0,
+        todayCalls: todayCallsCount,
+        pendingReviews: unreviewedResponse.count,
+        urgentAlerts: pendingAlerts.length,
+      });
+
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
+  }, []);
+
+  // 최초 로딩
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-
-        // 1. 상담사 정보 조회
-        const counselor = await counselorsApi.getMyInfo();
-        setCounselorInfo(counselor);
-
-        // 2. 통화 기록 조회 (최근 10건)
-        const callsResponse = await callReviewsApi.getCallRecordsForCounselor({ size: 10 });
-        setCallRecords(callsResponse.content);
-
-        // 3. 미확인 통화 건수
-        const unreviewedResponse = await callReviewsApi.getUnreviewedCount();
-
-        // 4. 긴급 알림 (미처리) 조회 - NEW
-        const pendingAlerts = await emergencyAlertsApi.getPendingAlertsForCounselor();
-        setRealUrgentAlerts(pendingAlerts);
-
-        // 5. 통계 설정
-        setStats({
-          totalSeniors: counselor.assignedElderlyCount || 0,
-          todayCalls: callsResponse.content.length, // This might need a proper "Today's calls" API if records are historical
-          pendingReviews: unreviewedResponse.count,
-          urgentAlerts: pendingAlerts.length,
-        });
-
-
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
+  }, [fetchData]);
 
-    // 페이지가 다시 포커스될 때 공지사항 다시 확인
+  // 10초마다 자동 갱신 (통화 시작/종료 실시간 반영)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchData(false);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  // 페이지가 다시 보일 때 데이터 새로고침
+  useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log("페이지가 다시 활성화됨");
+        fetchData(false);
       }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [fetchData]);
 
   // 팝업 공지사항 조회 logic...
 
@@ -277,7 +286,7 @@ const CounselorDashboard = () => {
             </Card>
           </div>
 
-          {/* Seniors List */}
+          {/* Call Records Table - CounselorCalls와 동일한 UI */}
           <Card className="shadow-card border-0">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -291,63 +300,78 @@ const CounselorDashboard = () => {
             <CardContent>
               {callRecords.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  오늘 통화 기록이 없습니다.
+                  통화 기록이 없습니다.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">어르신</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">통화 일시</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">통화 시간</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">감정 상태</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">확인 상태</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">액션</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {callRecords.slice(0, 5).map((call) => (
-                        <tr key={call.callId} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="w-9 h-9">
-                                <AvatarFallback className="bg-secondary text-secondary-foreground text-sm">
-                                  {call.elderlyName?.charAt(0) || '?'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium text-foreground">{call.elderlyName}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 text-sm text-muted-foreground">
-                            {call.callAt}
-                          </td>
-                          <td className="py-4 px-4 text-sm text-muted-foreground">
-                            {call.duration || '-'}
-                          </td>
-                          <td className="py-4 px-4">
-                            <EmotionBadge emotion={call.emotionLevel === 'GOOD' ? 'good' : call.emotionLevel === 'BAD' ? 'bad' : 'neutral'} />
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-2">
-                              <StatusIcon status={call.reviewed ? 'completed' : 'pending'} />
-                              <span className="text-sm text-muted-foreground">
-                                {call.reviewed ? '확인됨' : '미확인'}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 text-right">
-                            <Button variant="ghost" size="sm" onClick={() => handleViewDetail(call.callId)}>
-                              상세보기
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>어르신</TableHead>
+                      <TableHead>일시</TableHead>
+                      <TableHead>통화시간</TableHead>
+                      <TableHead>감정상태</TableHead>
+                      <TableHead>요약</TableHead>
+                      <TableHead>상담사 코멘트</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {callRecords.slice(0, 5).map((call) => (
+                      <TableRow
+                        key={call.callId}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleViewDetail(call.callId)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{call.elderlyName}</p>
+                            {call.state === 'ANSWERED' && (
+                              <Badge variant="outline" className="animate-pulse text-green-600 border-green-600 text-xs px-1.5 py-0">
+                                <Radio className="w-3 h-3 mr-1" />
+                                통화 중
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p>{call.callAt?.split('T')[0]}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatTimeAMPM(call.callAt)}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{call.duration}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <EmotionIcon emotion={call.emotionLevel || 'NORMAL'} />
+                            <span className="text-sm">
+                              {call.emotionLevel?.toUpperCase() === "GOOD" ? "좋음" :
+                                call.emotionLevel?.toUpperCase() === "BAD" ? "주의" : "보통"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[200px]">
+                          <p className="truncate text-sm text-muted-foreground">
+                            {call.summaryPreview?.length > 30
+                              ? call.summaryPreview.substring(0, 30) + '...'
+                              : call.summaryPreview || '요약 없음'}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          {call.reviewed ? (
+                            <span className="text-xs text-success">완료</span>
+                          ) : (
+                            <span className="text-xs text-warning">미작성</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
