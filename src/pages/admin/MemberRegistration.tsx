@@ -13,7 +13,8 @@ import {
   Search,
   CheckCircle,
   XCircle,
-  Loader2
+  Loader2,
+  Users
 } from "lucide-react";
 import { adminNavItems } from "@/config/adminNavItems";
 import { Link } from "react-router-dom";
@@ -22,32 +23,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { Shield, FileText } from "lucide-react";
-import { registerElderly, registerGuardian } from "@/api/admins";
-import elderlyApi from "@/api/elderly";
-import AddressSearch, { AddressData } from "@/components/common/AddressSearch";
-import PhoneVerification from "@/components/common/PhoneVerification";
+import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { registerGuardian } from "@/api/guardians";
+import elderlyApi, { registerElderly } from "@/api/elderly";
+import AddressSearch from "@/components/common/AddressSearch";
+import PhoneVerification from "@/components/common/PhoneVerification";
+import { AddressData } from "@/types/address";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const MemberRegistration = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("senior");
   const [loading, setLoading] = useState(false);
 
-  // 어르신 등록 정보
+  // 어르신 입력 데이터
   const [seniorData, setSeniorData] = useState({
     loginId: "",
     password: "",
@@ -58,21 +51,19 @@ const MemberRegistration = () => {
     address: "",
     detailAddress: "",
     zipcode: "",
-    admCode: "", // 행정코드
+    admCode: "",
     memo: "",
-    // 민감정보 접근 승인 (UI상 보여주기용, 실제로는 BE에서 일괄 처리됨)
+    // 약관 동의
     sensitiveInfoApproval: true,
     medicationInfoApproval: true,
     healthInfoApproval: true,
     // 통화 스케줄
     preferredCallTime: "09:00",
-    preferredCallDays: ["MON", "WED", "FRI"] as string[],
+    preferredCallDays: ["MON", "WED", "FRI"],
     callScheduleEnabled: true,
   });
-  const [seniorPhoneVerified, setSeniorPhoneVerified] = useState(false);
-  const [seniorProofToken, setSeniorProofToken] = useState("");
 
-  // 보호자 등록 정보
+  // 보호자 입력 데이터
   const [guardianData, setGuardianData] = useState({
     loginId: "",
     password: "",
@@ -85,16 +76,22 @@ const MemberRegistration = () => {
     relation: "CHILD",
     seniorId: "", // 연결할 어르신 ID
     memo: "",
-    // 정보 승인 (UI용)
+    // 약관 동의
     sensitiveInfoApproval: true,
     medicationInfoApproval: true,
     healthInfoApproval: true,
   });
+
+  // 휴대폰 인증 상태
+  const [seniorPhoneVerified, setSeniorPhoneVerified] = useState(false);
+  const [seniorProofToken, setSeniorProofToken] = useState("");
+
   const [guardianPhoneVerified, setGuardianPhoneVerified] = useState(false);
   const [guardianProofToken, setGuardianProofToken] = useState("");
 
   // 어르신 검색 상태
-  const [elderlySearchId, setElderlySearchId] = useState("");
+  const [elderlySearchName, setElderlySearchName] = useState("");
+  const [elderlyCandidates, setElderlyCandidates] = useState<any[]>([]);
   const [elderlySearchResult, setElderlySearchResult] = useState<{
     id: number;
     name: string;
@@ -106,30 +103,40 @@ const MemberRegistration = () => {
 
   // 어르신 검색 함수
   const handleElderlySearch = async () => {
-    if (!elderlySearchId || isNaN(Number(elderlySearchId))) {
-      setElderlySearchError("유효한 ID를 입력하세요.");
+    if (!elderlySearchName.trim()) {
+      setElderlySearchError("검색할 이름을 입력하세요.");
       return;
     }
 
     setElderlySearching(true);
     setElderlySearchError("");
+    setElderlyCandidates([]);
     setElderlySearchResult(null);
 
     try {
-      const result = await elderlyApi.getSummary(Number(elderlySearchId));
-      setElderlySearchResult({
-        id: Number(elderlySearchId),
-        name: result.name,
-        phone: result.phone,
-        birthDate: result.birthDate,
-      });
-      setGuardianData({ ...guardianData, seniorId: elderlySearchId });
+      const results = await elderlyApi.searchByName(elderlySearchName);
+      if (results.length === 0) {
+        setElderlySearchError("해당 이름의 어르신을 찾을 수 없습니다.");
+      } else {
+        setElderlyCandidates(results);
+      }
     } catch (error: any) {
-      setElderlySearchError("해당 ID의 어르신을 찾을 수 없습니다.");
-      setElderlySearchResult(null);
+      setElderlySearchError("검색 중 오류가 발생했습니다.");
     } finally {
       setElderlySearching(false);
     }
+  };
+
+  const selectElderly = (e: any) => {
+    setElderlySearchResult({
+      id: e.userId,
+      name: e.name,
+      phone: e.phone,
+      birthDate: e.birthDate
+    });
+    setGuardianData({ ...guardianData, seniorId: String(e.userId) });
+    setElderlyCandidates([]); // 선택 후 목록 숨김
+    setElderlySearchName(""); // 입력창 초기화
   };
 
   // 어르신 주소 검색 결과 처리
@@ -289,10 +296,11 @@ const MemberRegistration = () => {
       setGuardianPhoneVerified(false);
       setGuardianProofToken("");
       setElderlySearchResult(null);
-      setElderlySearchId("");
+      setElderlySearchName("");
+      setElderlyCandidates([]);
     } catch (error: any) {
       // 백엔드에서 반환하는 오류 메시지 추출
-      let errorMessage = "어르신 ID가 유효한지 확인해주세요.";
+      let errorMessage = "어르신 연결 정보를 확인해주세요.";
 
       if (error.response?.data) {
         const data = error.response.data;
@@ -610,7 +618,7 @@ const MemberRegistration = () => {
                       {/* 주소 검색 */}
                       <div className="space-y-2">
                         <Label className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4" /> 주소
+                          <MapPin className="w-4 h-4" /> 주소 *
                         </Label>
                         <div className="flex gap-2">
                           <Input
@@ -645,25 +653,24 @@ const MemberRegistration = () => {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {/* 어르신 검색 */}
-                      <div className="space-y-2">
-                        <Label>어르신 회원 ID 검색 *</Label>
+                      <div className="space-y-3">
+                        <Label>어르신 회원 이름 검색 *</Label>
                         <div className="flex gap-2">
                           <Input
-                            type="number"
-                            value={elderlySearchId}
+                            value={elderlySearchName}
                             onChange={e => {
-                              setElderlySearchId(e.target.value);
-                              setElderlySearchResult(null);
+                              setElderlySearchName(e.target.value);
                               setElderlySearchError("");
                             }}
-                            placeholder="어르신 ID 입력"
+                            onKeyDown={(e) => e.key === 'Enter' && handleElderlySearch()}
+                            placeholder="어르신 이름 입력"
                             className="flex-1"
                           />
                           <Button
                             type="button"
                             variant="outline"
                             onClick={handleElderlySearch}
-                            disabled={elderlySearching || !elderlySearchId}
+                            disabled={elderlySearching || !elderlySearchName}
                           >
                             {elderlySearching ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -674,18 +681,56 @@ const MemberRegistration = () => {
                           </Button>
                         </div>
 
-                        {/* 검색 결과 */}
+                        {/* 검색 결과 후보 목록 */}
+                        {elderlyCandidates.length > 0 && !elderlySearchResult && (
+                          <div className="border rounded-md divide-y max-h-48 overflow-y-auto bg-white">
+                            {elderlyCandidates.map((candidate) => (
+                              <div
+                                key={candidate.userId}
+                                className="p-3 flex items-center justify-between hover:bg-muted/50 cursor-pointer transition-colors"
+                                onClick={() => selectElderly(candidate)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                    <Users className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-sm">{candidate.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {candidate.birthDate} | {candidate.phone}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button size="sm" variant="ghost" className="h-8 text-xs">선택</Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 선택된 결과 */}
                         {elderlySearchResult && (
-                          <div className="p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-3">
-                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                            <div className="flex-1">
-                              <p className="font-medium text-green-700">어르신 확인됨</p>
-                              <p className="text-sm text-green-600">
-                                이름: <strong>{elderlySearchResult.name}</strong>
-                                {elderlySearchResult.phone && ` | 연락처: ${elderlySearchResult.phone}`}
-                                {elderlySearchResult.birthDate && ` | 생년월일: ${elderlySearchResult.birthDate}`}
-                              </p>
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-md flex items-center justify-between gap-3 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="flex items-center gap-3">
+                              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                              <div>
+                                <p className="font-medium text-green-700">연결 대상 확인됨</p>
+                                <p className="text-sm text-green-600">
+                                  이름: <strong>{elderlySearchResult.name}</strong> <span className="text-green-600/70">| {elderlySearchResult.phone}</span>
+                                </p>
+                              </div>
                             </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-700 hover:text-green-800 hover:bg-green-100 h-8 px-2"
+                              onClick={() => {
+                                setElderlySearchResult(null);
+                                setGuardianData({ ...guardianData, seniorId: "" });
+                              }}
+                            >
+                              변경
+                            </Button>
                           </div>
                         )}
 
@@ -744,4 +789,3 @@ const MemberRegistration = () => {
 };
 
 export default MemberRegistration;
-
