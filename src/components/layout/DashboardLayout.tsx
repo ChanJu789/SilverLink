@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import ChatbotWidget from "@/components/chatbot/ChatbotWidget";
 import NotificationDropdown from "@/components/notification/NotificationDropdown";
 import accessRequestsApi from "@/api/accessRequests";
+import { EmergencyAlertPopup } from "@/components/alert/EmergencyAlertPopup";
 
 interface NavItem {
   title: string;
@@ -279,6 +280,7 @@ const DashboardLayout = ({
         </main>
       </div>
       <ChatbotWidget />
+      <EmergencyAlertPopup userRole={role.toUpperCase() as "COUNSELOR" | "GUARDIAN" | "ADMIN"} />
     </div>
   );
 };

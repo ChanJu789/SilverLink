@@ -28,7 +28,7 @@ import callReviewsApi from "@/api/callReviews";
 import noticesApi from "@/api/notices";
 import emergencyAlertsApi, { EmergencyAlertSummary } from "@/api/emergencyAlerts";
 import { MyProfileResponse, CounselorResponse, CallRecordSummaryResponse, UnreviewedCountResponse, NoticeResponse } from "@/types/api";
-import UnreadNoticeAlert from "@/components/notice/UnreadNoticeAlert";
+
 import { NoticePopup } from "@/components/notice/NoticePopup";
 // Mock data removed - using real API data instead
 
@@ -74,8 +74,7 @@ const CounselorDashboard = () => {
   const [counselorInfo, setCounselorInfo] = useState<CounselorResponse | null>(null);
   const [callRecords, setCallRecords] = useState<CallRecordSummaryResponse[]>([]);
   const [realUrgentAlerts, setRealUrgentAlerts] = useState<EmergencyAlertSummary[]>([]);
-  const [unreadNotices, setUnreadNotices] = useState<NoticeResponse[]>([]);
-  const [showUnreadAlert, setShowUnreadAlert] = useState(false);
+
 
   const [stats, setStats] = useState({
     totalSeniors: 0,
@@ -112,8 +111,7 @@ const CounselorDashboard = () => {
           urgentAlerts: pendingAlerts.length,
         });
 
-        // 6. 읽지 않은 공지사항 조회
-        await fetchUnreadNotices();
+
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -126,8 +124,7 @@ const CounselorDashboard = () => {
     // 페이지가 다시 포커스될 때 공지사항 다시 확인
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log("페이지가 다시 활성화됨 - 공지사항 재확인");
-        fetchUnreadNotices();
+        console.log("페이지가 다시 활성화됨");
       }
     };
 
@@ -139,65 +136,7 @@ const CounselorDashboard = () => {
   }, []);
 
   // 팝업 공지사항 조회 logic...
-  const fetchUnreadNotices = async () => {
-    try {
-      const popupNotices = await noticesApi.getPopups();
 
-      console.log("=== 팝업 공지사항 필터링 (상담사) ===");
-      console.log("전체 팝업 공지사항 수:", popupNotices.length);
-
-      // 오늘 하루 보지 않기로 설정한 공지 확인
-      const hiddenNotices = getHiddenNotices();
-
-      // 게시중인 팝업 공지사항 필터링 (읽음 여부 무관)
-      const visibleList = popupNotices.filter(notice => {
-        const isPopup = notice.isPopup; // 팝업 공지
-        const isPublished = notice.status === 'PUBLISHED'; // 게시중
-        const isHidden = hiddenNotices.includes(notice.id); // 오늘 하루 보지 않기 설정됨
-
-        console.log(`공지 ${notice.id}: 팝업=${isPopup}, 게시중=${isPublished}, 숨김=${isHidden}`);
-
-        // 팝업 공지이고 게시중이며 숨김 처리되지 않은 것만
-        return isPopup && isPublished && !isHidden;
-      });
-
-      console.log("표시할 팝업 공지사항 수:", visibleList.length);
-      console.log("팝업 공지 목록:", visibleList.map(n => ({ id: n.id, title: n.title })));
-
-      if (visibleList.length > 0) {
-        setUnreadNotices(visibleList);
-        setShowUnreadAlert(true);
-      } else {
-        setShowUnreadAlert(false);
-      }
-    } catch (error) {
-      console.error('Failed to fetch popup notices:', error);
-    }
-  };
-
-  const getHiddenNotices = (): number[] => {
-    const stored = localStorage.getItem('hidden_popup_notices');
-    if (!stored) return [];
-
-    try {
-      const data = JSON.parse(stored);
-      const today = new Date().toDateString();
-
-      // 오늘 날짜가 아니면 초기화
-      if (data.date !== today) {
-        localStorage.removeItem('hidden_popup_notices');
-        return [];
-      }
-
-      return data.noticeIds || [];
-    } catch {
-      return [];
-    }
-  };
-
-  const handleCloseUnreadAlert = () => {
-    setShowUnreadAlert(false);
-  };
 
   const handleViewAll = () => {
     navigate("/counselor/calls");
@@ -247,7 +186,7 @@ const CounselorDashboard = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {callRecords.filter(c => c.emotion === 'BAD').map((call) => (
+                {callRecords.filter(c => c.emotionLevel === 'BAD').map((call) => (
                   <div
                     key={call.callId}
                     className="flex items-center justify-between p-4 rounded-xl bg-card shadow-card"
@@ -389,7 +328,7 @@ const CounselorDashboard = () => {
                             {call.duration || '-'}
                           </td>
                           <td className="py-4 px-4">
-                            <EmotionBadge emotion={call.emotion === 'GOOD' ? 'good' : call.emotion === 'BAD' ? 'bad' : 'neutral'} />
+                            <EmotionBadge emotion={call.emotionLevel === 'GOOD' ? 'good' : call.emotionLevel === 'BAD' ? 'bad' : 'neutral'} />
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
@@ -414,18 +353,6 @@ const CounselorDashboard = () => {
           </Card>
         </div>
 
-        {/* 읽지 않은 공지사항 알림 */}
-        {showUnreadAlert && (
-          <UnreadNoticeAlert
-            notices={unreadNotices.map(notice => ({
-              id: notice.id,
-              title: notice.title,
-              isPriority: notice.isPriority
-            }))}
-            onClose={handleCloseUnreadAlert}
-            noticesPath="/counselor/notices"
-          />
-        )}
       </DashboardLayout>
     </>
   );

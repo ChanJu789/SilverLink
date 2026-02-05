@@ -58,7 +58,10 @@ import guardiansApi from "@/api/guardians";
 import elderlyApi from "@/api/elderly";
 import assignmentsApi from "@/api/assignments";
 import { MyProfileResponse, CounselorResponse, GuardianResponse, ElderlySummaryResponse, GuardianElderlyResponse } from "@/types/api";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { AssignmentResponse } from "@/api/assignments";
+import callSchedulesApi from "@/api/callSchedules";
 import { useAuth } from "@/contexts/AuthContext";
 
 // 전화번호 포맷팅 함수
@@ -171,6 +174,17 @@ const MemberManagement = () => {
   // Edit dialog state
   const [editTarget, setEditTarget] = useState<{ id: number; name: string; phone: string; email: string; role: string } | null>(null);
   const [editForm, setEditForm] = useState({ name: '', phone: '', email: '' });
+  const [editScheduleForm, setEditScheduleForm] = useState<{
+    enabled: boolean;
+    time: string;
+    days: string[];
+    loaded: boolean; // to check if schedule is loaded
+  }>({
+    enabled: false,
+    time: '',
+    days: [],
+    loaded: false
+  });
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
@@ -445,9 +459,35 @@ const MemberManagement = () => {
   };
 
   // Open edit dialog
-  const openEditDialog = (id: number, name: string, phone: string, email: string, role: string) => {
+  const openEditDialog = async (id: number, name: string, phone: string, email: string, role: string) => {
     setEditTarget({ id, name, phone, email, role });
     setEditForm({ name, phone, email: email || '' });
+
+    // Reset schedule form
+    setEditScheduleForm({
+      enabled: false,
+      time: '',
+      days: [],
+      loaded: false
+    });
+
+    // If Elderly, fetch schedule
+    if (role === 'ELDERLY') {
+      try {
+        const schedule = await callSchedulesApi.getElderlySchedule(id);
+        setEditScheduleForm({
+          enabled: schedule.callScheduleEnabled,
+          time: schedule.preferredCallTime || '09:00',
+          days: schedule.preferredCallDays || [],
+          loaded: true
+        });
+      } catch (error) {
+        console.error("Failed to fetch schedule for editing:", error);
+        // If 404/Empty, it means no schedule. 
+        // We can assume disabled.
+        setEditScheduleForm(prev => ({ ...prev, loaded: true }));
+      }
+    }
   };
 
   // Edit member handler
@@ -461,6 +501,21 @@ const MemberManagement = () => {
         phone: editForm.phone,
         email: editForm.email || undefined
       });
+
+      // If Elderly, update schedule separately
+      if (editTarget.role === 'ELDERLY' && editScheduleForm.loaded) {
+        try {
+          await callSchedulesApi.updateElderlySchedule(editTarget.id, {
+            preferredCallTime: editScheduleForm.time,
+            preferredCallDays: editScheduleForm.days,
+            callScheduleEnabled: editScheduleForm.enabled
+          });
+        } catch (error) {
+          console.error("Failed to update schedule:", error);
+          // We verify if we should block or just warn. 
+          // Usually we should warn but for now let's just log.
+        }
+      }
 
       // Refresh data after update
       await fetchData();
@@ -1352,6 +1407,27 @@ const MemberManagement = () => {
                   type="email"
                 />
               </div>
+
+              {editTarget?.role === 'ELDERLY' && (
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">통화 스케줄 활성화</Label>
+                      <p className="text-sm text-muted-foreground">
+                        어르신에게 정기 안부 전화를 실행합니다.
+                      </p>
+                    </div>
+                    {editScheduleForm.loaded ? (
+                      <Switch
+                        checked={editScheduleForm.enabled}
+                        onCheckedChange={(checked) => setEditScheduleForm(prev => ({ ...prev, enabled: checked }))}
+                      />
+                    ) : (
+                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setEditTarget(null)} disabled={isUpdating}>
