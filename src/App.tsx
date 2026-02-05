@@ -11,6 +11,7 @@ import { MaintenanceGuard } from "@/components/layout/MaintenanceGuard";
 import { lazy, Suspense } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AIStats from "./pages/admin/AIStats";
+import { EmergencyAlertPopup } from "@/components/alert/EmergencyAlertPopup";
 
 
 const queryClient = new QueryClient();
@@ -174,9 +175,12 @@ const App = () => (
                       <Route path="/senior/profile" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorProfile /></ProtectedRoute>} />
                       <Route path="/senior/biometric" element={<ProtectedRoute allowedRoles={["ELDERLY"]}><SeniorBiometric /></ProtectedRoute>} />
 
+
+
                       {/* Catch-all for 404 */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
+                    <EmergencyAlertPopup />
                   </MaintenanceGuard>
                 </Suspense>
               </BrowserRouter>
