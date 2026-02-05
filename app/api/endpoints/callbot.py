@@ -288,7 +288,7 @@ async def gather(
         logger.info(f"🎤 사용자 발화: {speech_result}")
         
         # [Immediate Exit Check] 종료 키워드 감지 (FastAPI 레벨에서 즉시 처리)
-        exit_keywords = ["그만", "그만해", "됐어", "종료", "아니", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락", "들어가세요", "고마워요"]
+        exit_keywords = ["그만", "그만해", "됐어", "종료", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락", "들어가세요", "고마워요"]
         clean_input = speech_result.replace(" ", "")
         if any(kw in clean_input for kw in exit_keywords):
             logger.info(f"🛑 [Immediate Exit] User requested termination: {speech_result}")

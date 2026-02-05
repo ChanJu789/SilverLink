@@ -626,7 +626,7 @@ Output:<|im_end|>
         timeouts['memory_search'] = time.time() - t_mem_search_start
         
         # [New] 종료 키워드 즉시 감지 로직
-        exit_keywords = ["그만", "그만해", "됐어", "종료", "아니", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락", "들어가세요", "고마워요"]
+        exit_keywords = ["그만", "그만해", "됐어", "종료", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락", "들어가세요", "고마워요"]
         clean_input = user_input.replace(" ", "") # 공백 제거 후 비교
         if any(kw in clean_input for kw in exit_keywords):
             print(f"🛑 [Exit Keyword Detected] User wants to end the call: {user_input}")
@@ -673,7 +673,7 @@ Output:<|im_end|>
         current_missing = [s for s, v in session["slots"].items() if v is None]
         target_slot = current_missing[0] if current_missing else "작별 인사 및 건강 당부"
         
-        exit_keywords = ["그만", "그만해", "됐어", "종료", "아니", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락"]
+        exit_keywords = ["그만", "그만해", "됐어", "종료", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락"]
         clean_input = user_input.replace(" ", "")
         force_slot_question = any(k in clean_input for k in exit_keywords) or (session["deep_dive_count"] >= MAX_DEEP_DIVE_TURNS)
         
@@ -1213,26 +1213,25 @@ Output:<|im_end|>
                     memory_context = "\n".join(facts[-3:]) # 최신 3개만
                 except: pass
 
-            # [Improved] Fast LLM을 위한 정교한 프롬프트 (Slow LLM 스타일 모방)
-            # 현재 분석용 LLM이 정해둔 타겟 슬롯을 힌트로 제공
+            # [Improved] Fast LLM을 위한 정교한 프롬프트
             session = CallSession.get_session(call_sid)
-            current_target = "None"
+            filled_slots = [k for k, v in session.get("slots", {}).items() if v is not None]
             missing_slots = [k for k, v in session.get("slots", {}).items() if v is None]
-            if missing_slots:
-                current_target = missing_slots[0]
+            current_target = missing_slots[0] if missing_slots else "건강 당부"
 
             system_prompt = f"""
-            Role: Elderly Care AI (실버링크).
+            Role: 노인 돌봄 AI 상담사 (실버링크).
             User Memory: {memory_context}
-            Current Goal: Ask about '{current_target}' naturally.
+            Already Known Info: {filled_slots} (Do NOT ask about these again)
+            Current Target Topic: {current_target}
             
             # Guidelines (Strict):
-            1. **Listen First**: If the user answered a question (e.g., "eating dinner"), acknowledge it specifically (e.g., "Oh, enjoy your meal!").
-            2. **No Repetition**: Do NOT ask what the user just said. (If user says "eating", don't ask "did you eat?").
-            3. **Memory Integration**: If memory exists, weave it into the conversation smoothly.
-            4. **Flow**: [Reaction/Empathy] -> [Follow-up Question or New Topic].
+            1. **Check First**: If the user's latest input ALREADY answers the 'Current Target Topic' or any 'Missing Topics', do NOT ask about it. Move to a natural reaction instead.
+            2. **No Repetition**: Do NOT ask for information that was just provided or is already in 'Already Known Info'.
+            3. **Acknowledge and Flow**: [Warm Reaction to what user said] -> [Light Follow-up or move to NEXT topic].
+            4. **Natural Transition**: If '식사 여부' is done, naturally move to '건강 상태' or '기분'.
             5. **Tone**: Warm, Respectful, Polite (Haeyo-che).
-            6. **Format**: Plain text only. Keep it concise (2 sentences max).
+            6. **Format**: Plain text only. Max 2 sentences.
             """
             
             messages = [{"role": "system", "content": system_prompt}]
