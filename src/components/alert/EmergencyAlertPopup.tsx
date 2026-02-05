@@ -59,7 +59,7 @@ export const EmergencyAlertPopup = () => {
     useEffect(() => {
         if (!user) return;
 
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
         const token = localStorage.getItem('accessToken');
         const sseUrl = `${API_BASE_URL}/api/sse/subscribe`;
 
