@@ -2054,3 +2054,19 @@ Target: 건강 상태 | Next Target: 건강 상태 | Deepdive: 1
 Filled: {'식사 여부': '먹었어'}
 Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.00711369514465332, 'memory_search': 0.018699169158935547, 'intent_check': 0.22826695442199707, 'unified_llm_processing': 1.5605840682983398, 'total_processing': 1.8151850700378418}
 --------------------------------------------------
+[2026-02-05 19:21:04] [CA460a53]
+User: 오늘 놀러 왔어.
+Filtered: 오늘 놀러 왔어.
+AI: 아, 놀러 오셨군요! 즐거운 시간 보내고 계신가요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 1
+Filled: {'하루 일정': '놀러 왔어'}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.012182950973510742, 'memory_search': 0.1299915313720703, 'intent_check': 0.6284592151641846, 'unified_llm_processing': 1.6008381843566895, 'total_processing': 2.373025417327881}
+--------------------------------------------------
+[2026-02-05 19:21:12] [CA460a53]
+User: 오늘 딸이 놀러 왔어.
+Filtered: 오늘 딸이 놀러 왔어.
+AI: 아, 놀러 오셨군요! 즐거운 시간 보내고 계신가요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {'하루 일정': '놀러 왔어'}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.00782465934753418, 'memory_search': 0.08550810813903809, 'intent_check': 0.27402353286743164, 'unified_llm_processing': 1.0756111145019531, 'total_processing': 1.4444899559020996}
+--------------------------------------------------

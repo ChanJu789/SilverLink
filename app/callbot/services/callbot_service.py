@@ -260,7 +260,7 @@ class CallbotService(BaseService):
             print(f"⚠️ Greeting Generation Error: {e}")
             return f"안녕하세요! {name}님, 반갑습니다. 잘 지내셨죠?"
 
-    async def build_greeting_gather_twiml(self, call_sid: str, elderly_id: str = None, elderly_name: str = None, phone_number: str = None, initial_mem: str = ""):
+    async def build_greeting_gather_twiml(self, call_sid: str, elderly_id: str = None, elderly_name: str = None, phone_number: str = None, initial_mem: str = "", greeting: str = ""):
         # Reset Session
         CallSession.clear_session(call_sid)
         session = CallSession.get_session(call_sid)
@@ -280,42 +280,46 @@ class CallbotService(BaseService):
             except Exception as e:
                 print(f"⚠️ [build_greeting] Failed to start call in backend: {e}")
         
-        # [Improved] 장기 기억 검색 및 인사말 생성
-        greeting = ""
-        memories_text = ""
-        if orchestrator_engine.memory and elderly_id:
-            try:
-                mem_user_id = f"elderly_{elderly_id}"
-                all_mems = orchestrator_engine.memory.get_all(user_id=mem_user_id)
-                res_list = []
-                if isinstance(all_mems, dict) and "results" in all_mems:
-                    res_list = all_mems["results"]
-                elif isinstance(all_mems, list):
-                    res_list = all_mems
-                
-                if res_list:
-                    facts = [m.get('memory', m.get('data', '')) for m in res_list if m]
-                    memories_text = ", ".join(facts[:2]) # 핵심 기억 2개만 추출
-            except Exception as e:
-                print(f"⚠️ [Memory Retrieval] Error searching memories: {e}")
-
-        if memories_text:
-            # 기억이 있다면 LLM으로 개인화된 인사말 생성
-            greeting = await self._generate_personalized_greeting(elderly_name, memories_text)
+        # [Improved] 인사말 결정 로직 (Pre-computed vs On-the-fly)
+        final_greeting = ""
+        
+        # 1. 미리 생성된 인사말이 있으면 우선 사용 (속도 최적화)
+        if greeting and len(greeting) > 5:
+            final_greeting = greeting
         else:
-            # 기억이 없다면 기본 인사말
-            name_part = f"{elderly_name} 어르신 " if elderly_name else ""
-            greeting = f"안녕하세요! {name_part} 반갑습니다. 실버링크에서 연락드렸습니다."
+            # 2. 없으면 기존 로직대로 즉석 생성 (Fallback)
+            memories_text = ""
+            if orchestrator_engine.memory and elderly_id:
+                try:
+                    mem_user_id = f"elderly_{elderly_id}"
+                    all_mems = orchestrator_engine.memory.get_all(user_id=mem_user_id)
+                    res_list = []
+                    if isinstance(all_mems, dict) and "results" in all_mems:
+                        res_list = all_mems["results"]
+                    elif isinstance(all_mems, list):
+                        res_list = all_mems
+                    
+                    if res_list:
+                        facts = [m.get('memory', m.get('data', '')) for m in res_list if m]
+                        memories_text = ", ".join(facts[:2]) # 핵심 기억 2개만 추출
+                except Exception as e:
+                    print(f"⚠️ [Memory Retrieval] Error searching memories: {e}")
+
+            if memories_text:
+                final_greeting = await self._generate_personalized_greeting(elderly_name, memories_text)
+            else:
+                name_part = f"{elderly_name} 어르신 " if elderly_name else ""
+                final_greeting = f"안녕하세요! {name_part} 반갑습니다. 실버링크에서 연락드렸습니다."
 
         # [New] Save First Greeting to Backend
         if call_id:
             try:
                 # 첫 인사말 저장
-                await self._send_message_to_backend(call_id, "CALLBOT", greeting)
+                await self._send_message_to_backend(call_id, "CALLBOT", final_greeting)
             except Exception as e:
                 print(f"⚠️ [build_greeting] Failed to save greeting message: {e}")
 
-        encoded_greeting = urllib.parse.quote(greeting)
+        encoded_greeting = urllib.parse.quote(final_greeting)
         
         # Initial greeting is pure TTS
         stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={encoded_greeting}&amp;call_sid={call_sid}&amp;mode=tts&amp;elderly_id={elderly_id}"
@@ -333,21 +337,49 @@ class CallbotService(BaseService):
         """
         return twiml
         
-    def make_call(self, elderly_id: int, phone_number: str, elderly_name: str):
-        """[Improved] 전화를 걸기 전에 기억을 먼저 검색하여 전달"""
+    async def make_call(self, elderly_id: int, phone_number: str, elderly_name: str):
+        """[Improved] 전화를 걸기 전, 인삿말을 미리 생성(Pre-compute)하여 지연 시간 제거"""
+        print(f"📞 [Make Call] Preparing call for {elderly_name} ({elderly_id})...")
+        
         initial_mem = ""
+        pre_generated_greeting = ""
+        
+        # 1. 기억 검색
         try:
             mem_user_id = f"elderly_{elderly_id}"
             all_mems = self.get_memories(elderly_id)
             res_list = all_mems.get("results", []) if isinstance(all_mems, dict) else all_mems
+            
+            memories_text = ""
             if res_list:
                 facts = [m.get('memory', m.get('data', '')) for m in res_list if m]
+                # 최신 기억 전달용
                 initial_mem = facts[-1] if facts else ""
+                # 인삿말 생성용 (핵심 2개)
+                memories_text = ", ".join(facts[:2])
+                
+            # 2. 인삿말 미리 생성 (여기서 시간 소요)
+            print("⏳ [Make Call] Pre-generating greeting...")
+            if memories_text:
+                pre_generated_greeting = await self._generate_personalized_greeting(elderly_name, memories_text)
+            else:
+                name_part = f"{elderly_name} 어르신 " if elderly_name else ""
+                pre_generated_greeting = f"안녕하세요! {name_part} 반갑습니다. 실버링크에서 연락드렸습니다."
+                
+            print(f"✅ [Make Call] Greeting ready: {pre_generated_greeting}")
+            
+            # 3. 음성 미리 생성 (TTS 캐싱)
+            print("⏳ [Make Call] Pre-generating audio (TTS Cache)...")
+            await self.generate_tts_stream(pre_generated_greeting)
+            print("✅ [Make Call] Audio cached successfully.")
+            
         except Exception as e:
+            print(f"⚠️ [Make Call] Error during pre-computation: {e}")
             pass
 
-        # 통화 연결 (검색된 기억을 인자로 전달)
-        return self.call.calling(elderly_id, phone_number, elderly_name, initial_mem)
+        # 4. 통화 연결 (생성된 인삿말 전달)
+        # 이제 전화가 연결되면, 서버는 LLM과 TTS API를 모두 기다리지 않고 캐시된 데이터를 즉시 송출합니다.
+        return self.call.calling(elderly_id, phone_number, elderly_name, initial_mem, greeting=pre_generated_greeting)
 
     # --- Backend Communication (Token based) ---
 

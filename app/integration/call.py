@@ -9,7 +9,7 @@ class CALL:
         self.number = number
         self.silverlink_number = silverlink_number
         
-    def calling(self, elderly_id: int, phone_number: str, elderly_name: str, initial_mem: str = "") -> None:
+    def calling(self, elderly_id: int, phone_number: str, elderly_name: str, initial_mem: str = "", greeting: str = "") -> None:
         # 계정 정보
         account_sid = self.account_sid
         auth_token = self.auth_token
@@ -19,7 +19,8 @@ class CALL:
         params = {
             "elderly_id": elderly_id,
             "elderly_name": elderly_name,
-            "initial_mem": initial_mem
+            "initial_mem": initial_mem,
+            "greeting": greeting  # 미리 생성된 인삿말 추가
         }
         query_string = urllib.parse.urlencode(params)
         my_server_url = f"{self.url}/api/callbot/voice?{query_string}"

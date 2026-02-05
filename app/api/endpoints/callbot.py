@@ -81,7 +81,7 @@ def get_memory(
 
 @router.post("/call")
 @inject_callbot
-def get_call(
+async def get_call(
     request: CallScheduleRequest,
     service: CallbotService = Depends(Provide[Container.callbot_service]),
     sqs_client: SQSClient = Depends(Provide[Container.sqs_client])
@@ -104,7 +104,7 @@ def get_call(
         if message_id:
             logger.info("✅ [POST /callbot/schedule-call] SQS 발행 성공")
         #####################################################
-        result = service.make_call(request.elderly_id,request.phone_number,request.elderly_name)
+        result = await service.make_call(request.elderly_id,request.phone_number,request.elderly_name)
         logger.info("✅ [GET /callbot/call] 전화 걸기 성공")
         return result
     except Exception as e:
@@ -129,10 +129,11 @@ async def voice(
         call_sid = form_data.get("CallSid", "unknown")
         phone_number = form_data.get("To")
         
-        # 쿼리 파라미터에서 데이터 추출 (elderly_id, elderly_name, initial_mem)
+        # 쿼리 파라미터에서 데이터 추출 (elderly_id, elderly_name, initial_mem, greeting)
         elderly_id = request.query_params.get("elderly_id")
         elderly_name = request.query_params.get("elderly_name")
         initial_mem = request.query_params.get("initial_mem", "")
+        greeting = request.query_params.get("greeting", "")
         
         # 2. 대화 히스토리 초기화
         logger.debug("2️⃣ 대화 히스토리 초기화...")
@@ -144,7 +145,8 @@ async def voice(
             elderly_id=elderly_id, 
             elderly_name=elderly_name,
             phone_number=phone_number,
-            initial_mem=initial_mem
+            initial_mem=initial_mem,
+            greeting=greeting
         )
         return Response(content=twiml, media_type="application/xml")
         
