@@ -44,6 +44,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("twilio").setLevel(logging.WARNING) # Twilio API 전체 로그 비활성화
 logging.getLogger("twilio.http").setLevel(logging.WARNING) # Twilio API HTTP 로그 비활성화
+logging.getLogger("presidio_analyzer").setLevel(logging.ERROR) # Presidio 경고 숨기기
 
 # logger = logging.getLogger(__name__) # Loguru logger는 전역적으로 사용 가능하므로 제거 혹은 호환성 유지
 logger = logging.getLogger("app.main") # 호환성을 위해 유지하되, 로그는 InterceptHandler를 통해 Loguru로 전달됨
@@ -117,8 +118,13 @@ class AppCreator:
             tts_service = self.container.tts()
             await tts_service.asultlux(greeting)
             print("✅ Greeting TTS Prefetched!")
+            
+            # [추가] 백엔드 로그인 시도
+            callbot_service = self.container.callbot_service()
+            await callbot_service._login_backend()
+            print("✅ Backend Login successful on startup.")
         except Exception as e:
-            print(f"⚠️ Prefetch failed: {e}")
+            print(f"⚠️ Startup pre-processing failed: {e}")
         
         yield  # 서버가 실행되는 동안 여기서 대기합니다.
         

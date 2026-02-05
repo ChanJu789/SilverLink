@@ -49,5 +49,5 @@ def check_memory_via_api(elderly_id):
 
 if __name__ == "__main__":
     # 조회하고 싶은 어르신 ID를 입력 (기본값 695)
-    eid = sys.argv[1] if len(sys.argv) > 1 else 695
+    eid = sys.argv[1] if len(sys.argv) > 1 else 3
     check_memory_via_api(eid)

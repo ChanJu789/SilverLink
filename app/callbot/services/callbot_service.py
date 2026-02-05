@@ -107,6 +107,10 @@ class OrchestratorEngine:
                 }
                 provider = NlpEngineProvider(nlp_configuration=configuration)
                 nlp_engine = provider.create_engine()
+                
+                # Presidio 로거 자체를 조용하게 만듦
+                # logging.getLogger("presidio_analyzer").setLevel(logging.ERROR)
+                
                 analyzer = AnalyzerEngine(nlp_engine=nlp_engine, supported_languages=["ko"])
                 
                 # Patterns
@@ -235,10 +239,14 @@ class CallbotService(BaseService):
         어르신 성함: {name}
         과거 기억: {memories}
         
-        미션: 과거 기억을 언급하며 아주 반갑고 따뜻하게 첫 인사말 한 문장을 작성하세요.
-        - 형식: "안녕하세요! {name}님, 반갑습니다. 지난번에 [기억 언급] 하셨는데, 그동안 좀 어떠셨어요?"
-        - 말투: 해요체 (친절하고 공손하게)
-        - 길이: 50자 내외
+        미션: 과거 기억 속의 '인물'과 '사건'을 포착하여, 아주 반갑고 따뜻한 첫 인사말 한 문장을 작성하세요.
+        
+        지침:
+        1. 반드시 "지난번에"로 시작하여 과거 대화 내용을 자연스럽게 연결하세요.
+        2. 기억 내용이 "오늘 딸이 왔어"라면 "지난번에 따님께서 놀러 오셨다고 하셨는데"와 같이 인물(따님)과 사건(놀러 오심) 중심으로 정중하게 변환하세요.
+        3. 말투: 해요체 (친절, 따뜻, 공손하게)
+        4. 형식: "안녕하세요! {name}님, 반갑습니다. 지난번에 [인물/사건 중심 기억 언급] 하셨는데, 그동안 별일 없으셨어요?"
+        5. 길이: 60자 내외의 자연스러운 한 문장.
         """
         try:
             response = await self.llm_client.aclient.chat.completions.create(
@@ -270,7 +278,7 @@ class CallbotService(BaseService):
                 if call_id:
                     session["call_id"] = call_id
             except Exception as e:
-                pass
+                print(f"⚠️ [build_greeting] Failed to start call in backend: {e}")
         
         # [Improved] 장기 기억 검색 및 인사말 생성
         greeting = ""
@@ -289,7 +297,7 @@ class CallbotService(BaseService):
                     facts = [m.get('memory', m.get('data', '')) for m in res_list if m]
                     memories_text = ", ".join(facts[:2]) # 핵심 기억 2개만 추출
             except Exception as e:
-                pass
+                print(f"⚠️ [Memory Retrieval] Error searching memories: {e}")
 
         if memories_text:
             # 기억이 있다면 LLM으로 개인화된 인사말 생성
@@ -305,7 +313,7 @@ class CallbotService(BaseService):
                 # 첫 인사말 저장
                 await self._send_message_to_backend(call_id, "CALLBOT", greeting)
             except Exception as e:
-                pass
+                print(f"⚠️ [build_greeting] Failed to save greeting message: {e}")
 
         encoded_greeting = urllib.parse.quote(greeting)
         
@@ -345,8 +353,8 @@ class CallbotService(BaseService):
 
     async def _login_backend(self):
         """로그인하여 Access Token을 발급받고 configs를 업데이트"""
-        admin_id = os.getenv('ADMIN_ID', 'admin01')
-        admin_pw = os.getenv('ADMIN_PW', 'admin01')
+        admin_id = configs.ADMIN_ID
+        admin_pw = configs.ADMIN_PW
         
         url = f"{configs.SPRING_BOOT_URL}/api/auth/login"
         payload = {
@@ -354,14 +362,23 @@ class CallbotService(BaseService):
             "password": admin_pw
         }
         
+        print(f"🔑 [Backend Login] Attempting login to {url} with ID: {admin_id}")
         res = await send_data_to_backend(url, payload)
         
-        if res and isinstance(res, dict) and "accessToken" in res:
-            access_token = res["accessToken"]
-            configs.SPRING_BOOT_API_TOKEN = access_token
-            return True
-        else:
-            return False
+        if res and isinstance(res, dict):
+            # Handle both direct and nested accessToken
+            access_token = res.get("accessToken") or res.get("data", {}).get("accessToken")
+            
+            if access_token:
+                if access_token.startswith("Bearer "):
+                    access_token = access_token[7:]
+                
+                configs.SPRING_BOOT_API_TOKEN = access_token
+                print("✅ [Backend Login] Successfully obtained access token.")
+                return True
+        
+        print(f"❌ [Backend Login] Failed to obtain access token. Response: {res}")
+        return False
 
     async def _get_auth_headers(self):
         """인증 헤더 생성. 토큰이 없으면 로그인을 시도."""
@@ -370,7 +387,11 @@ class CallbotService(BaseService):
             
         headers = {"Content-Type": "application/json"}
         if configs.SPRING_BOOT_API_TOKEN:
-            headers["Authorization"] = f"Bearer {configs.SPRING_BOOT_API_TOKEN}"
+            token = configs.SPRING_BOOT_API_TOKEN
+            # Ensure Bearer prefix is only added once
+            if not token.startswith("Bearer "):
+                token = f"Bearer {token}"
+            headers["Authorization"] = token
         return headers
 
     async def _call_backend_api(self, url: str, payload: dict, method: str = "POST"):
@@ -378,13 +399,18 @@ class CallbotService(BaseService):
         headers = await self._get_auth_headers()
         res = await send_data_to_backend(url, payload, method=method, headers=headers)
         
-        # 401 Unauthorized Error Handling
+        # 401 Unauthorized Error Handling (Token expired or invalid)
         if res and isinstance(res, dict) and res.get("error") == "UNAUTHORIZED_401":
-            configs.SPRING_BOOT_API_TOKEN = None # Clear token
-            await self._login_backend() # Re-login
+            print("⚠️ [Backend API] Auth failed (401). Attempting re-login...")
+            configs.SPRING_BOOT_API_TOKEN = None # Clear invalid token
+            success = await self._login_backend() # Re-login
             
-            headers = await self._get_auth_headers() # Get new headers
-            res = await send_data_to_backend(url, payload, method=method, headers=headers)
+            if success:
+                headers = await self._get_auth_headers() # Get new headers with fresh token
+                print(f"🔄 [Backend API] Retrying request to {url}...")
+                res = await send_data_to_backend(url, payload, method=method, headers=headers)
+            else:
+                print("❌ [Backend API] Re-login failed. Cannot retry request.")
         
         return res
 
@@ -568,7 +594,7 @@ Output:<|im_end|>
         timeouts['memory_search'] = time.time() - t_mem_search_start
         
         # [New] 종료 키워드 즉시 감지 로직
-        exit_keywords = ["그만", "그만해", "됐어", "종료", "아니", "끊어", "끊을게", "다음에 하자","또 전화해줘요","또 전화해"]
+        exit_keywords = ["그만", "그만해", "됐어", "종료", "아니", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락", "들어가세요", "고마워요"]
         clean_input = user_input.replace(" ", "") # 공백 제거 후 비교
         if any(kw in clean_input for kw in exit_keywords):
             print(f"🛑 [Exit Keyword Detected] User wants to end the call: {user_input}")
@@ -615,8 +641,8 @@ Output:<|im_end|>
         current_missing = [s for s, v in session["slots"].items() if v is None]
         target_slot = current_missing[0] if current_missing else "작별 인사 및 건강 당부"
         
-        exit_keywords = ["그만", "다음", "됐어", "종료", "아니","끊어"]
-        clean_input = user_input.strip()
+        exit_keywords = ["그만", "그만해", "됐어", "종료", "아니", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락"]
+        clean_input = user_input.replace(" ", "")
         force_slot_question = any(k in clean_input for k in exit_keywords) or (session["deep_dive_count"] >= MAX_DEEP_DIVE_TURNS)
         
         if not current_missing:
