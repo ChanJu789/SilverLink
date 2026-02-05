@@ -72,7 +72,8 @@ class DialogueDecision(BaseModel):
 
 class UnifiedAnalysisResult(BaseModel):
     extracted_slots: List[SlotItem] = Field(description="사용자가 '명시적으로' 언급한 정보만 추출하세요. 추측 금지. 없으면 빈 리스트 [] 반환.")
-    dialogue_decision: DialogueDecision = Field(description="대화 전략")
+    # 이제 대답은 Fast LLM이 하므로 여기서는 분석만 함 (Optional 처리)
+    dialogue_decision: Optional[DialogueDecision] = Field(None, description="분석용 (생략 가능)")
 
 # --- Global State & Configuration ---
 MODEL_NAME = "klue/roberta-small"
@@ -235,7 +236,7 @@ class CallbotService(BaseService):
         과거 기억: {memories}
         
         미션: 과거 기억을 언급하며 아주 반갑고 따뜻하게 첫 인사말 한 문장을 작성하세요.
-        - 형식: "안녕하세요! {name}님, 목소리 들으니 정말 반갑네요. 지난번에 [기억 언급] 하셨는데, 그동안 좀 어떠셨어요?"
+        - 형식: "안녕하세요! {name}님, 반갑습니다. 지난번에 [기억 언급] 하셨는데, 그동안 좀 어떠셨어요?"
         - 말투: 해요체 (친절하고 공손하게)
         - 길이: 50자 내외
         """
@@ -249,7 +250,7 @@ class CallbotService(BaseService):
             return response.choices[0].message.content.strip()
         except Exception as e:
             print(f"⚠️ Greeting Generation Error: {e}")
-            return f"안녕하세요! {name}님, 목소리 들으니 정말 반갑네요. 잘 지내셨죠?"
+            return f"안녕하세요! {name}님, 반갑습니다. 잘 지내셨죠?"
 
     async def build_greeting_gather_twiml(self, call_sid: str, elderly_id: str = None, elderly_name: str = None, phone_number: str = None, initial_mem: str = ""):
         # Reset Session
@@ -296,7 +297,7 @@ class CallbotService(BaseService):
         else:
             # 기억이 없다면 기본 인사말
             name_part = f"{elderly_name} 어르신 " if elderly_name else ""
-            greeting = f"안녕하세요! {name_part}목소리 들으니 정말 반갑네요. 잘 지내셨죠?"
+            greeting = f"안녕하세요! {name_part} 반갑습니다. 실버링크에서 연락드렸습니다."
 
         # [New] Save First Greeting to Backend
         if call_id:
@@ -567,7 +568,7 @@ Output:<|im_end|>
         timeouts['memory_search'] = time.time() - t_mem_search_start
         
         # [New] 종료 키워드 즉시 감지 로직
-        exit_keywords = ["그만", "그만해", "됐어", "종료", "아니", "끊어", "끊을게", "다음에 하자"]
+        exit_keywords = ["그만", "그만해", "됐어", "종료", "아니", "끊어", "끊을게", "다음에 하자","또 전화해줘요","또 전화해"]
         clean_input = user_input.replace(" ", "") # 공백 제거 후 비교
         if any(kw in clean_input for kw in exit_keywords):
             print(f"🛑 [Exit Keyword Detected] User wants to end the call: {user_input}")
@@ -624,11 +625,8 @@ Output:<|im_end|>
 
         unified_system_prompt = f"""
     # MISSION
-    You are '실버링크', a warm and caring AI companion for the elderly.
-    Your goal is to extract key information (Slots) AND generate a empathetic response in a SINGLE turn.
-    
-    [Long-term Memory]
-    {relevant_memories_text}
+    You are an Analyst AI. Your ONLY goal is to extract key information (Slots) from the user's input.
+    DO NOT generate a response. The response has already been handled by another system.
     
     [Current Status]
     - Turn: {current_turn_count}
@@ -643,28 +641,6 @@ Output:<|im_end|>
         - "잤어", "못 잤어", "꿈꿨어" -> [수면 상태]
         - "노인정 갔어", "산책 할거야", "집에 있었어" -> [하루 일정]
     - **Constraint**: Extract ONLY what is explicitly stated. Do NOT guess.
-    
-    # STEP 2: DIALOGUE GENERATION (Response)
-    - **Strategy**:
-        - **Phase A (Rapport, Turn 1-2)**: IF Memory exists, IGNORE missing slots. Talk about the memory FIRST.
-        - **Phase B (Inquiry, Turn 3+)**: If Memory topic is done, ask about the first item in 'Missing Slots'.
-    - **Tone**: Warm, Respectful, Polite (Haeyo-che).
-    
-    # EXAMPLES (Few-Shot Learning)
-    
-    **Example 1: Memory Usage (Phase A)**
-    - Memory: "User had back pain last week."
-    - Input: "응, 반가워."
-    - Extraction: []
-    - Acknowledgment: "목소리가 밝으셔서 다행이에요! 지난번에 허리가 아파서 고생하셨다고 했는데,"
-    - Question: "그동안 좀 괜찮으셨어요?" (Memory Check)
-    
-    **Example 2: Slot Filling (Phase B)**
-    - Memory: None
-    - Input: "아침에 밥을 너무 많이 먹었더니 배부르네."
-    - Extraction: [Category: 식사 여부, Value: "밥 많이 먹어서 배부름"]
-    - Acknowledgment: "아이구, 식사를 든든하게 하셨다니 마음이 놓이네요!"
-    - Question: "그럼 오늘 밤에는 푹 주무실 수 있겠어요? 어제는 잘 주무셨나요?" (Next Slot: Sleep)
     """
         
         try:
@@ -686,27 +662,42 @@ Output:<|im_end|>
             result = completion.choices[0].message.parsed
             timeouts['unified_llm_processing'] = time.time() - t_llm_start
             
-            final_response = f"{result.dialogue_decision.acknowledgment} {result.dialogue_decision.question}"
+            # [Updated] Fast LLM이 생성했던 대답을 가져옴 (없으면 기본값)
+            final_response = session.get("last_ai_response", "죄송합니다, 잠시 문제가 생겼어요.")
+            print(f"🐢 [Slow Analysis] Using Fast LLM Response: {final_response}")
 
             # [Updated] Send Bot Message to Backend
             if call_id:
                 asyncio.create_task(self._send_message_to_backend(call_id, "CALLBOT", final_response))    
             
             # Update Slots
+            any_slot_filled = False
             for item in result.extracted_slots:
                 if item.value and str(item.value).lower() not in ["null", "none", "없음"]:
                     session["slots"][item.category] = item.value
+                    any_slot_filled = True
 
-            # Update Logic State
-            if target_slot in session["slots"] and session["slots"][target_slot] is not None:
-                session["deep_dive_count"] += 1
-            elif result.dialogue_decision.next_action == "DEEP_DIVE" and session["deep_dive_count"] > 0:
+            # [Improved] 딥다이브 카운트 로직 개선
+            # 1. 현재 목표였던 슬롯(target_slot)이 이번 턴에 채워졌는지 확인
+            target_filled = (target_slot in session["slots"] and session["slots"][target_slot] is not None)
+            
+            if target_filled:
+                # 목표 달성! 다음 주제로 넘어가기 위해 카운트 리셋 (또는 딥다이브 종료)
+                # 단, 사용자가 너무 짧게 대답했다면 한 번 더 물어볼 수도 있음(선택 사항).
+                # 여기서는 깔끔하게 다음으로 넘어가도록 0으로 리셋.
+                session["deep_dive_count"] = 0
+            elif any_slot_filled:
+                # 목표는 아니지만 다른 정보를 줬다면 대화 이어가기 (카운트 증가)
                 session["deep_dive_count"] += 1
             else:
+                # 아무 정보도 없으면 리셋 (화제 전환 유도)
                 session["deep_dive_count"] = 0
             
-            session["current_topic"] = result.dialogue_decision.topic
+            # [Safety] 카운트가 너무 커지면 강제 리셋
+            if session["deep_dive_count"] > MAX_DEEP_DIVE_TURNS:
+                session["deep_dive_count"] = 0
             
+            # 다음 타겟 슬롯 계산 (로그용)
             next_missing = [s for s, v in session["slots"].items() if v is None]
             next_target_slot = next_missing[0] if next_missing else "작별 인사 및 건강 당부"
 
@@ -728,7 +719,7 @@ Output:<|im_end|>
             
             return {
                 "intent": "GENERAL",
-                "response": final_response,
+                "response": final_response, # 이제 여기서는 아무 의미 없지만 형식상 반환
                 "session": session
             }
 
@@ -1118,55 +1109,118 @@ Output:<|im_end|>
         content = await self.tts_client.asultlux(text)
         return content
 
-    # --- Streaming Logic (Modified for TTS only) ---
-    async def ai_response_generator(self, text: str, history: List[dict], mode: str = "chat", start_ts: float = 0.0, elderly_id: str = None) -> AsyncGenerator[bytes, None]:
+    # --- Streaming Logic (Real-time LLM + TTS) ---
+    async def ai_response_generator(self, user_input: str, history: List[dict], mode: str = "chat", start_ts: float = 0.0, elderly_id: str = None, call_sid: str = None) -> AsyncGenerator[bytes, None]:
         """
-        Sentence-level TTS Streaming: Splits text and streams audio for each sentence immediately.
+        [Ultra-Fast] LLM Stream -> Text Buffer -> TTS -> Audio Stream
         """
-        if not text: 
+        if not user_input and mode == "chat": 
             return
-        
-        try:
-            sentences = re.split(r'(?<=[.!?])\s*', text)
-            sentences = [s.strip() for s in sentences if s.strip()]
-            
-            if not sentences:
-                sentences = [text]
-                
-            print(f"🔊 [TTS Streaming] Processing {len(sentences)} sentences from text len {len(text)}")
-            
-            for i, sentence in enumerate(sentences):
-                if len(sentence) < 2 and sentence in [".", "!", "?", ","]:
-                    continue
-                    
-                t_tts_start = time.time()
-                try:
-                    wav_data = await self.generate_tts_stream(sentence)
-                    tts_duration = time.time() - t_tts_start
-                    
-                    if wav_data:
-                        print(f"🔊 [TTS Gen {i+1}/{len(sentences)}]: {tts_duration:.3f}s | {len(wav_data)} bytes | '{sentence[:20]}...' ")
-                        
-                        if i == 0 and start_ts > 0:
-                            first_byte_latency = time.time() - start_ts
-                            print(f"⏱️ [Latency] Start to First Audio: {first_byte_latency:.3f}s")
-                        
-                        ulaw_data = self.wav_to_ulaw(wav_data)
-                        if ulaw_data:
-                            yield ulaw_data
-                        else:
-                            print(f"⚠️ WAV to ULAW conversion failed for sentence {i+1}")
-                    else:
-                        print(f"⚠️ TTS Generation failed (empty) for sentence {i+1}")
-                        
-                except Exception as e:
-                    print(f"❌ Error processing sentence {i+1}: {e}")
-                    continue
 
-            if start_ts > 0:
-                total_latency = time.time() - start_ts
-                print(f"⏱️ [Latency] Total Process Time: {total_latency:.3f}s")
+        try:
+            # 1. TTS 모드 (단순 텍스트 재생)
+            if mode == "tts":
+                # 기존 로직 유지 (안내 멘트 등)
+                sentences = re.split(r'(?<=[.!?,;])\s+', user_input)
+                sentences = [s.strip() for s in sentences if s.strip()]
+                for i, sentence in enumerate(sentences):
+                    wav_data = await self.generate_tts_stream(sentence)
+                    if wav_data:
+                        yield self.wav_to_ulaw(wav_data)
+                return
+
+            # 2. Chat 모드 (실시간 생성)
+            print(f"🚀 [Real-time] Generating response for: {user_input}")
+            
+            # [Added] Emergency Check for Fast LLM
+            emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어"]
+            if any(k in user_input for k in emergency_keywords):
+                emergency_response = "어르신 확인했습니다. 안전을 위해 담당 상담사님과 보호자님께 긴급알림을 즉시 전송하겠습니다."
+                wav_data = await self.generate_tts_stream(emergency_response)
+                if wav_data:
+                    yield self.wav_to_ulaw(wav_data)
                 
+                if call_sid:
+                    session = CallSession.get_session(call_sid)
+                    session["last_ai_response"] = emergency_response
+                return
+
+            # 장기 기억 검색 (빠르게)
+            memory_context = ""
+            if orchestrator_engine.memory and elderly_id:
+                try:
+                    all_mems = orchestrator_engine.memory.get_all(user_id=f"elderly_{elderly_id}")
+                    if isinstance(all_mems, dict): all_mems = all_mems.get("results", [])
+                    facts = [m.get('memory', '') for m in all_mems if m]
+                    memory_context = "\n".join(facts[-3:]) # 최신 3개만
+                except: pass
+
+            # [Improved] Fast LLM을 위한 정교한 프롬프트 (Slow LLM 스타일 모방)
+            # 현재 분석용 LLM이 정해둔 타겟 슬롯을 힌트로 제공
+            session = CallSession.get_session(call_sid)
+            current_target = "None"
+            missing_slots = [k for k, v in session.get("slots", {}).items() if v is None]
+            if missing_slots:
+                current_target = missing_slots[0]
+
+            system_prompt = f"""
+            Role: Elderly Care AI (실버링크).
+            User Memory: {memory_context}
+            Current Goal: Ask about '{current_target}' naturally.
+            
+            # Guidelines (Strict):
+            1. **Listen First**: If the user answered a question (e.g., "eating dinner"), acknowledge it specifically (e.g., "Oh, enjoy your meal!").
+            2. **No Repetition**: Do NOT ask what the user just said. (If user says "eating", don't ask "did you eat?").
+            3. **Memory Integration**: If memory exists, weave it into the conversation smoothly.
+            4. **Flow**: [Reaction/Empathy] -> [Follow-up Question or New Topic].
+            5. **Tone**: Warm, Respectful, Polite (Haeyo-che).
+            6. **Format**: Plain text only. Keep it concise (2 sentences max).
+            """
+            
+            messages = [{"role": "system", "content": system_prompt}]
+            # 최근 대화 2턴만 추가 (Context 줄이기)
+            for turn in history[-2:]:
+                messages.append({"role": "user", "content": turn['user']})
+                messages.append({"role": "assistant", "content": turn['ai']})
+            messages.append({"role": "user", "content": user_input})
+
+            # LLM 스트리밍 요청
+            stream = await self.llm_client.aclient.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                stream=True,
+                max_tokens=150,
+                temperature=0.7
+            )
+
+            buffer = ""
+            full_fast_response = "" # 전체 응답 수집용
+            async for chunk in stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    buffer += content
+                    full_fast_response += content
+                    # 문장 부호가 나오면 즉시 TTS 요청
+                    if any(punct in content for punct in ".!?,;\n"):
+                        if len(buffer.strip()) > 2:
+                            wav_data = await self.generate_tts_stream(buffer)
+                            if wav_data:
+                                yield self.wav_to_ulaw(wav_data)
+                            buffer = ""
+            
+            # 남은 버퍼 처리
+            if buffer.strip():
+                wav_data = await self.generate_tts_stream(buffer)
+                if wav_data:
+                    yield self.wav_to_ulaw(wav_data)
+            
+            print(f"\n⚡ [Fast LLM] (User Heard): {full_fast_response}")
+            
+            # [Crucial] 사용자가 들은 이 대답을 세션에 저장하여 Slow LLM이 기록하게 함
+            if call_sid:
+                session = CallSession.get_session(call_sid)
+                session["last_ai_response"] = full_fast_response
+
         except Exception as e:
             print(f"❌ Critical Error in ai_response_generator: {e}")
             traceback.print_exc()

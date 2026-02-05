@@ -20,17 +20,6 @@ from app.core.config import configs
 
 # 로깅 설정
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-# 콘솔 핸들러 추가 (없으면)
-if not logger.handlers:
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
 
 router = APIRouter(
     prefix="/callbot",
@@ -114,7 +103,6 @@ def get_call(
         message_id = sqs_client.publish(message)
         if message_id:
             logger.info("✅ [POST /callbot/schedule-call] SQS 발행 성공")
-            logger.info("="*50)
         #####################################################
         result = service.make_call(request.elderly_id,request.phone_number,request.elderly_name)
         logger.info("✅ [GET /callbot/call] 전화 걸기 성공")
@@ -132,7 +120,6 @@ async def voice(
     service: CallbotService = Depends(Provide[Container.callbot_service])
 ):
     """전화가 처음 연결되었을 때 실행"""
-    logger.info("="*50)
     logger.info("📞 [POST /callbot/voice] Voice 엔드포인트 호출됨")
     
     try:
@@ -162,12 +149,10 @@ async def voice(
         return Response(content=twiml, media_type="application/xml")
         
     except Exception as e:
-        logger.error("="*50)
         logger.error("❌ [POST /callbot/voice] 에러 발생!")
         logger.error(f"에러 타입: {type(e).__name__}")
         logger.error(f"에러 메시지: {e}")
         logger.error(f"스택 트레이스:\n{traceback.format_exc()}")
-        logger.error("="*50)
         raise HTTPException(status_code=500, detail=f"Voice 처리 실패: {str(e)}")
 
 @router.get("/stream_response")
@@ -191,7 +176,7 @@ async def stream_response(
         logger.debug(f"   history 길이: {len(history)}")
         
         return StreamingResponse(
-            service.ai_response_generator(text, history, mode, start_ts, elderly_id),
+            service.ai_response_generator(text, history, mode, start_ts, elderly_id, call_sid),
             media_type="audio/basic",
             headers={
                 "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -252,6 +237,7 @@ async def call_status(
 @inject_callbot
 async def gather(
     request: Request,
+    background_tasks: BackgroundTasks,
     service: CallbotService = Depends(Provide[Container.callbot_service])
 ):
     """Twilio SpeechResult Handler with Orchestrator Logic"""
@@ -299,55 +285,62 @@ async def gather(
         # [Case: Valid Input] 사용자가 말을 했을 때 (retry 초기화)
         logger.info(f"🎤 사용자 발화: {speech_result}")
         
-        # --- Orchestrator Logic Call ---
-        start_time = datetime.now()
-        result = await service.process_conversation(call_sid,elderly_id, speech_result)
-        duration = (datetime.now() - start_time).total_seconds()
-        logger.info(f"⚡ 처리 완료 ({duration:.3f}s): Intent={result.get('intent')}")
-        
-        response_text = result.get("response", "죄송합니다, 다시 말씀해 주시겠어요?")
-        
-        # [New] 통화 종료 처리 (사용자가 끊으라고 한 경우)
-        if result.get("intent") == "END_CALL":
-            logger.info(f"🛑 [End Call] User requested termination: {call_sid}")
-            encoded_text = urllib.parse.quote(response_text)
-            stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={encoded_text}&amp;call_sid={call_sid}&amp;mode=tts"
+        # [Immediate Exit Check] 종료 키워드 감지 (FastAPI 레벨에서 즉시 처리)
+        exit_keywords = ["그만", "그만해", "됐어", "종료", "아니", "끊어", "끊을게", "다음에 하자","또 전화해 줘요", "또 전화해 줘", "또 전화","다음에 연락"]
+        clean_input = speech_result.replace(" ", "")
+        if any(kw in clean_input for kw in exit_keywords):
+            logger.info(f"🛑 [Immediate Exit] User requested termination: {speech_result}")
+            bye_msg = urllib.parse.quote("네, 알겠습니다. 어르신, 편히 쉬시고 다음에 또 연락드릴게요. 건강하세요!")
+            stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={bye_msg}&amp;call_sid={call_sid}&amp;mode=tts"
+            
+            # 백그라운드 작업으로 종료 처리(DB 저장 등)는 실행
+            background_tasks.add_task(service.process_conversation, call_sid, elderly_id, speech_result)
             
             twiml = f"""
             <Response>
                 <Play contentType="audio/basic">{stream_url}</Play>
-                <Pause length="1"/>
-                <Hangup/>
-            </Response>
-            """
-            return Response(content=twiml, media_type="application/xml")
-
-        # 응급 상황 처리
-        if result.get("intent") == "EMERGENCY":
-            logger.critical(f"🚨 EMERGENCY DETECTED: {call_sid}")
-            # 응급 상황 시 즉시 안내 후 종료하거나 상담원 연결
-            encoded_text = urllib.parse.quote(response_text)
-            stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={encoded_text}&amp;call_sid={call_sid}&amp;mode=tts&amp;elderly_id={elderly_id}"
-            
-            twiml = f"""
-            <Response>
-                <Play contentType="audio/basic">{stream_url}</Play>
-                <Pause length="1"/>
                 <Hangup/>
             </Response>
             """
             return Response(content=twiml, media_type="application/xml")
         
-        # 일반 대화 처리
-        encoded_text = urllib.parse.quote(response_text)
+        # [Immediate Emergency Check] 응급 상황 감지
+        emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어", "아파"]
+        if any(k in speech_result for k in emergency_keywords):
+            logger.info(f"🚨 [Immediate Emergency] Emergency detected: {speech_result}")
+            emergency_msg = urllib.parse.quote("어르신 확인했습니다. 안전을 위해 담당 상담사님과 보호자님께 긴급알림을 즉시 전송하겠습니다.")
+            stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={emergency_msg}&amp;call_sid={call_sid}&amp;mode=tts"
+            
+            # 백그라운드 작업으로 긴급 상황 처리 (Backend 전송 등) 실행
+            background_tasks.add_task(service.process_conversation, call_sid, elderly_id, speech_result)
+            
+            twiml = f"""
+            <Response>
+                <Play contentType="audio/basic">{stream_url}</Play>
+                <Hangup/>
+            </Response>
+            """
+            return Response(content=twiml, media_type="application/xml")
+        
+        # [Ultra-Fast Response Strategy]
+        # 1. 즉시 스트리밍 URL 생성 (LLM 대기 없음)
+        #    - text 파라미터에 '사용자 발화'를 그대로 넣어서 보냄 (서비스에서 이걸 보고 LLM 생성)
+        encoded_input = urllib.parse.quote(speech_result)
         current_ts = datetime.now().timestamp()
-        stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={encoded_text}&amp;call_sid={call_sid}&amp;mode=tts&amp;start_ts={current_ts}&amp;elderly_id={elderly_id}"
+        
+        stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={encoded_input}&amp;call_sid={call_sid}&amp;mode=chat&amp;start_ts={current_ts}&amp;elderly_id={elderly_id}"
 
+        # 2. 분석 및 저장은 백그라운드에서 천천히 수행
+        #    (슬롯 필링, 감정 분석, DB 저장 등)
+        background_tasks.add_task(service.process_conversation, call_sid, elderly_id, speech_result)
+
+        # 3. TwiML 즉시 반환
         twiml = f"""
         <Response>
-            <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true">
+            <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true" timeout="5" speechModel="phone_call">
                 <Play contentType="audio/basic">{stream_url}</Play>
             </Gather>
+            <Redirect>/api/callbot/gather?elderly_id={elderly_id}&amp;retry=0</Redirect>
         </Response>
         """
         return Response(content=twiml, media_type="application/xml")
