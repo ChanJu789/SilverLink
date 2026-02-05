@@ -280,7 +280,6 @@ const DashboardLayout = ({
         </main>
       </div>
       <ChatbotWidget />
-      <EmergencyAlertPopup userRole={role.toUpperCase() as "COUNSELOR" | "GUARDIAN" | "ADMIN"} />
     </div>
   );
 };

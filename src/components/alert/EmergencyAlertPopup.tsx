@@ -15,21 +15,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import emergencyAlertsApi, { RecipientAlertResponse, Severity } from "@/api/emergencyAlerts";
 import { EventSourcePolyfill } from 'event-source-polyfill';
 
-interface EmergencyAlertPopupProps {
-    userRole: "COUNSELOR" | "GUARDIAN" | "ADMIN";
-}
+import { useAuth } from "@/contexts/AuthContext";
 
+// ... existing imports
 
+// Props interface removed as it's no longer needed
+// interface EmergencyAlertPopupProps {
+//     userRole: "COUNSELOR" | "GUARDIAN" | "ADMIN";
+// }
 
-/**
- * 긴급 알림 팝업 컴포넌트
- * - 페이지 로드 시 미확인 긴급 알림이 있으면 전체 화면 모달로 표시
- * - 심각도(CRITICAL/HIGH)에 따라 다른 색상/애니메이션
- * - "확인" 클릭 시 읽음 처리 후 상세 페이지로 이동
- * - "나중에 보기" 옵션 (세션 동안만 숨김)
- */
-export const EmergencyAlertPopup = ({ userRole }: EmergencyAlertPopupProps) => {
+export const EmergencyAlertPopup = () => {
     const navigate = useNavigate();
+    const { user } = useAuth(); // Get user from context
     const [alerts, setAlerts] = useState<RecipientAlertResponse[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
@@ -37,6 +34,7 @@ export const EmergencyAlertPopup = ({ userRole }: EmergencyAlertPopupProps) => {
 
     // 미확인 긴급 알림 조회
     const fetchAlerts = useCallback(async () => {
+        if (!user) return; // Guard clause
         try {
             const response = await emergencyAlertsApi.getUnreadAlerts();
 
@@ -48,15 +46,19 @@ export const EmergencyAlertPopup = ({ userRole }: EmergencyAlertPopupProps) => {
         } catch (error) {
             console.error("[EmergencyAlertPopup] Failed to fetch emergency alerts:", error);
         }
-    }, []);
+    }, [user]);
 
     // 페이지 로드 시 미확인 알림 조회
     useEffect(() => {
-        fetchAlerts();
-    }, [fetchAlerts]);
+        if (user) {
+            fetchAlerts();
+        }
+    }, [fetchAlerts, user]);
 
     // SSE 실시간 긴급 알림 수신
     useEffect(() => {
+        if (!user) return;
+
         const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
         const token = localStorage.getItem('accessToken');
         const sseUrl = `${API_BASE_URL}/api/sse/subscribe`;
@@ -100,7 +102,7 @@ export const EmergencyAlertPopup = ({ userRole }: EmergencyAlertPopupProps) => {
             eventSource?.close();
             if (reconnectTimer) clearTimeout(reconnectTimer);
         };
-    }, [fetchAlerts, userRole]);
+    }, [fetchAlerts, user]);
 
     // 알림 확인 (읽음 처리 후 상세 페이지로 이동)
     const handleConfirm = async () => {
@@ -126,11 +128,11 @@ export const EmergencyAlertPopup = ({ userRole }: EmergencyAlertPopupProps) => {
         }
     };
 
-
-
     // 역할별 알림 페이지로 이동
     const navigateToAlertPage = () => {
-        switch (userRole) {
+        if (!user) return;
+
+        switch (user.role) {
             case "COUNSELOR":
                 navigate("/counselor/alerts");
                 break;
