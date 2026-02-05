@@ -225,6 +225,8 @@ class CallbotService(BaseService):
         self.call = call
         self.tts_client = tts
         self.luxia = tts.sultlux
+        # [추가] u-law 전용 캐시 (텍스트 -> u-law 바이트)
+        self.ulaw_cache = {}
         super().__init__(callbot_repository)
         
     def test(self):
@@ -567,32 +569,53 @@ Output:<|im_end|>
         session = CallSession.get_session(call_sid)
         timeouts = {}
         
-        # [Updated] 대화 턴 수 계산 (현재 턴 포함) - 맨 위로 이동
-        current_turn_count = len(session.get("history", [])) + 1
-        
-        # [Updated] Use call_id if available (registered at start)
+        # [Updated] call_id를 최상단에서 정의하여 모든 경로에서 사용 가능하게 함
         call_id = session.get("call_id")
-        print(f"🕵️ [Process Conversation] CallSID: {call_sid} | Session CallID: {call_id}")
+
+        # [최적화] 종료 키워드 즉시 감지 (가장 먼저 수행)
+        exit_keywords = ["그만", "그만해", "됐어", "종료", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락"]
+        clean_input = raw_user_input.replace(" ", "")
         
-        # 1. PII Filtering
+        # 종료 감지 로직 (예외 처리 추가: '끊어졌어' 등)
+        is_exit = any(kw in clean_input for kw in exit_keywords)
+        if "끊어졌어" in clean_input:
+            is_exit = False
+            
+        if is_exit:
+            print(f"🛑 [Fast Exit] Termination detected immediately: {raw_user_input}")
+            final_response = "네, 알겠습니다. 어르신, 편히 쉬시고 다음에 또 목소리 들려주세요. 건강하세요!"
+            
+            if "history" not in session: session["history"] = []
+            session["history"].append({"user": raw_user_input, "ai": final_response})
+            
+            if call_id:
+                asyncio.create_task(self._send_message_to_backend(call_id, "ELDERLY", raw_user_input))
+                asyncio.create_task(self._send_message_to_backend(call_id, "CALLBOT", final_response))
+            
+            CallSession.update_session(call_sid, session)
+            asyncio.create_task(self.finalize_call(call_sid, "0"))
+            
+            return {"intent": "END_CALL", "response": final_response, "session": session}
+
+        # [Updated] 대화 턴 수 계산 (현재 턴 포함)
+        current_turn_count = len(session.get("history", [])) + 1
+
+        # 1. PII Filtering & Memory Retrieval (정상 경로)
+        # Fast Exit을 통과한 경우에만 수행
         timeouts['stt_processing'] = 'External (Twilio)'
         t_pii_start = time.time()
         user_input = await self.anonymize_text_async(raw_user_input)
         timeouts['pii_filtering'] = time.time() - t_pii_start
-        
-        # [New] Memory Retrieval
+
+        # Memory Retrieval
         t_mem_search_start = time.time()
         relevant_memories_text = "No relevant memories."
         if orchestrator_engine.memory:
             try:
-                # elderly_id가 int일 경우를 대비해 확실히 str로 변환
                 str_eid = str(elderly_id)
                 mem_user_id = f"elderly_{str_eid}"
-                
-                # 1단계: 일단 해당 사용자의 모든 기억을 다 긁어옴 (초반 턴 전수 검색)
                 all_mems = orchestrator_engine.memory.get_all(user_id=mem_user_id)
                 
-                # Mem0 결과 구조 정규화 (버전 대응)
                 results_list = []
                 if isinstance(all_mems, dict) and "results" in all_mems:
                     results_list = all_mems["results"]
@@ -602,45 +625,9 @@ Output:<|im_end|>
                 if results_list:
                     facts = [m.get('memory', m.get('data', '')) for m in results_list if m]
                     relevant_memories_text = "\n".join([f"- {f}" for f in facts if f])
-                else:
-                    # 2단계: get_all 실패 시 유사도 검색으로 한 번 더 시도
-                    mem_results = await asyncio.to_thread(
-                        orchestrator_engine.memory.search, 
-                        user_input, 
-                        user_id=mem_user_id, 
-                        limit=3
-                    )
-                    if mem_results:
-                        # 결과가 딕셔너리 리스트인지, 문자열 리스트인지 대응
-                        extracted_facts = []
-                        for m in mem_results:
-                            if isinstance(m, dict):
-                                extracted_facts.append(m.get('memory', m.get('data', str(m))))
-                            else:
-                                extracted_facts.append(str(m))
-                        
-                        relevant_memories_text = "\n".join([f"- {f}" for f in extracted_facts if f])
-                
-            except Exception as e:
+            except Exception:
                 pass
         timeouts['memory_search'] = time.time() - t_mem_search_start
-        
-        # [New] 종료 키워드 즉시 감지 로직
-        exit_keywords = ["그만", "그만해", "됐어", "종료", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락", "들어가세요", "고마워요"]
-        clean_input = user_input.replace(" ", "") # 공백 제거 후 비교
-        if any(kw in clean_input for kw in exit_keywords):
-            print(f"🛑 [Exit Keyword Detected] User wants to end the call: {user_input}")
-            final_response = "네, 알겠습니다. 어르신, 편히 쉬시고 다음에 또 목소리 들려주세요. 건강하세요!"
-            
-            # 히스토리에 마지막 인사 저장
-            if "history" not in session: session["history"] = []
-            session["history"].append({"user": user_input, "ai": final_response})
-            
-            return {
-                "intent": "END_CALL", # 종료 전용 인텐트 반환
-                "response": final_response,
-                "session": session
-            }
 
         # 2. Intent Classification
         t_intent_start = time.time()
@@ -675,7 +662,13 @@ Output:<|im_end|>
         
         exit_keywords = ["그만", "그만해", "됐어", "종료", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락"]
         clean_input = user_input.replace(" ", "")
-        force_slot_question = any(k in clean_input for k in exit_keywords) or (session["deep_dive_count"] >= MAX_DEEP_DIVE_TURNS)
+        
+        # 종료 감지 로직 (예외 처리 추가)
+        is_exit_input = any(k in clean_input for k in exit_keywords)
+        if "끊어졌어" in clean_input:
+            is_exit_input = False
+            
+        force_slot_question = is_exit_input or (session["deep_dive_count"] >= MAX_DEEP_DIVE_TURNS)
         
         if not current_missing:
             force_slot_question = False
@@ -1176,15 +1169,29 @@ Output:<|im_end|>
             return
 
         try:
+            # [Fast Path] u-law 캐시에 있으면 즉시 반환 (지연 최소화)
+            if user_input in self.ulaw_cache:
+                print(f"⚡ [Fast Path] Serving cached u-law audio for: {user_input[:15]}...")
+                yield self.ulaw_cache[user_input]
+                return
+
             # 1. TTS 모드 (단순 텍스트 재생)
             if mode == "tts":
                 # 기존 로직 유지 (안내 멘트 등)
                 sentences = re.split(r'(?<=[.!?,;])\s+', user_input)
                 sentences = [s.strip() for s in sentences if s.strip()]
+                
+                full_audio = b""
                 for i, sentence in enumerate(sentences):
                     wav_data = await self.generate_tts_stream(sentence)
                     if wav_data:
-                        yield self.wav_to_ulaw(wav_data)
+                        ulaw_data = self.wav_to_ulaw(wav_data)
+                        full_audio += ulaw_data
+                        yield ulaw_data
+                
+                # 생성된 전체 오디오를 다음에 쓸 수 있도록 캐싱
+                if len(user_input) < 200: # 너무 긴 대화는 메모리 절약을 위해 제외
+                    self.ulaw_cache[user_input] = full_audio
                 return
 
             # 2. Chat 모드 (실시간 생성)

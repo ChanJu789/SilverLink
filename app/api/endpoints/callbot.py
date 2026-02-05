@@ -290,13 +290,23 @@ async def gather(
         # [Immediate Exit Check] 종료 키워드 감지 (FastAPI 레벨에서 즉시 처리)
         exit_keywords = ["그만", "그만해", "됐어", "종료", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락", "들어가세요", "고마워요"]
         clean_input = speech_result.replace(" ", "")
-        if any(kw in clean_input for kw in exit_keywords):
-            logger.info(f"🛑 [Immediate Exit] User requested termination: {speech_result}")
-            bye_msg = urllib.parse.quote("네, 알겠습니다. 어르신, 편히 쉬시고 다음에 또 연락드릴게요. 건강하세요!")
-            stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={bye_msg}&amp;call_sid={call_sid}&amp;mode=tts"
+        
+        # 종료 감지 로직 (예외 처리 추가: '끊어졌어' 등)
+        is_exit = any(kw in clean_input for kw in exit_keywords)
+        if "끊어졌어" in clean_input: # '끊어'가 들어있지만 예외인 경우
+            is_exit = False
             
-            # 백그라운드 작업으로 종료 처리(DB 저장 등)는 실행
+        if is_exit:
+            logger.info(f"🛑 [Immediate Exit] User requested termination: {speech_result}")
+            
+            # 작별 인사말 (캐시된 문구와 100% 일치해야 함)
+            bye_text = "네, 알겠습니다. 어르신, 편히 쉬시고 다음에 또 목소리 들려주세요. 건강하세요!"
+            
+            # 중요: 즉시 종료하더라도 서비스 로직을 호출하여 데이터 저장 및 분석을 수행하게 함
             background_tasks.add_task(service.process_conversation, call_sid, elderly_id, speech_result)
+            
+            bye_msg_encoded = urllib.parse.quote(bye_text)
+            stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={bye_msg_encoded}&amp;call_sid={call_sid}&amp;mode=tts"
             
             twiml = f"""
             <Response>

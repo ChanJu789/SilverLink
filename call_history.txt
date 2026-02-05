@@ -2118,3 +2118,27 @@ Target: 건강 상태 | Next Target: 하루 일정 | Deepdive: 0
 Filled: {'식사 여부': '밥 먹었어', '건강 상태': '건강해', '기분': '좋아'}
 Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.007153749465942383, 'memory_search': 0.0180819034576416, 'intent_check': 0.22182846069335938, 'unified_llm_processing': 1.1457152366638184, 'total_processing': 1.3927793502807617}
 --------------------------------------------------
+[2026-02-05 22:01:03] [CAb55784]
+User: 은.
+Filtered: 은.
+AI: 죄송합니다, 잠시 문제가 생겼어요.
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.009074211120605469, 'memory_search': 0.018505334854125977, 'intent_check': 0.0, 'unified_llm_processing': 1.0391910076141357, 'total_processing': 1.0667705535888672}
+--------------------------------------------------
+[2026-02-05 22:06:11] [CAdd7c68]
+User: 반가워요.
+Filtered: 반가워요.
+AI: 죄송합니다, 잠시 문제가 생겼어요.
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.010966300964355469, 'memory_search': 0.11910533905029297, 'intent_check': 0.0, 'unified_llm_processing': 0.88535475730896, 'total_processing': 1.015939712524414}
+--------------------------------------------------
+[2026-02-05 22:06:21] [CAdd7c68]
+User: 회원님 때리고 있어요.
+Filtered: 회원님 때리고 있어요.
+AI: 반가워요! 어떻게 지내고 계신가요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.006701231002807617, 'memory_search': 0.08359670639038086, 'intent_check': 0.771817684173584, 'unified_llm_processing': 0.8321704864501953, 'total_processing': 1.6951532363891602}
+--------------------------------------------------

@@ -112,12 +112,16 @@ class AppCreator:
              import traceback
              traceback.print_exc()
 
-        print("⏳ Prefetching Greeting TTS...")
+        print("⏳ Prefetching Greeting & Goodbye TTS...")
         try:
             # self.container를 직접 사용하여 더 안전함
             tts_service = self.container.tts()
+            greeting = "안녕하세요! 찬주님 실버링크에서 연락드렸습니다. 잘 지내시죠?"
+            bye_msg = "네, 알겠습니다. 어르신, 편히 쉬시고 다음에 또 목소리 들려주세요. 건강하세요!"
+            
             await tts_service.asultlux(greeting)
-            print("✅ Greeting TTS Prefetched!")
+            await tts_service.asultlux(bye_msg)
+            print("✅ Greeting & Goodbye TTS Prefetched!")
             
             # [추가] 백엔드 로그인 시도
             callbot_service = self.container.callbot_service()
