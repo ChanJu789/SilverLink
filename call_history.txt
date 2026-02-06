@@ -2142,3 +2142,35 @@ Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
 Filled: {}
 Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.006701231002807617, 'memory_search': 0.08359670639038086, 'intent_check': 0.771817684173584, 'unified_llm_processing': 0.8321704864501953, 'total_processing': 1.6951532363891602}
 --------------------------------------------------
+[2026-02-06 17:41:31] [CA0c4a22]
+User: 여보세요!
+Filtered: 여보세요!
+AI: 죄송합니다, 잠시 문제가 생겼어요.
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.015599489212036133, 'memory_search': 0.02437591552734375, 'intent_check': 0.0, 'unified_llm_processing': 1.0253627300262451, 'total_processing': 1.065338134765625}
+--------------------------------------------------
+[2026-02-06 17:54:59] [CAf18037]
+User: 여보세요!
+Filtered: 여보세요!
+AI: 안녕하세요! 어떻게 지내고 계신가요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.009921789169311523, 'memory_search': 0.01620626449584961, 'intent_check': 0.0, 'unified_llm_processing': 0.7080926895141602, 'total_processing': 1.8203303813934326}
+--------------------------------------------------
+[2026-02-06 17:55:08] [CAf18037]
+User: 잘 지내고 있습니다.
+Filtered: 잘 지내고 있습니다.
+AI: 잘 지내고 계시다니 정말 기쁘네요! 요즘 건강 상태는 어떤지 궁금합니다.
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.006546974182128906, 'memory_search': 0.016385555267333984, 'intent_check': 0.5243232250213623, 'unified_llm_processing': 0.801276445388794, 'total_processing': 2.543633460998535}
+--------------------------------------------------
+[2026-02-06 17:55:19] [CAf18037]
+User: 만나요.
+Filtered: 만나요.
+AI: 안녕하세요! 만나서 반갑습니다. 오늘 기분이 어떠신가요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.007677793502807617, 'memory_search': 0.015311479568481445, 'intent_check': 0.0, 'unified_llm_processing': 1.446857213973999, 'total_processing': 1.9025225639343262}
+--------------------------------------------------

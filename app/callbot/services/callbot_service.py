@@ -567,6 +567,10 @@ Output:<|im_end|>
         from app.util.log import log_detailed
         start_total = time.time()
         session = CallSession.get_session(call_sid)
+        
+        # [중요] 이전 턴의 응답이 남아있을 수 있으므로 초기화
+        session.pop("last_ai_response", None)
+        
         timeouts = {}
         
         # [Updated] call_id를 최상단에서 정의하여 모든 경로에서 사용 가능하게 함
@@ -590,6 +594,7 @@ Output:<|im_end|>
             
             if call_id:
                 asyncio.create_task(self._send_message_to_backend(call_id, "ELDERLY", raw_user_input))
+                await asyncio.sleep(1)
                 asyncio.create_task(self._send_message_to_backend(call_id, "CALLBOT", final_response))
             
             CallSession.update_session(call_sid, session)
@@ -713,7 +718,13 @@ Output:<|im_end|>
             result = completion.choices[0].message.parsed
             timeouts['unified_llm_processing'] = time.time() - t_llm_start
             
-            # [Updated] Fast LLM이 생성했던 대답을 가져옴 (없으면 기본값)
+            # [Wait for Fast LLM] Fast LLM이 스트리밍을 완료하고 session["last_ai_response"]를 채울 때까지 최대 5초 대기
+            wait_retries = 50 # 0.1s * 50 = 5s
+            while "last_ai_response" not in session and wait_retries > 0:
+                await asyncio.sleep(0.1)
+                wait_retries -= 1
+            
+            # [Updated] Fast LLM이 생성했던 대답을 가져옴
             final_response = session.get("last_ai_response", "죄송합니다, 잠시 문제가 생겼어요.")
             print(f"🐢 [Slow Analysis] Using Fast LLM Response: {final_response}")
 
@@ -1192,6 +1203,11 @@ Output:<|im_end|>
                 # 생성된 전체 오디오를 다음에 쓸 수 있도록 캐싱
                 if len(user_input) < 200: # 너무 긴 대화는 메모리 절약을 위해 제외
                     self.ulaw_cache[user_input] = full_audio
+                
+                # [추가] Slow Analysis를 위해 응답 내용 저장
+                if call_sid:
+                    session = CallSession.get_session(call_sid)
+                    session["last_ai_response"] = user_input
                 return
 
             # 2. Chat 모드 (실시간 생성)
