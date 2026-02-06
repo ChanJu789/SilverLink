@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import {
   Heart,
-  Utensils,
   Activity,
   Phone,
   Moon,
-  TrendingUp,
   Clock,
   Smile,
   Meh,
@@ -14,14 +12,21 @@ import {
   MessageSquare,
   FileText,
   HelpCircle,
-  Loader2,
-  Calendar
+  Loader2
 } from "lucide-react";
 import { guardianNavItems } from "@/config/guardianNavItems";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import guardiansApi from "@/api/guardians";
 import callReviewsApi from "@/api/callReviews";
@@ -29,8 +34,6 @@ import usersApi from "@/api/users";
 import { GuardianElderlyResponse, GuardianCallReviewResponse, MyProfileResponse } from "@/types/api";
 import { NoticePopup } from "@/components/notice/NoticePopup";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -40,14 +43,27 @@ import {
   Area
 } from "recharts";
 
-// EmotionIcon 컴포넌트
+// 12시간 형식 시간 변환 함수
+const formatTimeAMPM = (isoTime: string) => {
+  if (!isoTime) return '';
+  const timePart = isoTime.split('T')[1]?.substring(0, 5);
+  if (!timePart) return '';
+  const [hourStr, minute] = timePart.split(':');
+  const hour = parseInt(hourStr, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const h = hour % 12 || 12;
+  return `${h}:${minute} ${ampm}`;
+};
+
+// 감정 아이콘 컴포넌트
 const EmotionIcon = ({ emotion }: { emotion: string }) => {
-  switch (emotion) {
-    case "good":
+  switch (emotion?.toUpperCase()) {
+    case "GOOD":
       return <Smile className="w-5 h-5 text-success" />;
-    case "neutral":
-      return <Meh className="w-5 h-5 text-warning" />;
-    case "bad":
+    case "NORMAL":
+      return <Meh className="w-5 h-5 text-muted-foreground" />;
+    case "BAD":
+    case "DEPRESSED":
       return <Frown className="w-5 h-5 text-destructive" />;
     default:
       return <Meh className="w-5 h-5 text-muted-foreground" />;
@@ -290,57 +306,63 @@ const GuardianDashboard = () => {
                   <CardDescription>최근 어르신의 감정 상태 변화를 보여줍니다.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <defs>
-                          <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
-                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                        <XAxis
-                          dataKey="date"
-                          axisLine={false}
-                          tickLine={false}
-                          dy={10}
-                          tick={{ fill: '#6B7280', fontSize: 12 }}
-                        />
-                        <YAxis
-                          hide={true}
-                          domain={[0, 4]} // 1=BAD, 2=NORMAL, 3=GOOD. Padding for visual.
-                        />
-                        <Tooltip
-                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                          cursor={{ stroke: '#f43f5e', strokeWidth: 1, strokeDasharray: '5 5' }}
-                          formatter={(value: any, name: any, props: any) => {
-                            return [props.payload.emotion, '감정 상태'];
-                          }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="score"
-                          stroke="#f43f5e"
-                          strokeWidth={3}
-                          fillOpacity={1}
-                          fill="url(#colorScore)"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex justify-center gap-6 mt-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-success"></div>
-                      <span>좋음</span>
+                  <div className="flex items-start gap-2">
+                    <div className="h-[200px] flex-1 relative">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <defs>
+                            <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
+                              <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                          <XAxis
+                            dataKey="date"
+                            axisLine={false}
+                            tickLine={false}
+                            dy={10}
+                            tick={{ fill: '#6B7280', fontSize: 12 }}
+                          />
+                          <YAxis
+                            hide={true}
+                            domain={[0, 4]}
+                          />
+                          <Tooltip
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            cursor={{ stroke: '#f43f5e', strokeWidth: 1, strokeDasharray: '5 5' }}
+                            formatter={(value: any, name: any, props: any) => {
+                              return [props.payload.emotion, '감정 상태'];
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="score"
+                            stroke="#f43f5e"
+                            strokeWidth={3}
+                            fillOpacity={1}
+                            fill="url(#colorScore)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-warning"></div>
-                      <span>보통</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-destructive"></div>
-                      <span>나쁨</span>
+                    {/* 범례: Y축 레벨에 맞춰 배치 (0-4 도메인 기준, 그래프 영역 약 85% 사용) */}
+                    <div className="relative h-[170px] text-xs text-muted-foreground w-10 mt-1">
+                      {/* score 3 = 좋음: 상단에서 약 18% */}
+                      <div className="absolute flex items-center gap-1" style={{ top: '18%' }}>
+                        <div className="w-3 h-0.5 bg-rose-500 rounded"></div>
+                        <span>좋음</span>
+                      </div>
+                      {/* score 2 = 보통: 상단에서 약 48% */}
+                      <div className="absolute flex items-center gap-1" style={{ top: '48%', transform: 'translateY(-50%)' }}>
+                        <div className="w-3 h-0.5 bg-rose-400 rounded"></div>
+                        <span>보통</span>
+                      </div>
+                      {/* score 1 = 나쁨: 상단에서 약 72% */}
+                      <div className="absolute flex items-center gap-1" style={{ top: '72%', transform: 'translateY(-50%)' }}>
+                        <div className="w-3 h-0.5 bg-rose-300 rounded"></div>
+                        <span>나쁨</span>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -348,7 +370,7 @@ const GuardianDashboard = () => {
             </div>
 
             {/* 3. Quick Actions & Status */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Quick Actions */}
               <Card className="border-0 shadow-card">
                 <CardHeader>
@@ -370,42 +392,33 @@ const GuardianDashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Latest Call Summary Mini */}
-              <Card className="border-0 shadow-card bg-primary text-primary-foreground">
-                <CardHeader>
-                  <CardTitle className="text-lg text-primary-foreground">최근 통화 요약</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {recentCalls.length > 0 ? (
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 text-white border-0">
-                          {recentCalls[0].callAt.split('T')[0]}
-                        </Badge>
-                        <span className="text-sm opacity-80">{recentCalls[0].duration} 통화</span>
+              {/* Latest Call Summary - 축소된 UI */}
+              {recentCalls.length > 0 && (
+                <div
+                  className="p-3 rounded-lg bg-primary/10 cursor-pointer hover:bg-primary/20 transition-colors"
+                  onClick={() => navigate(`/guardian/calls/${recentCalls[0].callId}`)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                        <Phone className="w-4 h-4 text-primary" />
                       </div>
-                      <p className="line-clamp-3 text-sm opacity-90 leading-relaxed">
-                        "{recentCalls[0].summary}"
-                      </p>
-                      <Button
-                        variant="secondary"
-                        className="w-full mt-4 bg-white text-primary hover:bg-white/90"
-                        onClick={() => navigate(`/guardian/calls/${recentCalls[0].callId}`)}
-                      >
-                        자세히 보기
-                      </Button>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">최근 통화</p>
+                        <p className="text-xs text-muted-foreground">{recentCalls[0].callAt.split('T')[0]}</p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-center py-4 opacity-80">
-                      <p>최근 통화 기록이 없습니다.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-1 pl-11">
+                    {recentCalls[0].summary || '요약 없음'}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* 4. Recent Calls List (Detailed) */}
+          {/* 4. Recent Calls Table */}
           <Card className="border-0 shadow-card">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -416,38 +429,70 @@ const GuardianDashboard = () => {
                 전체보기 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {recentCalls.map((call) => (
-                <div
-                  key={call.callId}
-                  className="group flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl bg-secondary/20 hover:bg-secondary/40 transition-all cursor-pointer border border-transparent hover:border-primary/10"
-                  onClick={() => navigate(`/guardian/calls/${call.callId}`)}
-                >
-                  {/* Icon */}
-                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-background flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                    <EmotionIcon emotion={call.emotionLevel?.toLowerCase() || 'neutral'} />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-foreground">{call.callAt.split('T')[0]}</span>
-                      <span className="text-xs text-muted-foreground">{call.callAt.split('T')[1].substring(0, 5)}</span>
-                    </div>
-                    <p className="text-sm text-foreground/80 line-clamp-1 group-hover:text-primary transition-colors">
-                      {call.summary}
-                    </p>
-                  </div>
-
-                  {/* Status Badge */}
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="bg-background">
-                      {call.duration}
-                    </Badge>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </div>
+            <CardContent>
+              {recentCalls.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  통화 기록이 없습니다.
                 </div>
-              ))}
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>일시</TableHead>
+                      <TableHead>통화시간</TableHead>
+                      <TableHead>감정상태</TableHead>
+                      <TableHead>요약</TableHead>
+                      <TableHead>상담사 코멘트</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentCalls.slice(0, 5).map((call) => (
+                      <TableRow
+                        key={call.callId}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => navigate(`/guardian/calls/${call.callId}`)}
+                      >
+                        <TableCell>
+                          <div>
+                            <p>{call.callAt?.split('T')[0]}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatTimeAMPM(call.callAt)}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{call.duration}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <EmotionIcon emotion={call.emotionLevel || 'NORMAL'} />
+                            <span className="text-sm">
+                              {call.emotionLevel?.toUpperCase() === "GOOD" ? "좋음" :
+                                call.emotionLevel?.toUpperCase() === "BAD" || call.emotionLevel === "DEPRESSED" ? "주의" : "보통"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[200px]">
+                          <p className="truncate text-sm text-muted-foreground">
+                            {call.summary?.length > 30
+                              ? call.summary.substring(0, 30) + '...'
+                              : call.summary || '요약 없음'}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          {call.counselorComment ? (
+                            <span className="text-xs text-success">작성됨</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
 
