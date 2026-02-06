@@ -348,18 +348,18 @@ const GuardianDashboard = () => {
                     </div>
                     {/* 범례: Y축 레벨에 맞춰 배치 (0-4 도메인 기준, 그래프 영역 약 85% 사용) */}
                     <div className="relative h-[170px] text-xs text-muted-foreground w-10 mt-1">
-                      {/* score 3 = 좋음: 상단에서 약 25% */}
-                      <div className="absolute flex items-center gap-1" style={{ top: '15%' }}>
+                      {/* score 3 = 좋음: 상단에서 약 18% */}
+                      <div className="absolute flex items-center gap-1" style={{ top: '18%' }}>
                         <div className="w-3 h-0.5 bg-rose-500 rounded"></div>
                         <span>좋음</span>
                       </div>
-                      {/* score 2 = 보통: 상단에서 약 50% */}
-                      <div className="absolute flex items-center gap-1" style={{ top: '50%', transform: 'translateY(-50%)' }}>
+                      {/* score 2 = 보통: 상단에서 약 48% */}
+                      <div className="absolute flex items-center gap-1" style={{ top: '48%', transform: 'translateY(-50%)' }}>
                         <div className="w-3 h-0.5 bg-rose-400 rounded"></div>
                         <span>보통</span>
                       </div>
-                      {/* score 1 = 나쁨: 상단에서 약 75% */}
-                      <div className="absolute flex items-center gap-1" style={{ top: '85%' }}>
+                      {/* score 1 = 나쁨: 상단에서 약 72% */}
+                      <div className="absolute flex items-center gap-1" style={{ top: '72%', transform: 'translateY(-50%)' }}>
                         <div className="w-3 h-0.5 bg-rose-300 rounded"></div>
                         <span>나쁨</span>
                       </div>
