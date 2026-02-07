@@ -1,9 +1,8 @@
-import { Home, Phone, BarChart3, MessageSquare, FileText, HelpCircle, AlertTriangle, Megaphone, Heart, MapPin, User, Lock } from "lucide-react";
+import { Home, Phone, MessageSquare, FileText, HelpCircle, AlertTriangle, Megaphone, Heart, MapPin, User, Lock } from "lucide-react";
 
 export const guardianNavItems = [
   { title: "홈", href: "/guardian", icon: <Home className="w-5 h-5" /> },
   { title: "통화 기록", href: "/guardian/calls", icon: <Phone className="w-5 h-5" /> },
-  { title: "통화 기록 통계", href: "/guardian/stats", icon: <BarChart3 className="w-5 h-5" /> },
   { title: "1:1 문의", href: "/guardian/inquiry", icon: <MessageSquare className="w-5 h-5" /> },
   { title: "불편사항 신고", href: "/guardian/complaint", icon: <AlertTriangle className="w-5 h-5" /> },
   { title: "주변 시설 찾기", href: "/map", icon: <MapPin className="w-5 h-5" /> },
