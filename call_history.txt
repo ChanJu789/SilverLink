@@ -3566,7 +3566,7 @@ Filled: {'식사 여부': '삼겹살 먹었습니다.', '건강 상태': '건강
 Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.00811624526977539, 'memory_search': 0.01900029182434082, 'intent_check': 0.2450711727142334, 'unified_llm_processing': 0.7712349891662598, 'total_processing': 1.660470724105835}
 --------------------------------------------------
 [2026-02-07 13:38:13] [CA3d94b2]
-User: 주님도 계시고 할머니도 계십니다.
+User: 주님도 계시고 할머니도 계십니다.  
 Filtered: 주님도 계시고 할머니도 계십니다.
 AI: 아, 그렇군요, 어르신. 주님과 할머니가 함께 계시니 마음이 든든하시겠어요. 잠은 잘 주무셨나요?
 Target: 수면 상태 | Next Target: 수면 상태 | Deepdive: 0
@@ -3644,4 +3644,28 @@ AI: 아, 그렇군요, 어르신. 충분한 수면은 건강에 정말 중요하
 Target: 작별 인사 및 건강 당부 | Next Target: 작별 인사 및 건강 당부 | Deepdive: 1
 Filled: {'식사 여부': '먹었어요', '건강 상태': '건강합니다', '기분': '좋아요', '하루 일정': '산책합니다', '수면 상태': '많이 잡니다'}
 Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.006669044494628906, 'memory_search': 0.01674962043762207, 'intent_check': 0.24780821800231934, 'unified_llm_processing': 1.0373470783233643, 'total_processing': 3.9158308506011963}
+--------------------------------------------------
+[2026-02-07 15:27:18] [CAdf18ec]
+User: 오늘 딸이 다녀왔어.
+Filtered: 오늘 딸이 다녀왔어.
+AI: 아, 정말 반가운 소식이네요! 따님과 좋은 시간 보내셨나요? 오늘 식사는 어떻게 하셨는지 궁금해요.
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 1
+Filled: {'하루 일정': '딸이 다녀왔어'}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.03976559638977051, 'memory_search': 0.04633951187133789, 'intent_check': 1.0849394798278809, 'unified_llm_processing': 0.9814605712890625, 'total_processing': 3.408480167388916}
+--------------------------------------------------
+[2026-02-07 15:28:32] [CAf315a6]
+User: 어제 와서 반찬도 해 주고 가서 오늘은 좀 편했어요.
+Filtered: 어제 와서 반찬도 해 주고 가서 오늘은 좀 편했어요.
+AI: 아, 그렇군요! 딸님이 반찬을 해 주셔서 많이 편하셨겠어요. 오늘 식사는 어떻게 하셨나요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 1
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.022215843200683594, 'memory_search': 0.04712486267089844, 'intent_check': 0.7312095165252686, 'unified_llm_processing': 0.9933443069458008, 'total_processing': 2.863863945007324}
+--------------------------------------------------
+[2026-02-07 15:28:47] [CAf315a6]
+User: 내용이 있는데.
+Filtered: 내용이 있는데.
+AI: 아, 그렇군요. 어떤 내용인지 말씀해 주실 수 있나요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 2
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.01965785026550293, 'memory_search': 0.03915548324584961, 'intent_check': 0.4511284828186035, 'unified_llm_processing': 1.7192702293395996, 'total_processing': 2.3479442596435547}
 --------------------------------------------------
