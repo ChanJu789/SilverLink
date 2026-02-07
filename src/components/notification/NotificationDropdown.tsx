@@ -32,6 +32,7 @@ import {
     markAllAsRead as markAllNotificationAsRead,
     NotificationSummary
 } from "@/api/notifications";
+import { EventSourcePolyfill } from 'event-source-polyfill';
 
 interface NotificationDropdownProps {
     role: "guardian" | "counselor" | "admin";
@@ -71,11 +72,50 @@ const NotificationDropdown = ({ role }: NotificationDropdownProps) => {
         }
     }, [isOpen, fetchData]);
 
-    // 초기 로드 및 주기적 알림 수 갱신 (30초마다)
+    // 초기 로드 및 주기적 알림 수 갱신 (30초마다) + SSE 연결
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 30000);
-        return () => clearInterval(interval);
+
+        // SSE 연결 설정
+        const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+        const token = localStorage.getItem('accessToken');
+        const sseUrl = `${API_BASE_URL}/api/sse/subscribe`;
+
+        let eventSource: EventSource | null = null;
+
+        if (token) {
+            try {
+                // @ts-ignore
+                eventSource = new EventSourcePolyfill(sseUrl, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                    withCredentials: true,
+                    heartbeatTimeout: 3600000,
+                }) as unknown as EventSource;
+
+                const handleUpdate = () => {
+                    console.log("알림 수신: 배지 업데이트");
+                    fetchData();
+                };
+
+                eventSource.addEventListener('emergency-alert', handleUpdate);
+                eventSource.addEventListener('notification', handleUpdate);
+
+                eventSource.onerror = () => {
+                    // 연결 오류 시 조용히 닫기 (주기적 폴링이 있으므로 재연결 로직은 복잡하게 가져가지 않음)
+                    eventSource?.close();
+                };
+            } catch (e) {
+                console.error("Failed to connect SSE:", e);
+            }
+        }
+
+        return () => {
+            clearInterval(interval);
+            eventSource?.close();
+        };
     }, [fetchData]);
 
     // 긴급 알림 클릭

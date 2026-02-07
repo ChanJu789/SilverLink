@@ -120,17 +120,12 @@ export const EmergencyAlertPopup = () => {
                         severityText: detail.severity === "CRITICAL" ? "심각" : "주의",
                         alertType: detail.alertType || "MENTAL",
                         alertTypeText: "정서위험", // 임시
-                        alertTypeText: "정서위험", // 임시
                         title: detail.title || "긴급 상황",
-                        // description property removed as it is not part of RecipientAlertResponse interface
-                        elderlyId: detail.elderlyId || 0,
                         elderlyName: detail.elderlyName || "알 수 없음",
                         elderlyAge: 0,
-                        counselorId: 0,
-                        counselorName: "",
                         timeAgo: "방금 전",
                         createdAt: new Date().toISOString(),
-                        read: false
+                        isRead: false
                     };
                     setAlerts(prev => [fallbackAlert, ...prev]);
                     setIsOpen(true);
@@ -182,7 +177,7 @@ export const EmergencyAlertPopup = () => {
                 navigate("/admin/dashboard");
                 break;
             case "GUARDIAN":
-                navigate("/guardian/calls");
+                navigate("/guardian/alerts");
                 break;
         }
     };
