@@ -341,6 +341,11 @@ async def gather(
         encoded_input = urllib.parse.quote(speech_result)
         current_ts = datetime.now().timestamp()
         
+        # [Updated] 대화 히스토리 업데이트 (User 발화 추가)
+        if call_sid not in conversation_history:
+            conversation_history[call_sid] = []
+        conversation_history[call_sid].append({"user": speech_result, "ai": ""}) # AI 답변은 나중에 채워짐
+
         stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={encoded_input}&amp;call_sid={call_sid}&amp;mode=chat&amp;start_ts={current_ts}&amp;elderly_id={elderly_id}"
 
         # 2. 분석 및 저장은 백그라운드에서 천천히 수행
@@ -356,7 +361,7 @@ async def gather(
         # 진짜 마지막 단계(작별 인사)일 때만 끊기
         is_finish = (current_target == "작별 인사 및 건강 당부")
         
-        hints = "밥, 식사, 아침, 점심, 저녁, 건강, 아파, 병원, 약, 기분, 좋아, 우울해, 심심해, 산책, 운동, 우동,전복죽,김치, 노인정,허리, 잠, 주무셨어, 꿈, 어르신, 안녕, 응, 그래, 아니"
+        hints = "밥, 식사, 아침, 점심, 저녁, 건강, 아파, 병원, 약, 기분, 좋아, 우울해, 심심해, 산책, 운동, 우동,전복 죽,김치, 노인정,허리, 잠, 주무셨어, 꿈, 어르신, 안녕, 응, 그래, 아니"
 
         if is_finish:
             twiml = f"""

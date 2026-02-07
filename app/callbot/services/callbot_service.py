@@ -525,7 +525,7 @@ class CallbotService(BaseService):
         if len(clean_text) <= 5: 
             return "GENERAL"
         
-        emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어"]
+        emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어","일일구"]
         if any(k in clean_text for k in emergency_keywords):
             return "EMERGENCY"
 
@@ -1272,20 +1272,23 @@ Output:<|im_end|>
             
             # Guidelines (STRICT):
             1. **Format**: {format_instruction}
-            2. **Easy Language**: Use very simple and natural words for the elderly.
+            2. **Memory & Context**: ALWAYS remember what the user said in previous turns. 
+               - If the user said they are sick (e.g., "허리가 아파"), do NOT ask "왜 병원에 가시나요?" later. Instead, say "허리 아픈 것 때문에 병원 가시는군요."
+               - Avoid redundant questions. Use the information already given.
+            3. **Easy Language**: Use very simple and natural words for the elderly.
                - Instead of '수면 패턴' or '수면 시간', ask "어젯밤에 잠은 잘 주무셨나요?" or "꿈 안 꾸고 푹 주무셨어요?".
                - Use terms like '식사', '몸 상태', '기분', '오늘 하신 일' instead of technical jargon.
-            3. **Diverse Reactions**: Use varied expressions. DO NOT repeat "정말 다행이에요" every time. 
+            4. **Diverse Reactions**: Use varied expressions. DO NOT repeat "정말 다행이에요" every time. 
                - If doing well: "기분이 아주 좋아 보이시네요!", "듣던 중 반가운 소식이에요.", "오히려 제가 기운이 나네요!"
                - If something simple: "아, 그렇군요.", "그렇군요, 어르신.", "말씀해 주셔서 감사해요."
-            4. **Contextual Empathy**: Your reaction must match the specific content of the user's sentence.
-            5. **Single Question Rule**: Ask EXACTLY ONE question per response. ZERO questions in the final stage.
-            6. **Tone**: Warm, Polished Haeyo-che. Be like a friendly neighbor, not a robot.
+            5. **Contextual Empathy**: Your reaction must match the specific content of the user's sentence.
+            6. **Single Question Rule**: Ask EXACTLY ONE question per response. ZERO questions in the final stage.
+            7. **Tone**: Warm, Polished Haeyo-che. Be like a friendly neighbor, not a robot.
             """
             
             messages = [{"role": "system", "content": system_prompt}]
-            # 최근 대화 2턴만 추가 (Context 줄이기)
-            for turn in history[-2:]:
+            # [Improved] 최근 대화 4턴으로 확대 (기억력 강화)
+            for turn in history[-4:]:
                 messages.append({"role": "user", "content": turn['user']})
                 messages.append({"role": "assistant", "content": turn['ai']})
             messages.append({"role": "user", "content": user_input})
@@ -1296,7 +1299,7 @@ Output:<|im_end|>
                 messages=messages,
                 stream=True,
                 max_tokens=150,
-                temperature=0.7
+                temperature=0.5 # 일관성을 위해 온도를 약간 낮춤
             )
 
             buffer = ""
@@ -1322,10 +1325,15 @@ Output:<|im_end|>
             
             print(f"\n⚡ [Fast LLM] (User Heard): {full_fast_response}")
             
-            # [Crucial] 사용자가 들은 이 대답을 세션에 저장하여 Slow LLM이 기록하게 함
+            # [Crucial] 사용자가 들은 이 대답을 세션 및 글로벌 히스토리에 저장하여 다음 턴에서 참조하게 함
             if call_sid:
                 session = CallSession.get_session(call_sid)
                 session["last_ai_response"] = full_fast_response
+                
+                # 글로벌 히스토리 업데이트 (이전 턴의 AI 답변 채우기)
+                from app.api.endpoints.callbot import conversation_history
+                if call_sid in conversation_history and conversation_history[call_sid]:
+                    conversation_history[call_sid][-1]["ai"] = full_fast_response
 
         except Exception as e:
             print(f"❌ Critical Error in ai_response_generator: {e}")
