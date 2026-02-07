@@ -98,9 +98,51 @@ export const EmergencyAlertPopup = () => {
 
         connect();
 
+        // 📍 커스텀 이벤트 리스너 추가 (모니터링 페이지 등에서 트리거)
+        const handleSync = (e: Event) => {
+            console.log("🔄 [EmergencyAlertPopup] 외부 동기화 요청 수신");
+
+            // 1. 서버에서 최신 목록 조회 시도
+            fetchAlerts().then(() => {
+                // 2. 만약 조회가 안되면(권한 문제 등), 이벤트로 넘어온 데이터 사용
+                // @ts-ignore
+                const detail = e.detail;
+                if (detail && detail.id) { // detail.id가 있으면 Alert 객체로 간주
+                    // 이미 표시된 알림인지 확인
+                    if (alerts.some(a => a.alertId === detail.id)) return;
+
+                    console.log("⚠️ [EmergencyAlertPopup] 목록 조회 실패/지연 -> 직접 데이터 표시", detail);
+                    // DTO 매핑 필요 (Backend Entity -> Frontend RecipientAlertResponse)
+                    // 임시 매핑 로직
+                    const fallbackAlert: RecipientAlertResponse = {
+                        alertId: detail.id,
+                        severity: detail.severity || "CRITICAL",
+                        severityText: detail.severity === "CRITICAL" ? "심각" : "주의",
+                        alertType: detail.alertType || "MENTAL",
+                        alertTypeText: "정서위험", // 임시
+                        alertTypeText: "정서위험", // 임시
+                        title: detail.title || "긴급 상황",
+                        // description property removed as it is not part of RecipientAlertResponse interface
+                        elderlyId: detail.elderlyId || 0,
+                        elderlyName: detail.elderlyName || "알 수 없음",
+                        elderlyAge: 0,
+                        counselorId: 0,
+                        counselorName: "",
+                        timeAgo: "방금 전",
+                        createdAt: new Date().toISOString(),
+                        read: false
+                    };
+                    setAlerts(prev => [fallbackAlert, ...prev]);
+                    setIsOpen(true);
+                }
+            });
+        };
+        window.addEventListener('emergency-alert-sync', handleSync);
+
         return () => {
             eventSource?.close();
             if (reconnectTimer) clearTimeout(reconnectTimer);
+            window.removeEventListener('emergency-alert-sync', handleSync);
         };
     }, [fetchAlerts, user]);
 

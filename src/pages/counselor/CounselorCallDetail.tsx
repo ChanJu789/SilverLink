@@ -254,6 +254,18 @@ const CounselorCallDetail = () => {
       setLiveMessages(prev => [...prev, newLog]);
     });
 
+    eventSource.addEventListener('emergency', (e: MessageEvent) => {
+      console.log(`🚨 [SSE] 긴급 알림 수신: callId=${id}`, e.data);
+
+      // 1. 글로벌 알림 팝업에게 "새 알림이 있다"고 알림 (커스텀 이벤트)
+      window.dispatchEvent(new CustomEvent('emergency-alert-sync'));
+
+      // 2. 혹은 직접 토스트 표시 (백업용)
+      // alert("🚨 [긴급] 위험 상황이 감지되었습니다! 통화 내용을 확인해주세요."); // 너무 침해적이어서 제거
+
+      fetchCallDetail(false);
+    });
+
     eventSource.addEventListener('callEnded', () => {
       console.log('Call ended via SSE');
       eventSource.close();
