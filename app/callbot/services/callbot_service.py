@@ -322,7 +322,7 @@ class CallbotService(BaseService):
         stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={encoded_greeting}&amp;call_sid={call_sid}&amp;mode=tts&amp;elderly_id={elderly_id}"
 
         # [Updated] 음성 인식 성능 향상: enhanced="true" 및 hints 추가
-        hints = "밥, 식사, 아침, 점심, 저녁, 건강, 아파, 병원, 약, 기분, 좋아, 우울해, 심심해, 산책, 운동, 복지관, 노인정, 잠, 주무셨어, 꿈, 어르신, 안녕, 응, 그래, 아니"
+        hints = "밥, 식사, 아침, 점심, 저녁, 건강, 아파, 병원, 약, 기분, 좋아, 우울해, 심심해, 산책, 운동, 복지관, 노인정, 잠, 주무셨어, 꿈, 어르신, 안녕, 응, 그래, 아니, 전복 죽, 김치, 허리, 우동, 새벽, 깊게"
         twiml = f"""
         <Response>
             <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="2.0" bargeIn="true" timeout="5" speechModel="phone_call" enhanced="true" hints="{hints}" profanityFilter="false">
