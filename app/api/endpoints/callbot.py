@@ -262,9 +262,10 @@ async def gather(
                 retry_msg = urllib.parse.quote("죄송해요, 제가 잘 못 들었어요. 다시 한번 말씀해 주시겠어요?")
                 stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={retry_msg}&amp;call_sid={call_sid}&amp;mode=tts"
                 
+                hints = "밥, 식사, 아침, 점심, 저녁, 건강, 아파, 병원, 약, 기분, 좋아, 우울해, 심심해, 산책, 운동, 복지관, 노인정, 잠, 주무셨어, 꿈, 어르신, 안녕, 응, 그래, 아니"
                 twiml = f"""
                 <Response>
-                    <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}&amp;retry={retry_count + 1}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true">
+                    <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}&amp;retry={retry_count + 1}" method="POST" language="ko-KR" speechTimeout="2.0" bargeIn="true" enhanced="true" hints="{hints}" profanityFilter="false">
                         <Play contentType="audio/basic">{stream_url}</Play>
                     </Gather>
                 </Response>
@@ -355,6 +356,8 @@ async def gather(
         # 진짜 마지막 단계(작별 인사)일 때만 끊기
         is_finish = (current_target == "작별 인사 및 건강 당부")
         
+        hints = "밥, 식사, 아침, 점심, 저녁, 건강, 아파, 병원, 약, 기분, 좋아, 우울해, 심심해, 산책, 운동, 우동,전복죽,김치, 노인정,허리, 잠, 주무셨어, 꿈, 어르신, 안녕, 응, 그래, 아니"
+
         if is_finish:
             twiml = f"""
             <Response>
@@ -366,7 +369,7 @@ async def gather(
         else:
             twiml = f"""
             <Response>
-                <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true" timeout="5" speechModel="phone_call">
+                <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true" timeout="5" speechModel="phone_call" enhanced="true" hints="{hints}" profanityFilter="false">
                     <Play contentType="audio/basic">{stream_url}</Play>
                 </Gather>
                 <Redirect>/api/callbot/gather?elderly_id={elderly_id}&amp;retry=0</Redirect>
@@ -381,9 +384,11 @@ async def gather(
         # 에러 발생 시 안전하게 다시 묻기
         error_msg = urllib.parse.quote("죄송해요, 잠시 문제가 생겼어요. 다시 말씀해 주시겠어요?")
         stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={error_msg}&amp;call_sid={call_sid}&amp;mode=tts"
+        
+        hints = "밥, 식사, 아침, 점심, 저녁, 건강, 아파, 병원, 약, 기분, 좋아, 우울해, 심심해, 산책, 운동, 복지관, 노인정, 잠, 주무셨어, 꿈, 어르신, 안녕, 응, 그래, 아니"
         twiml = f"""
         <Response>
-            <Gather input="speech" action="/api/callbot/gather" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true">
+            <Gather input="speech" action="/api/callbot/gather" method="POST" language="ko-KR" speechTimeout="2.0" bargeIn="true" enhanced="true" hints="{hints}" profanityFilter="false">
                 <Play contentType="audio/basic">{stream_url}</Play>
             </Gather>
         </Response>

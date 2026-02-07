@@ -321,12 +321,11 @@ class CallbotService(BaseService):
         # Initial greeting is pure TTS
         stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={encoded_greeting}&amp;call_sid={call_sid}&amp;mode=tts&amp;elderly_id={elderly_id}"
 
-        # [Updated] TwiML 구조 개선: 명확한 Gather 설정 및 힌트 추가
-        # bargeIn=true: 말하면 바로 듣기 시작
-        # timeout=5: 말 끝난 후 5초 대기
+        # [Updated] 음성 인식 성능 향상: enhanced="true" 및 hints 추가
+        hints = "밥, 식사, 아침, 점심, 저녁, 건강, 아파, 병원, 약, 기분, 좋아, 우울해, 심심해, 산책, 운동, 복지관, 노인정, 잠, 주무셨어, 꿈, 어르신, 안녕, 응, 그래, 아니"
         twiml = f"""
         <Response>
-            <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true" timeout="5" speechModel="phone_call">
+            <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="2.0" bargeIn="true" timeout="5" speechModel="phone_call" enhanced="true" hints="{hints}" profanityFilter="false">
                 <Play contentType="audio/basic">{stream_url}</Play>
             </Gather>
             <Redirect>/api/callbot/gather?elderly_id={elderly_id}&amp;retry=0</Redirect>
