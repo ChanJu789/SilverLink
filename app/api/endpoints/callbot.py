@@ -318,7 +318,7 @@ async def gather(
             return Response(content=twiml, media_type="application/xml")
         
         # [Immediate Emergency Check] 응급 상황 감지
-        emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어", "아파"]
+        emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 너무 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어"]
         if any(k in speech_result for k in emergency_keywords):
             logger.info(f"🚨 [Immediate Emergency] Emergency detected: {speech_result}")
             emergency_msg = urllib.parse.quote("어르신 확인했습니다. 안전을 위해 담당 상담사님과 보호자님께 긴급알림을 즉시 전송하겠습니다.")

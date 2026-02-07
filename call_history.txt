@@ -3669,3 +3669,51 @@ Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 2
 Filled: {}
 Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.01965785026550293, 'memory_search': 0.03915548324584961, 'intent_check': 0.4511284828186035, 'unified_llm_processing': 1.7192702293395996, 'total_processing': 2.3479442596435547}
 --------------------------------------------------
+[2026-02-07 16:48:50] [CAf670cf]
+User: 어깨가 아파
+Filtered: 어깨가 아파
+AI: 어깨가 아프시군요. 그런 증상 때문에 힘드시겠어요. 오늘 식사는 잘 하셨나요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 1
+Filled: {'건강 상태': '아파'}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.009743452072143555, 'memory_search': 0.01984095573425293, 'intent_check': 0.4298372268676758, 'unified_llm_processing': 0.8245649337768555, 'total_processing': 2.390289306640625}
+--------------------------------------------------
+[2026-02-07 16:48:59] [CAf670cf]
+User: 아홉개만 파는
+Filtered: 아홉개만 파는
+AI: 아홉 개만 파는군요. 어떤 음식을 드셨는지 궁금하네요. 맛있었나요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 2
+Filled: {'건강 상태': '아파'}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.0071141719818115234, 'memory_search': 0.01943659782409668, 'intent_check': 0.19838714599609375, 'unified_llm_processing': 0.8027002811431885, 'total_processing': 2.416287899017334}
+--------------------------------------------------
+[2026-02-07 16:49:03] [CAf670cf]
+User: 머리가 아파
+Filtered: 머리가 아파
+AI: 머리가 아프시군요. 정말 힘드시겠어요. 혹시 오늘 식사는 잘 챙겨 드셨나요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 0
+Filled: {'건강 상태': '머리가 아파'}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.006856441497802734, 'memory_search': 0.017523765563964844, 'intent_check': 0.19639062881469727, 'unified_llm_processing': 1.061274528503418, 'total_processing': 2.0297884941101074}
+--------------------------------------------------
+[2026-02-07 16:49:07] [CAf670cf]
+User: 아니
+Filtered: 아니
+AI: 식사를 못 하셨군요. 그러면 몸이 더 힘들 수 있겠어요. 지금 뭔가 드실 생각은 있으신가요?
+Target: 식사 여부 | Next Target: 기분 | Deepdive: 1
+Filled: {'식사 여부': '아니', '건강 상태': '머리가 아파'}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.008773326873779297, 'memory_search': 0.018024682998657227, 'intent_check': 0.0, 'unified_llm_processing': 0.900780200958252, 'total_processing': 2.2359182834625244}
+--------------------------------------------------
+[2026-02-07 16:49:55] [CAc5048b]
+User: 아빠
+Filtered: 아빠
+AI: 어르신, 아버지에 대해 말씀해 주시는 건가요? 어떤 이야기를 나누고 싶으신지 궁금해요.
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 1
+Filled: {}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.0064013004302978516, 'memory_search': 0.020084381103515625, 'intent_check': 0.0, 'unified_llm_processing': 0.7002763748168945, 'total_processing': 2.3416354656219482}
+--------------------------------------------------
+[2026-02-07 16:49:58] [CAc5048b]
+User: 등이 아파.
+Filtered: 등이 아파.
+AI: 아, 등 아프신가요? 정말 힘드시겠어요. 혹시 아프신 등 때문에 오늘 식사를 못 하신 건가요?
+Target: 식사 여부 | Next Target: 식사 여부 | Deepdive: 2
+Filled: {'건강 상태': '아파'}
+Timeouts: {'stt_processing': 'External (Twilio)', 'pii_filtering': 0.007078409194946289, 'memory_search': 0.02819371223449707, 'intent_check': 0.2017827033996582, 'unified_llm_processing': 0.6714878082275391, 'total_processing': 2.0929079055786133}
+--------------------------------------------------

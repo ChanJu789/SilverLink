@@ -525,7 +525,7 @@ class CallbotService(BaseService):
         if len(clean_text) <= 5: 
             return "GENERAL"
         
-        emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어","일일구"]
+        emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 너무 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어", "일일구"]
         if any(k in clean_text for k in emergency_keywords):
             return "EMERGENCY"
 
@@ -1203,7 +1203,7 @@ Output:<|im_end|>
             print(f"🚀 [Real-time] Generating response for: {user_input}")
             
             # [Added] Emergency Check for Fast LLM
-            emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어"]
+            emergency_keywords = ["살려줘", "숨이 안", "숨 못", "가슴이 너무 아파", "쓰러졌", "119", "죽을 것 같", "도와줘", "큰일났어"]
             if any(k in user_input for k in emergency_keywords):
                 emergency_response = "어르신 확인했습니다. 안전을 위해 담당 상담사님과 보호자님께 긴급알림을 즉시 전송하겠습니다."
                 wav_data = await self.generate_tts_stream(emergency_response)
