@@ -32,7 +32,7 @@ except ImportError:
     PRESIDIO_AVAILABLE = False
 
 try:
-    # from mem0 import Memory
+    from mem0 import Memory
     MEM0_AVAILABLE = True
 except ImportError:
     print("⚠️ Mem0 library not found. Memory feature will be disabled.")
@@ -138,7 +138,6 @@ class OrchestratorEngine:
         # 3. Initialize Memory
         if MEM0_AVAILABLE:
             try:
-                from mem0 import Memory
                 
                 # 절대 경로 확보
                 abs_db_path = os.path.join(configs.PROJECT_ROOT, "mem_db")
@@ -1233,7 +1232,7 @@ Output:<|im_end|>
             slots = session.get("slots", {})
             filled_slots = [k for k, v in slots.items() if v is not None]
             missing_slots = [k for k, v in slots.items() if v is None]
-            current_target = missing_slots[0] if missing_slots else "건강 당부"
+            current_target = missing_slots[0] if missing_slots else "작별 인사 및 건강 당부"
             
             # 현재 대화의 깊이(Deep Dive) 확인
             deep_dive_count = session.get("deep_dive_count", 0)
@@ -1244,16 +1243,15 @@ Output:<|im_end|>
             # [추가] 이번 사용자 발화로 인해 사실상 모든 질문이 끝났는지 실시간 확인
             # 만약 남은 슬롯이 1개인데, 사용자가 지금 그에 대해 대답했다면 사실상 마무리 단계임
             remaining_count = len(missing_slots)
-            is_answering_last_slot = (remaining_count <= 1 and current_target in missing_slots)
             
-            # 마무리 단계인지 확인 (명시적 목표이거나, 사실상 마지막 답변 중일 때)
-            is_final_stage = (current_target == "작별 인사 및 건강 당부") or (remaining_count == 0) or (is_answering_last_slot and deep_dive_count >= 1)
+            # [수정] 마무리 단계인지 확인 (명시적으로 모든 슬롯이 채워졌을 때만 작별 인사 수행)
+            is_final_stage = (current_target == "작별 인사 및 건강 당부") or (remaining_count == 0)
             
             if is_final_stage:
                 # 진짜 마지막 인사 단계 (질문 절대 금지)
-                mission_instruction = "Finish the call warmly. You MUST end with '다음에 또 연락드릴게요.' and NEVER ask any questions."
+                mission_instruction = "Finish the call warmly. You MUST end with '오늘도 무리하지 마시고 건강 잘 챙기세요. 다음에도 편하실 때 또 이야기 나눠요.' and NEVER ask any questions."
                 flow_instruction = "Only provide a reaction and health advice. Strictly ZERO questions allowed. Do not ask about plans, feelings, or status."
-                format_instruction = "[Warm Reaction.] + [Health Advice.] + 다음에 또 연락드릴게요."
+                format_instruction = "[Warm Reaction.] + [Health Advice.] + 오늘도 무리하지 마시고 건강 잘 챙기세요. 다음에도 편하실 때 또 이야기 나눠요."
             elif 0 < deep_dive_count < MAX_DEEP_DIVE_TURNS and not is_already_filled:
                 # 심층 대화 모드 (1회차)
                 mission_instruction = f"Focus on a natural follow-up about what the user just said. Keep the same topic."
