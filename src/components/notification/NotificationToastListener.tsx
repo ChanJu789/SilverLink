@@ -36,6 +36,9 @@ const NotificationToastListener = () => {
                     try {
                         const data: NotificationDetail = JSON.parse(event.data);
 
+                        // 전역 이벤트 발생 (배지 업데이트용)
+                        window.dispatchEvent(new Event('silverlink:notification-received'));
+
                         // COUNSELOR_COMMENT 타입인 경우 토스트 알림 표시
                         if (data.notificationType === 'COUNSELOR_COMMENT') {
                             toast.info("새로운 상담사 코멘트", {
@@ -54,6 +57,20 @@ const NotificationToastListener = () => {
                     } catch (e) {
                         console.error("Failed to parse notification event:", e);
                     }
+                });
+
+                eventSource.addEventListener('emergency-alert', (event: MessageEvent) => {
+                    try {
+                        // 전역 이벤트 발생
+                        window.dispatchEvent(new Event('silverlink:emergency-alert-received'));
+                    } catch (e) {
+                        console.error("Failed to parse emergency alert event:", e);
+                    }
+                });
+
+                eventSource.addEventListener('unread-count', (event: MessageEvent) => {
+                    // 미확인 수 업데이트 이벤트 필요 시 구현
+                    window.dispatchEvent(new Event('silverlink:notification-received'));
                 });
 
                 eventSource.onerror = () => {

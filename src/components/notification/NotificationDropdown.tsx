@@ -32,7 +32,7 @@ import {
     markAllAsRead as markAllNotificationAsRead,
     NotificationSummary
 } from "@/api/notifications";
-import { EventSourcePolyfill } from 'event-source-polyfill';
+
 
 interface NotificationDropdownProps {
     role: "guardian" | "counselor" | "admin";
@@ -77,44 +77,26 @@ const NotificationDropdown = ({ role }: NotificationDropdownProps) => {
         fetchData();
         const interval = setInterval(fetchData, 30000);
 
-        // SSE 연결 설정
-        const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
-        const token = localStorage.getItem('accessToken');
-        const sseUrl = `${API_BASE_URL}/api/sse/subscribe`;
+        const handleBadgeUpdate = () => {
+            console.log("알림 수신: 배지 업데이트");
+            fetchData();
 
-        let eventSource: EventSource | null = null;
-
-        if (token) {
+            // 알림음 재생 (선택적)
             try {
-                // @ts-ignore
-                eventSource = new EventSourcePolyfill(sseUrl, {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    },
-                    withCredentials: true,
-                    heartbeatTimeout: 3600000,
-                }) as unknown as EventSource;
-
-                const handleUpdate = () => {
-                    console.log("알림 수신: 배지 업데이트");
-                    fetchData();
-                };
-
-                eventSource.addEventListener('emergency-alert', handleUpdate);
-                eventSource.addEventListener('notification', handleUpdate);
-
-                eventSource.onerror = () => {
-                    // 연결 오류 시 조용히 닫기 (주기적 폴링이 있으므로 재연결 로직은 복잡하게 가져가지 않음)
-                    eventSource?.close();
-                };
+                const audio = new Audio('/notification.mp3');
+                audio.play().catch(e => console.log('Audio play failed:', e));
             } catch (e) {
-                console.error("Failed to connect SSE:", e);
+                console.log('Audio creation failed:', e);
             }
-        }
+        };
+
+        window.addEventListener('silverlink:notification-received', handleBadgeUpdate);
+        window.addEventListener('silverlink:emergency-alert-received', handleBadgeUpdate);
 
         return () => {
             clearInterval(interval);
-            eventSource?.close();
+            window.removeEventListener('silverlink:notification-received', handleBadgeUpdate);
+            window.removeEventListener('silverlink:emergency-alert-received', handleBadgeUpdate);
         };
     }, [fetchData]);
 
