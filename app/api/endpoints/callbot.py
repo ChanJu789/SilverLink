@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 from app.core.container import Container
 from app.core.middleware import inject_callbot
-from app.callbot.services.callbot_service import CallbotService
+from app.callbot.services.callbot_service import CallbotService, CallSession
 from app.queue.sqs_client import SQSClient
 from app.queue.message_schema import CallRequestMessage
 from app.core.config import configs
@@ -272,7 +272,7 @@ async def gather(
                 return Response(content=twiml, media_type="application/xml")
             else:
                 # 2차 무응답: 종료 안내 멘트 후 끊기
-                logger.info(f"🔇 [No Input] Max retries reached. Hanging up.")
+                logger.info("🔇 [No Input] Max retries reached. Hanging up.")
                 bye_msg = urllib.parse.quote("답변이 없으셔서 통화를 종료할게요. 다음에 또 연락드릴게요. 건강하세요!")
                 stream_url = f"{configs.CALL_CONTROLL_URL}/api/callbot/stream_response?text={bye_msg}&amp;call_sid={call_sid}&amp;mode=tts"
                 
@@ -347,14 +347,31 @@ async def gather(
         background_tasks.add_task(service.process_conversation, call_sid, elderly_id, speech_result)
 
         # 3. TwiML 즉시 반환
-        twiml = f"""
-        <Response>
-            <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true" timeout="5" speechModel="phone_call">
+        # [마무리 체크] 현재 목표가 '작별 인사'인 경우에만 전화를 끊도록 설정
+        session = CallSession.get_session(call_sid)
+        missing_slots = [k for k, v in session.get("slots", {}).items() if v is None]
+        current_target = missing_slots[0] if missing_slots else "작별 인사 및 건강 당부"
+        
+        # 진짜 마지막 단계(작별 인사)일 때만 끊기
+        is_finish = (current_target == "작별 인사 및 건강 당부")
+        
+        if is_finish:
+            twiml = f"""
+            <Response>
                 <Play contentType="audio/basic">{stream_url}</Play>
-            </Gather>
-            <Redirect>/api/callbot/gather?elderly_id={elderly_id}&amp;retry=0</Redirect>
-        </Response>
-        """
+                <Pause length="5"/>
+                <Hangup/>
+            </Response>
+            """
+        else:
+            twiml = f"""
+            <Response>
+                <Gather input="speech" action="/api/callbot/gather?elderly_id={elderly_id}" method="POST" language="ko-KR" speechTimeout="auto" bargeIn="true" timeout="5" speechModel="phone_call">
+                    <Play contentType="audio/basic">{stream_url}</Play>
+                </Gather>
+                <Redirect>/api/callbot/gather?elderly_id={elderly_id}&amp;retry=0</Redirect>
+            </Response>
+            """
         return Response(content=twiml, media_type="application/xml")
         
     except Exception as e:

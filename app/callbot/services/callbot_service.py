@@ -1,6 +1,5 @@
 import time
 import asyncio
-import json
 import re
 import os
 import multiprocessing
@@ -11,11 +10,8 @@ import io
 import traceback
 import boto3
 import requests
-import uuid # UUID 추가
 from twilio.rest import Client as TwilioClient
 from datetime import datetime
-from qdrant_client import QdrantClient # Qdrant 직접 제어
-from qdrant_client.models import PointStruct
 
 # Disable Mem0 Telemetry to prevent PostHog connection errors
 os.environ["MEM0_TELEMETRY"] = "false"
@@ -36,7 +32,7 @@ except ImportError:
     PRESIDIO_AVAILABLE = False
 
 try:
-    from mem0 import Memory
+    # from mem0 import Memory
     MEM0_AVAILABLE = True
 except ImportError:
     print("⚠️ Mem0 library not found. Memory feature will be disabled.")
@@ -348,7 +344,7 @@ class CallbotService(BaseService):
         
         # 1. 기억 검색
         try:
-            mem_user_id = f"elderly_{elderly_id}"
+            # mem_user_id = f"elderly_{elderly_id}"
             all_mems = self.get_memories(elderly_id)
             res_list = all_mems.get("results", []) if isinstance(all_mems, dict) else all_mems
             
@@ -589,7 +585,8 @@ Output:<|im_end|>
             print(f"🛑 [Fast Exit] Termination detected immediately: {raw_user_input}")
             final_response = "네, 알겠습니다. 어르신, 편히 쉬시고 다음에 또 목소리 들려주세요. 건강하세요!"
             
-            if "history" not in session: session["history"] = []
+            if "history" not in session: 
+                session["history"] = []
             session["history"].append({"user": raw_user_input, "ai": final_response})
             
             if call_id:
@@ -665,24 +662,16 @@ Output:<|im_end|>
         current_missing = [s for s, v in session["slots"].items() if v is None]
         target_slot = current_missing[0] if current_missing else "작별 인사 및 건강 당부"
         
-        exit_keywords = ["그만", "그만해", "됐어", "종료", "끊어", "끊을게", "다음에하자", "또전화", "다음에연락"]
-        clean_input = user_input.replace(" ", "")
-        
-        # 종료 감지 로직 (예외 처리 추가)
-        is_exit_input = any(k in clean_input for k in exit_keywords)
-        if "끊어졌어" in clean_input:
-            is_exit_input = False
-            
-        force_slot_question = is_exit_input or (session["deep_dive_count"] >= MAX_DEEP_DIVE_TURNS)
-        
         if not current_missing:
-            force_slot_question = False
             target_slot = "작별 인사 및 건강 당부"
 
         unified_system_prompt = f"""
     # MISSION
     You are an Analyst AI. Your ONLY goal is to extract key information (Slots) from the user's input.
     DO NOT generate a response. The response has already been handled by another system.
+    
+    [User Profile & Long-term Memory]
+    {relevant_memories_text}
     
     [Current Status]
     - Turn: {current_turn_count}
@@ -740,24 +729,19 @@ Output:<|im_end|>
                     any_slot_filled = True
 
             # [Improved] 딥다이브 카운트 로직 개선
-            # 1. 현재 목표였던 슬롯(target_slot)이 이번 턴에 채워졌는지 확인
+            # 1. 현재 목표였던 슬롯(target_slot)이 채워졌는지 확인
             target_filled = (target_slot in session["slots"] and session["slots"][target_slot] is not None)
             
-            if target_filled:
-                # 목표 달성! 다음 주제로 넘어가기 위해 카운트 리셋 (또는 딥다이브 종료)
-                # 단, 사용자가 너무 짧게 대답했다면 한 번 더 물어볼 수도 있음(선택 사항).
-                # 여기서는 깔끔하게 다음으로 넘어가도록 0으로 리셋.
-                session["deep_dive_count"] = 0
-            elif any_slot_filled:
-                # 목표는 아니지만 다른 정보를 줬다면 대화 이어가기 (카운트 증가)
-                session["deep_dive_count"] += 1
-            else:
-                # 아무 정보도 없으면 리셋 (화제 전환 유도)
-                session["deep_dive_count"] = 0
+            # 2. 슬롯이 채워졌든 아니든, 한 주제에 대해 충분히(2회) 대화하도록 유도
+            session["deep_dive_count"] += 1
             
-            # [Safety] 카운트가 너무 커지면 강제 리셋
+            # [Safety] 카운트가 최대치(2회)를 넘었을 때만 강제로 0으로 리셋하고 다음 주제로 이동
             if session["deep_dive_count"] > MAX_DEEP_DIVE_TURNS:
+                print(f"🔄 [Topic Transition] Max deep dive reached. Moving to next topic.")
                 session["deep_dive_count"] = 0
+            elif target_filled and session["deep_dive_count"] >= 1:
+                # 이미 목표 슬롯을 채웠고, 최소 1번 이상 딥다이브를 했다면 유연하게 판단 가능
+                pass
             
             # 다음 타겟 슬롯 계산 (로그용)
             next_missing = [s for s, v in session["slots"].items() if v is None]
@@ -825,7 +809,8 @@ Output:<|im_end|>
 
     async def _analyze_sentiment_with_llm(self, text: str) -> Optional[str]:
         """Analyzes sentiment (GOOD, BAD, NORMAL) using LLM."""
-        if not text: return None
+        if not text: 
+            return None
         
         prompt = f"""
         Analyze the sentiment of the following text regarding health or sleep condition.
@@ -843,9 +828,12 @@ Output:<|im_end|>
                 temperature=0.0
             )
             result = response.choices[0].message.content.strip().upper()
-            if "GOOD" in result: return "GOOD"
-            if "BAD" in result: return "BAD"
-            if "NORMAL" in result: return "NORMAL"
+            if "GOOD" in result: 
+                return "GOOD"
+            if "BAD" in result: 
+                return "BAD"
+            if "NORMAL" in result: 
+                return "NORMAL"
             return None
         except Exception as e:
             print(f"Sentiment Analysis Error: {e}")
@@ -853,7 +841,8 @@ Output:<|im_end|>
 
     async def _analyze_meal_status_with_llm(self, text: str) -> Optional[bool]:
         """Analyzes meal status (True/False) using LLM."""
-        if not text: return None
+        if not text: 
+            return None
         
         prompt = f"""
         Determine if the user has eaten a meal based on the text.
@@ -871,8 +860,10 @@ Output:<|im_end|>
                 temperature=0.0
             )
             result = response.choices[0].message.content.strip().upper()
-            if "TRUE" in result: return True
-            if "FALSE" in result: return False
+            if "TRUE" in result: 
+                return True
+            if "FALSE" in result: 
+                return False
             return None
         except Exception as e:
             print(f"Meal Analysis Error: {e}")
@@ -1021,7 +1012,7 @@ Output:<|im_end|>
                                        Body=response.content, ContentType="audio/mpeg")
                     return f"s3://{configs.AWS_S3_BUCKET_NAME}/{file_key}"
                 return None
-            except Exception as e:
+            except Exception:
                 return None
 
         s3_uri = await asyncio.to_thread(_sync_upload)
@@ -1113,7 +1104,7 @@ Output:<|im_end|>
         try:
             user_id = f"elderly_{elderly_id}"
             return orchestrator_engine.memory.get_all(user_id=user_id)
-        except Exception as e:
+        except Exception:
             return []
 
     async def _save_full_history_async(self, user_id: str, history: List[Dict]):
@@ -1135,7 +1126,7 @@ Output:<|im_end|>
                     metadata={"source": "callbot"} # 고정된 메타데이터 사용
                 )
 
-            except Exception as e:
+            except Exception:
                 pass
         
         await asyncio.to_thread(_batch_save)
@@ -1229,32 +1220,67 @@ Output:<|im_end|>
             # 장기 기억 검색 (빠르게)
             memory_context = ""
             if orchestrator_engine.memory and elderly_id:
-                try:
-                    all_mems = orchestrator_engine.memory.get_all(user_id=f"elderly_{elderly_id}")
-                    if isinstance(all_mems, dict): all_mems = all_mems.get("results", [])
-                    facts = [m.get('memory', '') for m in all_mems if m]
-                    memory_context = "\n".join(facts[-3:]) # 최신 3개만
-                except: pass
+                
+                all_mems = orchestrator_engine.memory.get_all(user_id=f"elderly_{elderly_id}")
+                if isinstance(all_mems, dict): 
+                    all_mems = all_mems.get("results", [])
+                facts = [m.get('memory', '') for m in all_mems if m]
+                memory_context = "\n".join(facts[-3:]) # 최신 3개만
+                
 
-            # [Improved] Fast LLM을 위한 정교한 프롬프트
+            # [Improved] Fast LLM을 위한 정교한 프롬프트 (Deep Dive 대응)
             session = CallSession.get_session(call_sid)
-            filled_slots = [k for k, v in session.get("slots", {}).items() if v is not None]
-            missing_slots = [k for k, v in session.get("slots", {}).items() if v is None]
+            slots = session.get("slots", {})
+            filled_slots = [k for k, v in slots.items() if v is not None]
+            missing_slots = [k for k, v in slots.items() if v is None]
             current_target = missing_slots[0] if missing_slots else "건강 당부"
+            
+            # 현재 대화의 깊이(Deep Dive) 확인
+            deep_dive_count = session.get("deep_dive_count", 0)
+            
+            # [수정] 카운트가 1일 때만 심층 대화하고, 2 이상이거나 이미 슬롯이 채워졌으면 다음으로 이동
+            is_already_filled = (current_target in filled_slots)
+            
+            # [추가] 이번 사용자 발화로 인해 사실상 모든 질문이 끝났는지 실시간 확인
+            # 만약 남은 슬롯이 1개인데, 사용자가 지금 그에 대해 대답했다면 사실상 마무리 단계임
+            remaining_count = len(missing_slots)
+            is_answering_last_slot = (remaining_count <= 1 and current_target in missing_slots)
+            
+            # 마무리 단계인지 확인 (명시적 목표이거나, 사실상 마지막 답변 중일 때)
+            is_final_stage = (current_target == "작별 인사 및 건강 당부") or (remaining_count == 0) or (is_answering_last_slot and deep_dive_count >= 1)
+            
+            if is_final_stage:
+                # 진짜 마지막 인사 단계 (질문 절대 금지)
+                mission_instruction = "Finish the call warmly. You MUST end with '다음에 또 연락드릴게요.' and NEVER ask any questions."
+                flow_instruction = "Only provide a reaction and health advice. Strictly ZERO questions allowed. Do not ask about plans, feelings, or status."
+                format_instruction = "[Warm Reaction.] + [Health Advice.] + 다음에 또 연락드릴게요."
+            elif 0 < deep_dive_count < MAX_DEEP_DIVE_TURNS and not is_already_filled:
+                # 심층 대화 모드 (1회차)
+                mission_instruction = f"Focus on a natural follow-up about what the user just said. Keep the same topic."
+                flow_instruction = "Give a warm reaction and ask ONE light follow-up question."
+                format_instruction = "[Natural Reaction.] + [Follow-up Question?]"
+            else:
+                # 주제 전환 모드: 반드시 새로운 질문 수행
+                mission_instruction = f"IMPORTANT: Ask a new question about '{current_target}'. DO NOT end the call."
+                flow_instruction = f"Acknowledge briefly, then ask ONE direct question about '{current_target}'."
+                format_instruction = "[Acknowledge.] + [Direct Question about target?]"
 
             system_prompt = f"""
-            Role: 노인 돌봄 AI 상담사 (실버링크).
+            Role: 어르신을 진심으로 아끼는 따뜻한 AI 상담사 (실버링크).
             User Memory: {memory_context}
-            Already Known Info: {filled_slots} (Do NOT ask about these again)
+            Already Known Info: {filled_slots}
             Current Target Topic: {current_target}
             
-            # Guidelines (Strict):
-            1. **Check First**: If the user's latest input ALREADY answers the 'Current Target Topic' or any 'Missing Topics', do NOT ask about it. Move to a natural reaction instead.
-            2. **No Repetition**: Do NOT ask for information that was just provided or is already in 'Already Known Info'.
-            3. **Acknowledge and Flow**: [Warm Reaction to what user said] -> [Light Follow-up or move to NEXT topic].
-            4. **Natural Transition**: If '식사 여부' is done, naturally move to '건강 상태' or '기분'.
-            5. **Tone**: Warm, Respectful, Polite (Haeyo-che).
-            6. **Format**: Plain text only. Max 2 sentences.
+            # MISSION: {mission_instruction}
+            
+            # Guidelines (STRICT):
+            1. **Format**: {format_instruction}
+            2. **Diverse Reactions**: Use varied expressions. DO NOT repeat "정말 다행이에요" every time. 
+               - If doing well: "기분이 아주 좋아 보이시네요!", "듣던 중 반가운 소식이에요.", "오히려 제가 기운이 나네요!"
+               - If something simple: "아, 그렇군요.", "그렇군요, 어르신.", "말씀해 주셔서 감사해요."
+            3. **Contextual Empathy**: Your reaction must match the specific content of the user's sentence.
+            4. **Single Question Rule**: Ask EXACTLY ONE question per response. ZERO questions in the final stage.
+            5. **Tone**: Warm, Polished Haeyo-che. Be like a friendly neighbor, not a robot.
             """
             
             messages = [{"role": "system", "content": system_prompt}]
