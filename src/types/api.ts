@@ -480,7 +480,8 @@ export interface GuardianCallReviewResponse {
 }
 
 export interface UnreviewedCountResponse {
-    count: number;
+    unreviewedCount: number;
+    totalCount: number;
 }
 
 // =====================
