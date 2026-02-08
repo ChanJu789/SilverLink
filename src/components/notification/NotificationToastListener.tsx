@@ -61,8 +61,14 @@ const NotificationToastListener = () => {
 
                 eventSource.addEventListener('emergency-alert', (event: MessageEvent) => {
                     try {
-                        // 전역 이벤트 발생
-                        window.dispatchEvent(new Event('silverlink:emergency-alert-received'));
+                        const data = JSON.parse(event.data);
+                        console.log("🚨 [NotificationToastListener] Emergency Alert Received:", data);
+
+                        // 전역 이벤트 발생 (데이터 포함)
+                        const customEvent = new CustomEvent('silverlink:emergency-alert-received', {
+                            detail: data
+                        });
+                        window.dispatchEvent(customEvent);
                     } catch (e) {
                         console.error("Failed to parse emergency alert event:", e);
                     }
