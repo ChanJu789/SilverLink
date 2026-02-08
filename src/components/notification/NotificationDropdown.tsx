@@ -255,9 +255,12 @@ const NotificationDropdown = ({ role }: NotificationDropdownProps) => {
                                         onClick={() => handleEmergencyClick(item)}
                                     >
                                         <div className="flex items-center gap-2 w-full">
-                                            <Badge className={`${getSeverityColor(item.severity)} text-xs`}>
-                                                {item.severityText}
-                                            </Badge>
+                                            {/* 정서/신체 위험은 표시하지 않음 */}
+                                            {(!['MENTAL_RISK', 'HEALTH_RISK'].includes(item.alertType) && item.severityText !== '정서 위험' && item.severityText !== '신체 위험') && (
+                                                <Badge className={`${getSeverityColor(item.severity)} text-xs`}>
+                                                    {item.severityText}
+                                                </Badge>
+                                            )}
                                             <span className="font-medium truncate flex-1">{item.title}</span>
                                             {!item.isRead && (
                                                 <span className="w-2 h-2 bg-destructive rounded-full shrink-0" />
@@ -277,6 +280,9 @@ const NotificationDropdown = ({ role }: NotificationDropdownProps) => {
                                         onClick={() => handleNotificationClick(item)}
                                     >
                                         <div className="flex items-center gap-2 w-full">
+                                            {/* 정서/신체 위험은 표시하지 않음 - 제목이나 내용에 포함될 수 있으므로 배지는 '긴급'만 표시하거나 숨김 */}
+                                            {/* 만약 제목이 '정서 위험' 등이라면 숨겨야 함. 여기서는 배지 텍스트가 '긴급'으로 하드코딩 되어있으므로 유지하되, 
+                                                혹시 모를 요구사 항 반영을 위해 조건 추가 가능. 현재는 '긴급'이라 표시됨. */}
                                             <Badge className="bg-destructive text-destructive-foreground text-xs">
                                                 긴급
                                             </Badge>

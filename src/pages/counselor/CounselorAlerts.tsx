@@ -188,7 +188,7 @@ const CounselorAlerts = () => {
 
   const pendingCount = stats?.pendingCount ?? 0;
   const criticalCount = stats?.criticalCount ?? 0;
-  const highCount = stats?.highCount ?? 0;
+  const warningCount = stats?.warningCount ?? 0;
   const resolvedCount = stats?.resolvedCount ?? 0;
 
   return (
@@ -205,7 +205,10 @@ const CounselorAlerts = () => {
               {selectedAlert && <SeverityBadge severity={selectedAlert.severity} />}
               {selectedAlert?.title}
             </DialogTitle>
-            <DialogDescription>{selectedAlert?.alertTypeText}</DialogDescription>
+            {/* 정서/신체 위험은 표시하지 않음 */}
+            <DialogDescription>
+              {!['MENTAL_RISK', 'HEALTH_RISK'].includes(selectedAlert?.alertType || '') && selectedAlert?.alertTypeText}
+            </DialogDescription>
           </DialogHeader>
           {selectedAlert && (
             <div className="space-y-4">
@@ -353,7 +356,7 @@ const CounselorAlerts = () => {
           </Card>
           <Card className="shadow-card border-0 border-l-4 border-l-warning">
             <CardContent className="p-4">
-              <p className="text-3xl font-bold text-warning">{highCount}</p>
+              <p className="text-3xl font-bold text-warning">{warningCount}</p>
               <p className="text-sm text-muted-foreground">주의</p>
             </CardContent>
           </Card>
@@ -391,8 +394,8 @@ const CounselorAlerts = () => {
                 <div
                   key={alert.alertId}
                   className={`p-5 rounded-xl border-2 cursor-pointer transition-colors hover:bg-muted/50 ${alert.severity === "CRITICAL" ? "border-destructive bg-destructive/5" :
-                      alert.severity === "HIGH" ? "border-warning bg-warning/5" :
-                        "border-border bg-muted/30"
+                    alert.severity === "HIGH" ? "border-warning bg-warning/5" :
+                      "border-border bg-muted/30"
                     } ${alert.status === "RESOLVED" || alert.status === "ESCALATED" ? "opacity-60" : ""}`}
                   onClick={() => handleViewDetail(alert.alertId)}
                 >
@@ -400,8 +403,8 @@ const CounselorAlerts = () => {
                     <div className="flex items-start gap-4">
                       <Avatar className="w-12 h-12">
                         <AvatarFallback className={`${alert.severity === "CRITICAL" ? "bg-destructive text-destructive-foreground" :
-                            alert.severity === "HIGH" ? "bg-warning text-warning-foreground" :
-                              "bg-secondary"
+                          alert.severity === "HIGH" ? "bg-warning text-warning-foreground" :
+                            "bg-secondary"
                           }`}>
                           {alert.elderlyName.charAt(0)}
                         </AvatarFallback>
@@ -411,7 +414,10 @@ const CounselorAlerts = () => {
                           <span className="font-semibold text-lg">{alert.elderlyName}</span>
                           <span className="text-muted-foreground">({alert.elderlyAge}세)</span>
                           <SeverityBadge severity={alert.severity} />
-                          <Badge variant="outline">{alert.alertTypeText}</Badge>
+                          {/* 정서/신체 위험은 표시하지 않음 */}
+                          {!['MENTAL_RISK', 'HEALTH_RISK'].includes(alert.alertType) && (
+                            <Badge variant="outline">{alert.alertTypeText}</Badge>
+                          )}
                           <StatusBadge status={alert.status} />
                         </div>
                         <p className="text-foreground mb-2">{alert.description}</p>

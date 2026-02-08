@@ -272,9 +272,12 @@ export const EmergencyAlertPopup = () => {
                         <Badge className={styles.badge}>
                             {currentAlert.severityText}
                         </Badge>
-                        <Badge variant="outline">
-                            {currentAlert.alertTypeText}
-                        </Badge>
+                        {/* 정서/신체 위험은 표시하지 않음 */}
+                        {!['MENTAL_RISK', 'HEALTH_RISK'].includes(currentAlert.alertType) && (
+                            <Badge variant="outline">
+                                {currentAlert.alertTypeText}
+                            </Badge>
+                        )}
                     </div>
 
                     {/* 제목 */}
@@ -327,7 +330,7 @@ export const EmergencyAlertPopup = () => {
                     </Button>
                 </DialogFooter>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 };
 

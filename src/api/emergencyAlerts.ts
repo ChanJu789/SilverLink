@@ -113,7 +113,7 @@ export interface EmergencyAlertStats {
     resolvedCount: number;
     escalatedCount: number;
     criticalCount: number;
-    highCount: number;
+    warningCount: number;
 }
 
 // 알림 처리 요청
@@ -144,19 +144,25 @@ export const getUnreadAlerts = async (): Promise<RecipientAlertResponse[]> => {
     const rawData = response.data.data || [];
 
     // 백엔드 중첩 구조를 프론트엔드 플랫 구조로 변환
-    return rawData.map((item) => ({
-        alertId: item.alertId,
-        severity: item.alert?.severity ?? 'CRITICAL' as Severity,
-        severityText: item.alert?.severityText ?? '긴급',
-        alertType: item.alert?.alertType ?? 'HEALTH_RISK' as AlertType,
-        alertTypeText: item.alert?.alertTypeText ?? '긴급위험',
-        title: item.alert?.title ?? '긴급 알림',
-        elderlyName: item.alert?.elderlyName ?? '알 수 없음',
-        elderlyAge: item.alert?.elderlyAge ?? 0,
-        isRead: item.isRead,
-        createdAt: item.alert?.createdAt ?? '',
-        timeAgo: item.alert?.timeAgo ?? '',
-    }));
+    return rawData.map((item) => {
+        // 기본값: 신체 위험 (AI 분류 미지원으로 신체위험 고정)
+        const alertType = item.alert?.alertType ?? 'HEALTH_RISK' as AlertType;
+        const alertTypeText = item.alert?.alertTypeText ?? '신체 위험';
+
+        return {
+            alertId: item.alertId,
+            severity: item.alert?.severity ?? 'CRITICAL' as Severity,
+            severityText: item.alert?.severityText ?? '긴급',
+            alertType: alertType,
+            alertTypeText: alertTypeText,
+            title: item.alert?.title ?? '긴급 알림',
+            elderlyName: item.alert?.elderlyName ?? '알 수 없음',
+            elderlyAge: item.alert?.elderlyAge ?? 0,
+            isRead: item.isRead,
+            createdAt: item.alert?.createdAt ?? '',
+            timeAgo: item.alert?.timeAgo ?? '',
+        };
+    });
 };
 
 /**

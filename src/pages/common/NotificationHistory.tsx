@@ -161,9 +161,10 @@ const NotificationHistory = () => {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        {item.type === 'emergency' ? (
+                                                        {/* 정서/신체 위험은 표시하지 않음 */}
+                                                        {(item.type === 'emergency' && !['MENTAL_RISK', 'HEALTH_RISK'].includes(item.alertType)) ? (
                                                             <Badge className={getSeverityColor(item.severity)}>{item.severityText}</Badge>
-                                                        ) : item.notificationType === 'EMERGENCY_NEW' ? (
+                                                        ) : item.type !== 'emergency' && item.notificationType === 'EMERGENCY_NEW' ? (
                                                             <Badge className="bg-destructive text-destructive-foreground">긴급</Badge>
                                                         ) : (
                                                             <Badge variant="outline">{item.notificationTypeText}</Badge>
