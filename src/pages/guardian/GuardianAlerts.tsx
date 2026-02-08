@@ -101,7 +101,10 @@ const GuardianAlerts = () => {
                             {selectedAlert && <SeverityBadge severity={selectedAlert.severity} />}
                             {selectedAlert?.title}
                         </DialogTitle>
-                        <DialogDescription>{selectedAlert?.alertTypeText}</DialogDescription>
+                        {/* 정서/신체 위험은 표시하지 않음 */}
+                        <DialogDescription>
+                            {!['MENTAL_RISK', 'HEALTH_RISK'].includes(selectedAlert?.alertType || '') && selectedAlert?.alertTypeText}
+                        </DialogDescription>
                     </DialogHeader>
 
                     {selectedAlert && (
@@ -196,8 +199,8 @@ const GuardianAlerts = () => {
                                 <div
                                     key={alert.alertId}
                                     className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md ${alert.severity === "CRITICAL" ? "border-destructive/50 bg-destructive/5" :
-                                            alert.severity === "HIGH" ? "border-warning/50 bg-warning/5" :
-                                                "border-border bg-card hover:bg-accent/50"
+                                        alert.severity === "HIGH" ? "border-warning/50 bg-warning/5" :
+                                            "border-border bg-card hover:bg-accent/50"
                                         }`}
                                     onClick={() => handleViewDetail(alert.alertId)}
                                 >
@@ -215,9 +218,12 @@ const GuardianAlerts = () => {
                                                 </div>
                                                 <p className="text-sm text-foreground/80 line-clamp-1">{alert.description}</p>
                                                 <div className="flex items-center gap-2 mt-2">
-                                                    <Badge variant="outline" className="text-xs text-muted-foreground font-normal">
-                                                        {alert.alertTypeText}
-                                                    </Badge>
+                                                    {/* 정서/신체 위험은 표시하지 않음 */}
+                                                    {!['MENTAL_RISK', 'HEALTH_RISK'].includes(alert.alertType) && (
+                                                        <Badge variant="outline" className="text-xs text-muted-foreground font-normal">
+                                                            {alert.alertTypeText}
+                                                        </Badge>
+                                                    )}
                                                     {alert.status === 'RESOLVED' && (
                                                         <span className="text-xs text-green-600 font-medium flex items-center gap-1">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
