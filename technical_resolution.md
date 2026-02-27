@@ -1,7 +1,40 @@
-# SilverLink-AI 프로젝트 기술적 문제 해결 사례 (Technical Resolutions)
+# 기술적 문제 해결 (Technical Resolutions)
+
+<br><br>
 
 ## 1. TTS 스트리밍 및 백그라운드 분석 도입을 통한 응답 지연 시간 60% 단축 (5s → 2s)
 
+```mermaid
+sequenceDiagram
+    participant U as 어르신 (User)
+    participant S as Callbot Service
+    participant LLM as GPT-4o-mini (Stream)
+    participant TTS as Luxia TTS (u-law)
+    participant BG as Async Analysis Pipeline
+
+    U->>S: 사용자 발화 완료 (STT)
+    
+    par [Fast Path] 실시간 응답 생성 (TTFB < 1s)
+        S->>LLM: 응답 스트리밍 요청
+        loop 문장 조각(Chunk) 단위 처리
+            LLM-->>S: "안녕하세요." (Chunk 1)
+            S->>TTS: 즉시 TTS 변환 요청
+            TTS-->>S: u-law 오디오 데이터
+            S->>U: 실시간 음성 송출 (재생 시작)
+            LLM-->>S: "밥은 드셨나요?" (Chunk 2)
+            S->>TTS: 즉시 TTS 변환 요청
+            TTS-->>S: u-law 오디오 데이터
+            S->>U: 실시간 음성 송출
+        end
+    and [Slow Path] 비동기 데이터 분석
+        S->>BG: PII 필터링 & 슬롯 추출 시작
+        BG->>BG: 의도 파악 및 감정 분석
+        BG-->>S: 분석 결과 반환 (Sync 대기)
+    end
+    
+    S->>S: Fast LLM 응답 완료 확인 (Session Sync)
+    S->>Backend: [최종] 분석 데이터 + 대화 내역 저장
+```
 - **문제 원인 (Bottleneck)**
   - **직렬 처리 구조의 한계**: `[문장 생성] → [음성 변환(TTS)] → [재생]`의 순차적 동작으로 인해 문장이 길어질수록 어르신이 체감하는 대기 시간이 **평균 5초 이상** 발생.
   - **분석 오버헤드**: 개인정보 필터링(PII), 의도 파악, 슬롯 추출 등의 분석 작업이 답변 생성 전에 수행되어 지연 가중.
@@ -15,9 +48,22 @@
   - 기존 평균 5.2초였던 응답 대기 시간을 **최대 2.1초대(평균 1.8초)**로 줄여 약 **60% 이상의 성능 향상** 달성.
   - 자연스러운 대화 리듬 확보를 통해 어르신의 대화 이탈률 감소 및 UX 만족도 증대.
 
----
+<br><br>
 
 ## 2. HTTPX 기반 비동기 통신 아키텍처 구축을 통한 백엔드 연동 효율화
+
+```mermaid
+graph TD
+    A[API Server / WebSocket] -->|Async Request| B(HTTPX Client)
+    subgraph Connection Pool
+        B --> C[Conn 1]
+        B --> D[Conn 2]
+        B --> E[Conn 3]
+    end
+    C --> F[Backend / External API]
+    G[Wait/Blocked Status] -.->|Non-blocking| A
+    style G fill:#f96,stroke:#333
+```
 
 - **문제 원인**
   - **Blocking I/O 문제**: 기존 `requests` 라이브러리 사용 시 HTTP 요청 중 스레드가 점유되어, 실시간 스트리밍 대화 중 시스템이 멈추거나 응답이 끊기는 현상 발생.
@@ -32,9 +78,21 @@
   - 실시간 음성 스트리밍과 백엔드 데이터 동기화 작업을 동시에 수행해도 성능 저하 없는 안정적인 환경 구축.
   - 외부 API 호출 지연 시에도 전체 시스템의 동시성(Concurrency)을 유지하여 안정적인 서비스 제공.
 
----
+<br><br>
 
 ## 3. Deep-Dive 구조 설계를 통한 심층 안부 확인 및 대화 연속성 강화
+```mermaid
+flowchart TD
+    Start([사용자 발화 수신]) --> Extract[슬롯 정보 추출]
+    Extract --> CheckFilled{필수 슬롯<br/>모두 채워짐?}
+    CheckFilled -- No --> CheckDive{Deep-dive<br/>Count < 2?}
+    CheckDive -- Yes --> SameTopic[동일 주제 심층 질문 유도]
+    CheckDive -- No --> NextTopic[다음 주제로 전환]
+    CheckFilled -- Yes --> Closing[작별 인사 및 건강 당부]
+    SameTopic --> End([AI 응답 생성 및 송출])
+    NextTopic --> End
+    Closing --> End
+```
 
 - **문제 원인**
   - **단발성 질의응답**: 사용자의 단답형 답변에 대해 즉시 다음 주제로 넘어가면 대화가 기계적이고 차갑게 느껴지는 문제 발생.
@@ -49,9 +107,21 @@
   - 어르신 한 명당 평균 대화 지속 시간 증가 및 보다 구체적인 건강/생활 정보 수집 성공.
   - 기계적인 문답이 아닌 진심 어린 안부를 묻는 '인간 중심 AI' 서비스 가치 구현.
 
----
+<br><br>
 
 ## 4. AWS SQS 및 DLQ를 활용한 비동기 통화 요청의 신뢰성 확보 및 결함 허용(Fault Tolerance) 설계
+```mermaid
+flowchart LR
+    Req[통화 요청] --> SQS[AWS SQS Main Queue]
+    SQS --> Worker[SQS Worker]
+    Worker --> Call{통화 실행}
+    Call -- Success --> Delete[메시지 삭제]
+    Call -- Fail --> Retry{재시도 횟수 < 3?}
+    Retry -- Yes --> Backoff[지수 백오프 적용 재발행]
+    Backoff --> SQS
+    Retry -- No --> DLQ[AWS SQS DLQ 이동]
+    style DLQ fill:#f66,stroke:#333
+```
 
 - **문제 원인**
   - **메시지 유실 및 병목 현상**: 대량의 안부 전화 예약 건 발생 시 서버가 모든 요청을 즉시 처리하려 하면 리소스 부족으로 시스템이 다운되거나 일부 요청이 유실될 위험이 있음.
@@ -66,9 +136,19 @@
   - 급격한 트래픽 증가에도 시스템 안정성 유지 및 모든 안부 전화 요청에 대한 처리 보장(Guaranteed Delivery).
   - 일시적인 네트워크 장애나 외부 서비스 불안정 상황에서도 자동 복구 메커니즘을 통해 서비스 신뢰도 극대화.
 
----
+<br><br>
 
 ## 5. Microsoft Presidio 기반 실시간 개인정보 비식별화(Anonymization) 엔진 구축
+```mermaid
+flowchart LR
+    Raw[사용자 발화 텍스트] --> Detect[Presidio 감지기<br/>Regex + NLP]
+    Detect --> Match{민감 정보<br/>발견?}
+    Match -- Yes --> Replace[태그 치환<br/>'홍길동' -> '이름']
+    Match -- No --> Safe[원본 유지]
+    Replace --> Out[비식별화된 텍스트]
+    Safe --> Out
+    Out --> LLM[외부 LLM API 전송]
+```
 
 - **문제 원인**
   - **개인정보 유출 위험**: 돌봄 서비스의 특성상 어르신이 대화 중 성함, 전화번호, 주소, 주민번호 등 민감한 개인정보를 발설할 가능성이 높음.
