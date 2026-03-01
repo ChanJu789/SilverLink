@@ -85,7 +85,7 @@ graph TD
 flowchart TD
     Start([사용자 발화 수신]) --> Extract[슬롯 정보 추출]
     Extract --> CheckFilled{필수 슬롯<br/>모두 채워짐?}
-    CheckFilled -- No --> CheckDive{Deep-dive<br/>Count < 2?}
+    CheckFilled -- No --> CheckDive{Deep-dive<br/>Count < 2}
     CheckDive -- Yes --> SameTopic[동일 주제 심층 질문 유도]
     CheckDive -- No --> NextTopic[다음 주제로 전환]
     CheckFilled -- Yes --> Closing[작별 인사 및 건강 당부]
@@ -116,7 +116,7 @@ flowchart LR
     SQS --> Worker[SQS Worker]
     Worker --> Call{통화 실행}
     Call -- Success --> Delete[메시지 삭제]
-    Call -- Fail --> Retry{재시도 횟수 < 3?}
+    Call -- Fail --> Retry{재시도 횟수 < 3}
     Retry -- Yes --> Backoff[지수 백오프 적용 재발행]
     Backoff --> SQS
     Retry -- No --> DLQ[AWS SQS DLQ 이동]
