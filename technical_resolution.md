@@ -72,7 +72,6 @@ graph TD
 - **해결 과정**
   - **Async HTTPX Client 도입**: 프로젝트 전반(`http_client.py`, `websoket_twilio.py`, `luxia_client.py` 등)에 비동기 비차단(Non-blocking) 라이브러리인 `httpx`를 전면 도입
   - **Connection Pooling**: `AsyncClient`를 싱글톤 또는 세션 단위로 관리하여 TCP 연결 재사용 및 핸드셰이크 오버헤드 최소화
-  - **고급 에러 핸들링**: `httpx.HTTPStatusError` 및 `RequestError`를 세분화하여 처리하고, 401 Unauthorized 발생 시 자동으로 재로그인하여 토큰을 갱신하는 리트라이 로직 구현
 
 - **결과**
   - 실시간 음성 스트리밍과 백엔드 데이터 동기화 작업을 동시에 수행해도 성능 저하 없는 안정적인 환경 구축
