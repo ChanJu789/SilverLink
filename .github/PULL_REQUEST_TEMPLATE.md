@@ -56,6 +56,7 @@ Closes #
 - [ ] I have updated the documentation accordingly
 - [ ] My changes generate no new warnings or errors
 - [ ] New and existing tests pass locally
+- [ ] CI pipeline passes ✅
 
 ## Reviewer Notes
 
