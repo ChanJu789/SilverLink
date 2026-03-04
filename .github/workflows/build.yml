@@ -1,14 +1,22 @@
-name: CI
+name: Build & Test
 
 on:
+  push:
+    branches: [main]
   pull_request:
-    branches: [develop, main]
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
+  checks: write
+  pull-requests: write
 
 jobs:
-  test:
+  build:
     name: Build & Test
     runs-on: ubuntu-latest
     defaults:
@@ -25,28 +33,27 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('apps/backend/**/*.gradle*', 'apps/backend/gradle-wrapper.properties') }}
-          restore-keys: ${{ runner.os }}-gradle-
-
-      - name: Grant execute permission for Gradlew
-        run: chmod +x gradlew
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Build
         run: ./gradlew build -x test --no-daemon
 
-      - name: Run unit tests
+      - name: Run tests
         run: ./gradlew test --no-daemon -Dspring.profiles.active=ci
 
-      - name: Upload test results
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
+        with:
+          files: apps/backend/build/test-results/**/*.xml
+          check_name: Test Results
+          comment_mode: failures
+
+      - name: Upload test report
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-report
           path: apps/backend/build/reports/tests/
           retention-days: 7
