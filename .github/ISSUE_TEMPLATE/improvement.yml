@@ -1,0 +1,66 @@
+name: 🔧 Improvement
+description: Suggest a refactor, performance improvement, or developer experience enhancement
+title: "[Improvement]: "
+labels: ["improvement"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Improvement Proposal
+        Help us improve code quality, performance, or developer experience.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Improvement Type
+      description: What category does this improvement fall into?
+      options:
+        - Refactor — Code cleanup or restructuring
+        - Performance — Speed, memory, or resource optimization
+        - Developer Experience — Tooling, documentation, or workflow
+        - Testing — Test coverage or test infrastructure
+        - CI/CD — Build, deploy, or pipeline improvements
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-state
+    attributes:
+      label: Current State
+      description: Describe the current behavior, architecture, or code pattern.
+      placeholder: Describe the current state...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-improvement
+    attributes:
+      label: Proposed Improvement
+      description: Describe the improvement and how it would be implemented.
+      placeholder: Describe your proposed improvement...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-impact
+    attributes:
+      label: Expected Impact
+      description: What benefits will this improvement bring?
+      placeholder: |
+        - Reduced bundle size by ~20%
+        - Faster CI pipeline execution
+        - Improved code readability
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any benchmarks, references, or supporting information.
+      placeholder: Add context here...
+    validations:
+      required: false

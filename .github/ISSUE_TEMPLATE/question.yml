@@ -1,0 +1,47 @@
+name: ❓ Question
+description: Ask a question about the project
+title: "[Question]: "
+labels: ["question"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Question
+        Have a question? We're happy to help. Please provide as much detail as possible.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: Ask your question here...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide any relevant context, code snippets, or references.
+      placeholder: Add context to help us understand your question...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Related Area
+      description: Which part of the project does this question relate to?
+      options:
+        - Setup / Installation
+        - Configuration
+        - API / Backend
+        - UI / Frontend
+        - Database
+        - Deployment
+        - Documentation
+        - Other
+    validations:
+      required: false
