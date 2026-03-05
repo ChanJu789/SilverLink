@@ -364,7 +364,7 @@ class SmsServiceTest {
         }
 
         private String invokeBuildEmergencyAlertMessage(EmergencyAlert alert, EmergencyAlertRecipient recipient) {
-            return ReflectionTestUtils.invokeMethod(smsService, "buildEmergencyAlertMessage", alert, recipient);
+            return ReflectionTestUtils.invokeMethod(smsService, "buildEmergencyAlertBodyMessage", alert, recipient);
         }
     }
 }

@@ -149,30 +149,34 @@ public class SmsService {
         return buildShortUrl("admin", null);
     }
 
-    // 하위 호환성을 위한 기존 메서드 유지 (deprecated)
-    @Deprecated
-    private String buildEmergencyAlertMessage(EmergencyAlert alert, EmergencyAlertRecipient recipient) {
-        return buildEmergencyAlertBodyMessage(alert, recipient) + "\n"
-                + buildEmergencyAlertUrlMessage(recipient);
-    }
-
     // ========== 일반 알림 SMS ==========
 
     /**
-     * 문의 답변 SMS 발송
+     * 문의 답변 SMS 발송 (비동기)
      */
     @Async
     @Transactional
-    public void sendInquiryReplySms(User receiver, Long inquiryId) {
+    public void sendInquiryReplySmsAsync(User receiver, Long inquiryId) {
+        String phone = receiver.getPhone();
+        if (phone == null || phone.isBlank()) {
+            log.warn("[SmsService] 수신자 전화번호 없음. userId={}", receiver.getId());
+            return;
+        }
+
+        if (isRecentlySent(phone, MessageType.INQUIRY_REPLY, inquiryId)) {
+            log.info("[SmsService] 최근 동일 SMS 발송 이력 있음. 스킵. inquiryId={}", inquiryId);
+            return;
+        }
+
         try {
-            String phone = formatPhoneNumber(receiver.getPhone());
+            String formattedPhone = formatPhoneNumber(phone);
             String shortUrl = buildShortUrl("guardian", "inquiry");
             String message = "[실버링크]\n등록하신 문의에 답변이 등록되었습니다.\n확인: " + shortUrl;
 
-            SmsLog smsLog = SmsLog.createForInquiryReply(receiver, phone, inquiryId, message, shortUrl);
+            SmsLog smsLog = SmsLog.createForInquiryReply(receiver, formattedPhone, inquiryId, message, shortUrl);
             smsLogRepository.save(smsLog);
 
-            sendSms(phone, message, smsLog, null);
+            sendSms(formattedPhone, message, smsLog, null);
 
         } catch (Exception e) {
             log.error("[SmsService] 문의 답변 SMS 발송 실패. inquiryId={}, error={}",
@@ -181,20 +185,31 @@ public class SmsService {
     }
 
     /**
-     * 민원 답변 SMS 발송
+     * 민원 답변 SMS 발송 (비동기)
      */
     @Async
     @Transactional
-    public void sendComplaintReplySms(User receiver, Long complaintId) {
+    public void sendComplaintReplySmsAsync(User receiver, Long complaintId) {
+        String phone = receiver.getPhone();
+        if (phone == null || phone.isBlank()) {
+            log.warn("[SmsService] 수신자 전화번호 없음. userId={}", receiver.getId());
+            return;
+        }
+
+        if (isRecentlySent(phone, MessageType.COMPLAINT_REPLY, complaintId)) {
+            log.info("[SmsService] 최근 동일 SMS 발송 이력 있음. 스킵. complaintId={}", complaintId);
+            return;
+        }
+
         try {
-            String phone = formatPhoneNumber(receiver.getPhone());
+            String formattedPhone = formatPhoneNumber(phone);
             String shortUrl = buildShortUrl("guardian", "complaint");
             String message = "[실버링크]\n등록하신 민원에 답변이 등록되었습니다.\n확인: " + shortUrl;
 
-            SmsLog smsLog = SmsLog.createForComplaintReply(receiver, phone, complaintId, message, shortUrl);
+            SmsLog smsLog = SmsLog.createForComplaintReply(receiver, formattedPhone, complaintId, message, shortUrl);
             smsLogRepository.save(smsLog);
 
-            sendSms(phone, message, smsLog, null);
+            sendSms(formattedPhone, message, smsLog, null);
 
         } catch (Exception e) {
             log.error("[SmsService] 민원 답변 SMS 발송 실패. complaintId={}, error={}",
@@ -203,23 +218,34 @@ public class SmsService {
     }
 
     /**
-     * 접근권한 승인 SMS 발송
+     * 접근권한 승인 SMS 발송 (비동기)
      */
     @Async
     @Transactional
-    public void sendAccessApprovedSms(User receiver, Long requestId, String elderlyName) {
+    public void sendAccessApprovedSmsAsync(User receiver, Long requestId, String elderlyName) {
+        String phone = receiver.getPhone();
+        if (phone == null || phone.isBlank()) {
+            log.warn("[SmsService] 수신자 전화번호 없음. userId={}", receiver.getId());
+            return;
+        }
+
+        if (isRecentlySent(phone, MessageType.ACCESS_APPROVED, requestId)) {
+            log.info("[SmsService] 최근 동일 SMS 발송 이력 있음. 스킵. requestId={}", requestId);
+            return;
+        }
+
         try {
-            String phone = formatPhoneNumber(receiver.getPhone());
+            String formattedPhone = formatPhoneNumber(phone);
             String shortUrl = buildShortUrl("guardian", "sensitive-info");
             String message = String.format(
                     "[실버링크]\n%s 어르신의 민감정보 열람 권한이 승인되었습니다.\n확인: %s",
                     elderlyName,
                     shortUrl);
 
-            SmsLog smsLog = SmsLog.createForAccessRequest(receiver, phone, true, requestId, message, shortUrl);
+            SmsLog smsLog = SmsLog.createForAccessRequest(receiver, formattedPhone, true, requestId, message, shortUrl);
             smsLogRepository.save(smsLog);
 
-            sendSms(phone, message, smsLog, null);
+            sendSms(formattedPhone, message, smsLog, null);
 
         } catch (Exception e) {
             log.error("[SmsService] 접근권한 승인 SMS 발송 실패. requestId={}, error={}",
@@ -228,23 +254,39 @@ public class SmsService {
     }
 
     /**
-     * 접근권한 거절 SMS 발송
+     * 접근권한 거절 SMS 발송 (비동기)
      */
     @Async
     @Transactional
-    public void sendAccessRejectedSms(User receiver, Long requestId, String elderlyName) {
+    public void sendAccessRejectedSmsAsync(User receiver, Long requestId, String elderlyName, String reason) {
+        String phone = receiver.getPhone();
+        if (phone == null || phone.isBlank()) {
+            log.warn("[SmsService] 수신자 전화번호 없음. userId={}", receiver.getId());
+            return;
+        }
+
+        if (isRecentlySent(phone, MessageType.ACCESS_REJECTED, requestId)) {
+            log.info("[SmsService] 최근 동일 SMS 발송 이력 있음. 스킵. requestId={}", requestId);
+            return;
+        }
+
         try {
-            String phone = formatPhoneNumber(receiver.getPhone());
+            String formattedPhone = formatPhoneNumber(phone);
             String shortUrl = buildShortUrl("guardian", "sensitive-info");
+            String reasonSummary = reason != null && reason.length() > 20
+                    ? reason.substring(0, 20) + "..."
+                    : reason;
             String message = String.format(
-                    "[실버링크]\n%s 어르신의 민감정보 열람 권한 요청이 거절되었습니다.\n사유 확인: %s",
+                    "[실버링크]\n%s 어르신의 민감정보 열람 권한 요청이 거절되었습니다.\n사유: %s\n확인: %s",
                     elderlyName,
+                    reasonSummary != null ? reasonSummary : "사유 미기재",
                     shortUrl);
 
-            SmsLog smsLog = SmsLog.createForAccessRequest(receiver, phone, false, requestId, message, shortUrl);
+            SmsLog smsLog = SmsLog.createForAccessRequest(receiver, formattedPhone, false, requestId, message,
+                    shortUrl);
             smsLogRepository.save(smsLog);
 
-            sendSms(phone, message, smsLog, null);
+            sendSms(formattedPhone, message, smsLog, null);
 
         } catch (Exception e) {
             log.error("[SmsService] 접근권한 거절 SMS 발송 실패. requestId={}, error={}",
@@ -260,6 +302,14 @@ public class SmsService {
      * 명시적으로 unicode 인코딩을 지정하여 발송
      */
     private void sendSms(String toPhone, String messageContent, SmsLog smsLog, EmergencyAlertRecipient recipient) {
+        // SMS 비활성화 상태면 로그만 기록
+        if (!isSmsEnabled()) {
+            log.info("[SmsService] SMS 비활성화 상태. 로그만 기록. phone={}", maskPhone(toPhone));
+            smsLog.markSent("DISABLED_MODE");
+            smsLogRepository.save(smsLog);
+            return;
+        }
+
         try {
             // Twilio Messaging Service를 사용하여 SMS 발송
             Message message = Message.creator(
@@ -300,6 +350,11 @@ public class SmsService {
      * 분할 발송 시 첫 번째 메시지에 사용
      */
     private void sendSmsWithoutLog(String toPhone, String messageContent) {
+        if (!isSmsEnabled()) {
+            log.info("[SmsService] SMS 비활성화 상태. 발송 스킵 (분할 1차). phone={}", maskPhone(toPhone));
+            return;
+        }
+
         try {
             Message message = Message.creator(
                     new PhoneNumber(toPhone),
@@ -383,5 +438,14 @@ public class SmsService {
                 messageType,
                 referenceId,
                 since);
+    }
+
+    /**
+     * SMS 활성화 여부 확인
+     * Twilio 계정이 설정되어 있으면 활성화 상태
+     */
+    private boolean isSmsEnabled() {
+        return twilioProperties.getAccountSid() != null
+                && !twilioProperties.getAccountSid().isBlank();
     }
 }
