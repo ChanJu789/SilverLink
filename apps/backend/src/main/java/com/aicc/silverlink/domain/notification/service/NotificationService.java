@@ -1,5 +1,6 @@
 package com.aicc.silverlink.domain.notification.service;
 
+import com.aicc.silverlink.domain.emergency.service.SmsService;
 import com.aicc.silverlink.domain.notification.dto.NotificationDto.*;
 import com.aicc.silverlink.domain.notification.entity.Notification;
 import com.aicc.silverlink.domain.notification.entity.Notification.NotificationType;
@@ -32,7 +33,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final UnifiedSseService unifiedSseService; // 통합 SSE 서비스
-    private final NotificationSmsService notificationSmsService; // 알림 SMS 서비스
+    private final SmsService smsService; // SMS 서비스 (통합)
 
     // ========== 알림 생성 ==========
 
@@ -67,7 +68,7 @@ public class NotificationService {
 
         // SMS 발송 (보호자에게만)
         if (notification.getNotificationType().isSmsRequired()) {
-            notificationSmsService.sendInquiryReplySmsAsync(receiver, inquiryId);
+            smsService.sendInquiryReplySmsAsync(receiver, inquiryId);
         }
 
         log.info("[NotificationService] 문의 답변 알림 생성. receiverId={}, inquiryId={}", receiverUserId, inquiryId);
@@ -88,7 +89,7 @@ public class NotificationService {
         sendRealtimeNotification(receiverUserId, saved);
 
         if (notification.getNotificationType().isSmsRequired()) {
-            notificationSmsService.sendComplaintReplySmsAsync(receiver, complaintId);
+            smsService.sendComplaintReplySmsAsync(receiver, complaintId);
         }
 
         log.info("[NotificationService] 민원 답변 알림 생성. receiverId={}, complaintId={}", receiverUserId, complaintId);
@@ -108,7 +109,7 @@ public class NotificationService {
         sendRealtimeNotification(receiverUserId, saved);
 
         if (notification.getNotificationType().isSmsRequired()) {
-            notificationSmsService.sendAccessApprovedSmsAsync(receiver, requestId, elderlyName);
+            smsService.sendAccessApprovedSmsAsync(receiver, requestId, elderlyName);
         }
 
         log.info("[NotificationService] 접근권한 승인 알림 생성. receiverId={}, requestId={}", receiverUserId, requestId);
@@ -130,7 +131,7 @@ public class NotificationService {
         sendRealtimeNotification(receiverUserId, saved);
 
         if (notification.getNotificationType().isSmsRequired()) {
-            notificationSmsService.sendAccessRejectedSmsAsync(receiver, requestId, elderlyName, reason);
+            smsService.sendAccessRejectedSmsAsync(receiver, requestId, elderlyName, reason);
         }
 
         log.info("[NotificationService] 접근권한 거절 알림 생성. receiverId={}, requestId={}", receiverUserId, requestId);

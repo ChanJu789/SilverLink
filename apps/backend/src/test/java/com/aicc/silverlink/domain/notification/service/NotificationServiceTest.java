@@ -1,5 +1,6 @@
 package com.aicc.silverlink.domain.notification.service;
 
+import com.aicc.silverlink.domain.emergency.service.SmsService;
 import com.aicc.silverlink.domain.notification.dto.NotificationDto.*;
 import com.aicc.silverlink.domain.notification.entity.Notification;
 import com.aicc.silverlink.domain.notification.entity.Notification.NotificationType;
@@ -49,7 +50,7 @@ class NotificationServiceTest {
     private UnifiedSseService unifiedSseService;
 
     @Mock
-    private NotificationSmsService notificationSmsService;
+    private SmsService smsService;
 
     // 테스트 픽스처
     private User guardianUser;
