@@ -418,12 +418,12 @@ public class NotificationService {
      * 사용자별 알림 통계
      */
     public StatsResponse getStats(Long userId) {
-        long totalCount = notificationRepository.countUnreadByReceiverId(userId);
+        long totalCount = notificationRepository.countByReceiverId(userId);
         long unreadCount = notificationRepository.countUnreadByReceiverId(userId);
 
         LocalDateTime todayStart = LocalDateTime.now().with(LocalTime.MIN);
         LocalDateTime todayEnd = LocalDateTime.now().with(LocalTime.MAX);
-        long todayCount = notificationRepository.countByDateRange(todayStart, todayEnd);
+        long todayCount = notificationRepository.countByReceiverIdAndDateRange(userId, todayStart, todayEnd);
 
         List<Object[]> typeCounts = notificationRepository.countByTypeForUser(userId);
         List<StatsResponse.TypeCount> countByType = typeCounts.stream()
