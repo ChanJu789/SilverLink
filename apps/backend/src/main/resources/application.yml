@@ -114,6 +114,12 @@ callbot:
     connect-timeout: 5000
     read-timeout: 10000
 
+# Internal API authentication (CallBot → Backend)
+internal:
+  api:
+    key: ${INTERNAL_API_KEY:default-dev-key}
+    enabled: ${INTERNAL_API_AUTH_ENABLED:true}
+
 
 
 
