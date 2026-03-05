@@ -302,15 +302,19 @@ class NotificationServiceTest {
         @DisplayName("성공 - 사용자별 알림 통계 조회")
         void getStats_Success() {
             // given
-            given(notificationRepository.count()).willReturn(10L);
+            given(notificationRepository.countByReceiverId(1L)).willReturn(10L);
             given(notificationRepository.countUnreadByReceiverId(1L)).willReturn(3L);
+            given(notificationRepository.countByReceiverIdAndDateRange(eq(1L), any(), any())).willReturn(2L);
             given(notificationRepository.countByTypeForUser(1L)).willReturn(List.of());
 
             // when
             StatsResponse stats = notificationService.getStats(1L);
 
             // then
+            assertThat(stats.getTotalCount()).isEqualTo(10);
             assertThat(stats.getUnreadCount()).isEqualTo(3);
+            assertThat(stats.getTodayCount()).isEqualTo(2);
+            assertThat(stats.getTotalCount()).isNotEqualTo(stats.getUnreadCount());
         }
     }
 

@@ -45,6 +45,23 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         long countUnreadByReceiverId(@Param("userId") Long userId);
 
         /**
+         * 사용자별 전체 알림 수
+         */
+        @Query("SELECT COUNT(n) FROM Notification n " +
+                        "WHERE n.receiver.id = :userId")
+        long countByReceiverId(@Param("userId") Long userId);
+
+        /**
+         * 사용자별 기간별 알림 수
+         */
+        @Query("SELECT COUNT(n) FROM Notification n " +
+                        "WHERE n.receiver.id = :userId AND n.createdAt BETWEEN :start AND :end")
+        long countByReceiverIdAndDateRange(
+                        @Param("userId") Long userId,
+                        @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
+
+        /**
          * 사용자별 알림 유형별 조회
          */
         @Query("SELECT n FROM Notification n " +
