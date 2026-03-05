@@ -18,9 +18,9 @@ import org.springframework.web.bind.annotation.*;
  * 긴급 알림 내부 API 컨트롤러
  * CallBot 시스템에서 호출하는 내부 전용 API
  *
- * 보안: 이 API는 내부 네트워크에서만 접근 가능해야 함
- * - API Gateway에서 /api/internal/** 경로 차단
- * - 또는 별도의 API Key 인증 적용
+ * 보안: InternalApiKeyAuthFilter에서 X-Internal-Api-Key 헤더 검증
+ * - application.yml의 internal.api.key 값과 비교
+ * - 일치하지 않으면 401 Unauthorized 반환
  */
 @Slf4j
 @RestController
@@ -42,11 +42,7 @@ public class EmergencyAlertInternalController {
         @Operation(summary = "긴급 알림 생성", description = "CallBot에서 위험 감지 시 긴급 알림을 생성합니다. " +
                         "알림 생성 후 자동으로 관리자, 상담사, 보호자에게 웹/SMS 알림이 발송됩니다.")
         public ResponseEntity<?> createAlert(
-                        @Valid @RequestBody CreateRequest request,
-                        @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey) {
-
-                // TODO: 내부 API 키 검증 (실제 구현 필요)
-                // validateInternalApiKey(apiKey);
+                        @Valid @RequestBody CreateRequest request) {
 
                 log.info("[Internal API] POST /api/internal/emergency-alerts - 긴급 알림 생성 요청. " +
                                 "elderlyId={}, severity={}, alertType={}",
@@ -83,8 +79,7 @@ public class EmergencyAlertInternalController {
         @PostMapping("/health")
         @Operation(summary = "건강 위험 알림 생성", description = "건강 관련 위험 키워드 감지 시 CRITICAL 수준의 긴급 알림을 생성합니다.")
         public ResponseEntity<ApiResponse<RealtimeResponse>> createHealthAlert(
-                        @RequestBody HealthAlertRequest request,
-                        @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey) {
+                        @RequestBody HealthAlertRequest request) {
 
                 log.info("[Internal API] POST /api/internal/emergency-alerts/health - 건강 위험 알림. " +
                                 "elderlyId={}, callId={}",
@@ -116,8 +111,7 @@ public class EmergencyAlertInternalController {
         @Operation(summary = "정서 위험 알림 생성", description = "정서적 위험 표현 감지 시 긴급 알림을 생성합니다. " +
                         "자해/자살 암시는 CRITICAL, 우울감/외로움은 WARNING으로 생성됩니다.")
         public ResponseEntity<ApiResponse<RealtimeResponse>> createMentalAlert(
-                        @RequestBody MentalAlertRequest request,
-                        @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey) {
+                        @RequestBody MentalAlertRequest request) {
 
                 log.info("[Internal API] POST /api/internal/emergency-alerts/mental - 정서 위험 알림. " +
                                 "elderlyId={}, callId={}, isCritical={}",
@@ -153,8 +147,7 @@ public class EmergencyAlertInternalController {
         @PostMapping("/no-response")
         @Operation(summary = "연속 미응답 알림 생성", description = "연속 미응답 감지 시 WARNING 수준의 긴급 알림을 생성합니다.")
         public ResponseEntity<ApiResponse<RealtimeResponse>> createNoResponseAlert(
-                        @RequestBody NoResponseAlertRequest request,
-                        @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey) {
+                        @RequestBody NoResponseAlertRequest request) {
 
                 log.info("[Internal API] POST /api/internal/emergency-alerts/no-response - 연속 미응답 알림. " +
                                 "elderlyId={}, attemptCount={}",

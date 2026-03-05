@@ -1,6 +1,8 @@
 package com.aicc.silverlink.global.config.security;
 
 import com.aicc.silverlink.domain.session.service.SessionService;
+import com.aicc.silverlink.global.config.internal.InternalApiProperties;
+import com.aicc.silverlink.global.security.filter.InternalApiKeyAuthFilter;
 import com.aicc.silverlink.global.security.jwt.JwtAuthenticationFilter;
 import com.aicc.silverlink.global.security.jwt.JwtProperties;
 import com.aicc.silverlink.global.security.jwt.JwtTokenProvider;
@@ -31,12 +33,13 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({ JwtProperties.class, InternalApiProperties.class })
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final SessionService sessionService;
+    private final InternalApiProperties internalApiProperties;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -71,6 +74,7 @@ public class SecurityConfig {
                                 "/calls/{callId}/llm/prompt",
                                 "/calls/{callId}/llm/reply",
                                 "/api/internal/callbot/**",
+                                "/api/internal/emergency-alerts/**",
                                 "/api/debug/**")
                         .permitAll()
 
@@ -85,6 +89,11 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint())
                         .accessDeniedHandler(accessDeniedHandler()))
+
+                // Internal API Key filter (runs before JWT filter)
+                .addFilterBefore(
+                        new InternalApiKeyAuthFilter(internalApiProperties),
+                        UsernamePasswordAuthenticationFilter.class)
 
                 // JWT 필터 추가
                 .addFilterBefore(
